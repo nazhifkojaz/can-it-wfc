@@ -1,0 +1,70 @@
+[project]
+name = "can-it-wfc-backend"
+version = "0.1.0"
+description = "Backend API for Can-It-WFC - A WFC cafe review platform"
+requires-python = ">=3.11"
+dependencies = [
+    # Django Core
+    "django>=5.0.1",
+    "djangorestframework>=3.14.0",
+    "django-cors-headers>=4.3.1",
+    
+    # Database & PostGIS
+    "psycopg2-binary>=2.9.9",
+    "django-environ>=0.11.2",
+    
+    # Authentication
+    "djangorestframework-simplejwt>=5.3.1",
+    "djoser>=2.2.2",
+    
+    # Geospatial (disabled for now - requires GDAL)
+    # "django-geojson>=4.1.0",
+    
+    # Filtering & Search
+    "django-filter>=23.5",
+    
+    # Rate Limiting
+    "django-ratelimit>=4.1.0",
+    
+    # Image handling
+    "pillow>=10.2.0",
+    
+    # API Documentation
+    "drf-spectacular>=0.27.0",
+    
+    # Utilities
+    "python-dateutil>=2.8.2",
+    "requests>=2.31.0",
+    
+    # Supabase client (optional)
+    "supabase>=2.3.4",
+    
+    # Production
+    "gunicorn>=21.2.0",
+    "whitenoise>=6.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "django-debug-toolbar>=4.2.0",
+    "ipython>=8.20.0",
+    "pytest>=7.4.0",
+    "pytest-django>=4.7.0",
+    "faker>=22.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["config", "apps", "core"]
+
+[tool.uv]
+dev-dependencies = [
+    "django-debug-toolbar>=4.2.0",
+    "ipython>=8.20.0",
+    "pytest>=7.4.0",
+    "pytest-django>=4.7.0",
+    "faker>=22.0.0",
+]
