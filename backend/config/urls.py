@@ -7,6 +7,10 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 urlpatterns = [
     # Admin panel
@@ -17,10 +21,14 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
+    # JWT Authentication - ADD THESE LINES!
+    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
     # API endpoints
     path('api/auth/', include('apps.accounts.urls')),
     path('api/cafes/', include('apps.cafes.urls')),
-    path('api/reviews/', include('apps.reviews.urls')),
+    path('api/', include('apps.reviews.urls')),
 ]
 
 # Serve media files in development
