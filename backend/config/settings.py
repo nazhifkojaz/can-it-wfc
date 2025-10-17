@@ -119,8 +119,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Custom User Model (disabled until we create it in Milestone 2)
-# AUTH_USER_MODEL = 'accounts.User'
+# Custom User Model
+AUTH_USER_MODEL = 'accounts.User'
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -229,5 +229,5 @@ LOGGING = {
 
 # Anti-spam settings
 MAX_REVIEWS_PER_DAY = 10
-MIN_ACCOUNT_AGE_HOURS = 24
+MIN_ACCOUNT_AGE_HOURS = 0
 DUPLICATE_CAFE_DISTANCE_METERS = 50  # Distance threshold for duplicate detection
