@@ -148,10 +148,6 @@ class Review(models.Model):
         blank=True,
         help_text="Bathroom quality (1=very poor, 5=excellent)"
     )
-    is_24hours = models.BooleanField(
-        default=False,
-        help_text="Is the cafe open for 24 hours?"
-    )
     
     # Overall WFC suitability (required)
     wfc_rating = models.IntegerField(
