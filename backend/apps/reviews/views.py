@@ -1,7 +1,8 @@
 from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Visit, Review, ReviewFlag
+from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from .serializers import (
     VisitSerializer,
     ReviewListSerializer,
@@ -143,18 +144,72 @@ class CafeReviewsView(generics.ListAPIView):
 class ReviewFlagCreateView(generics.CreateAPIView):
     """
     Flag a review as inappropriate.
-    
+
     POST /api/reviews/flags/
     """
     serializer_class = ReviewFlagSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         flag = serializer.save()
-        
+
         return Response({
             'message': 'Review flagged successfully. It will be reviewed by moderators.',
             'flag': serializer.data
         }, status=status.HTTP_201_CREATED)
+
+
+class MarkReviewHelpfulView(APIView):
+    """
+    Mark or unmark a review as helpful.
+    Toggle functionality - if already marked helpful, it will unmark it.
+
+    POST /api/reviews/{review_id}/mark_helpful/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            review = Review.objects.get(pk=pk, is_hidden=False)
+        except Review.DoesNotExist:
+            return Response(
+                {'error': 'Review not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Can't mark own review as helpful
+        if review.user == request.user:
+            return Response(
+                {'error': 'You cannot mark your own review as helpful'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if already marked helpful
+        existing = ReviewHelpful.objects.filter(
+            review=review,
+            user=request.user
+        ).first()
+
+        if existing:
+            # Unmark as helpful
+            existing.delete()
+            return Response({
+                'message': 'Review unmarked as helpful',
+                'is_helpful': False,
+                'helpful_count': review.helpful_count
+            }, status=status.HTTP_200_OK)
+        else:
+            # Mark as helpful
+            ReviewHelpful.objects.create(
+                review=review,
+                user=request.user
+            )
+            # Refresh review to get updated count
+            review.refresh_from_db()
+            return Response({
+                'message': 'Review marked as helpful',
+                'is_helpful': True,
+                'helpful_count': review.helpful_count
+            }, status=status.HTTP_201_CREATED)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Visit, Review, ReviewFlag
+from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
 
@@ -89,11 +89,12 @@ class VisitSerializer(serializers.ModelSerializer):
 
 class ReviewListSerializer(serializers.ModelSerializer):
     """Serializer for review list view."""
-    
+
     user = UserSerializer(read_only=True)
     cafe = CafeListSerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
-    
+    is_helpful = serializers.SerializerMethodField()
+
     class Meta:
         model = Review
         fields = [
@@ -106,19 +107,32 @@ class ReviewListSerializer(serializers.ModelSerializer):
             'visit_time',
             'visit_time_display',
             'comment',
+            'helpful_count',
+            'is_helpful',
             'created_at'
         ]
+
+    def get_is_helpful(self, obj):
+        """Check if current user marked this review as helpful."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return ReviewHelpful.objects.filter(
+                review=obj,
+                user=request.user
+            ).exists()
+        return False
 
 
 class ReviewDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for review."""
-    
+
     user = UserSerializer(read_only=True)
     cafe = CafeListSerializer(read_only=True)
     visit = VisitSerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
     average_rating = serializers.ReadOnlyField()
-    
+    is_helpful = serializers.SerializerMethodField()
+
     class Meta:
         model = Review
         fields = [
@@ -138,10 +152,22 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'visit_time',
             'visit_time_display',
             'comment',
+            'helpful_count',
+            'is_helpful',
             'average_rating',
             'created_at',
             'updated_at'
         ]
+
+    def get_is_helpful(self, obj):
+        """Check if current user marked this review as helpful."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return ReviewHelpful.objects.filter(
+                review=obj,
+                user=request.user
+            ).exists()
+        return False
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):

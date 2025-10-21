@@ -174,6 +174,12 @@ class Review(models.Model):
         help_text="Optional review (max 160 characters)"
     )
     
+    # Helpfulness tracking
+    helpful_count = models.IntegerField(
+        default=0,
+        help_text="Number of users who found this review helpful"
+    )
+
     # Moderation
     is_flagged = models.BooleanField(default=False)
     flag_count = models.IntegerField(default=0)
@@ -181,7 +187,7 @@ class Review(models.Model):
         default=False,
         help_text="Hidden reviews are not shown publicly"
     )
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -249,6 +255,57 @@ class Review(models.Model):
             return True, "Too many reviews in one day"
         
         return False, "OK"
+
+
+class ReviewHelpful(models.Model):
+    """
+    Tracks which users found a review helpful.
+    Users can only mark a review helpful once.
+    """
+    review = models.ForeignKey(
+        Review,
+        on_delete=models.CASCADE,
+        related_name='helpful_marks'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='helpful_reviews'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'review_helpful'
+        verbose_name = 'Review Helpful Mark'
+        verbose_name_plural = 'Review Helpful Marks'
+        unique_together = ['review', 'user']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['review', '-created_at']),
+            models.Index(fields=['user', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} found review #{self.review.id} helpful"
+
+    def save(self, *args, **kwargs):
+        """Update helpful count on review when marking helpful."""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        if is_new:
+            # Update helpful count
+            self.review.helpful_count = self.review.helpful_marks.count()
+            self.review.save(update_fields=['helpful_count'])
+
+    def delete(self, *args, **kwargs):
+        """Update helpful count on review when unmarking helpful."""
+        review = self.review
+        super().delete(*args, **kwargs)
+
+        # Update helpful count
+        review.helpful_count = review.helpful_marks.count()
+        review.save(update_fields=['helpful_count'])
 
 
 class ReviewFlag(models.Model):
