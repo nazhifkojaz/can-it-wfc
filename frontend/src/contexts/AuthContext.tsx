@@ -1,14 +1,15 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserLogin, UserRegistration } from '../types';
-import { authService } from '../services/authService';
+import { authApi, userApi } from '../api/client';
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
+  loading: boolean;
+  error: string | null;
   login: (credentials: UserLogin) => Promise<void>;
   register: (data: UserRegistration) => Promise<void>;
   logout: () => void;
+  updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
 }
 
@@ -20,53 +21,114 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load user on mount
+  // Check if user is logged in on mount
   useEffect(() => {
-    loadUser();
+    checkAuth();
   }, []);
 
-  const loadUser = async () => {
+  const checkAuth = async () => {
+    const token = localStorage.getItem('access_token');
+    
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      if (authService.isAuthenticated()) {
-        const userData = await authService.getCurrentUser();
-        setUser(userData);
-      }
-    } catch (error) {
-      console.error('Failed to load user:', error);
-      authService.logout();
+      const userData = await authApi.getCurrentUser();
+      setUser(userData);
+      setError(null);
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      // Token is invalid, clear it
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      setUser(null);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const login = async (credentials: UserLogin) => {
-    await authService.login(credentials);
-    await loadUser();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Login and get tokens
+      await authApi.login(credentials);
+      
+      // Get user data
+      const userData = await authApi.getCurrentUser();
+      setUser(userData);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Login failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (data: UserRegistration) => {
-    await authService.register(data);
-    // After registration, user needs to login
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Validate passwords match
+      if (data.password !== data.password2) {
+        throw new Error('Passwords do not match');
+      }
+
+      // Register user
+      await authApi.register(data);
+      
+      // Auto-login after registration
+      await login({
+        username: data.username,
+        password: data.password,
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Registration failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
-    authService.logout();
+    authApi.logout();
     setUser(null);
+    setError(null);
+    
+    // Redirect to login page
+    window.location.href = '/login';
+  };
+
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
   };
 
   const refreshUser = async () => {
-    await loadUser();
+    try {
+      const userData = await userApi.getProfile();
+      setUser(userData);
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+    }
   };
 
   const value: AuthContextType = {
     user,
-    isAuthenticated: !!user,
-    isLoading,
+    loading,
+    error,
     login,
     register,
     logout,
+    updateUser,
     refreshUser,
   };
 
@@ -76,8 +138,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 // Custom hook to use auth context
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
+  
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+  
   return context;
+};
+
+// HOC to protect routes
+export const withAuth = <P extends object>(
+  Component: React.ComponentType<P>
+): React.FC<P> => {
+  return (props: P) => {
+    const { user, loading } = useAuth();
+
+    if (loading) {
+      return (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+        }}>
+          <div>Loading...</div>
+        </div>
+      );
+    }
+
+    if (!user) {
+      window.location.href = '/login';
+      return null;
+    }
+
+    return <Component {...props} />;
+  };
 };

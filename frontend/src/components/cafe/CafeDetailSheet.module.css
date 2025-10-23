@@ -1,0 +1,147 @@
+/* CafeDetailSheet Styles */
+
+.cafeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.cafeName {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+  flex: 1;
+}
+
+.favoriteButton {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favoriteButton.active {
+  color: var(--danger, #ef4444);
+}
+
+.favoriteButton:hover {
+  opacity: 0.8;
+}
+
+.cafeMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-600);
+  font-size: 14px;
+}
+
+.distance {
+  color: var(--primary, #6366f1);
+  font-weight: 500;
+}
+
+.cafeStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--gray-50, #f9fafb);
+  border-radius: 12px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--gray-600);
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.statLabel {
+  font-size: 11px;
+  text-align: center;
+  color: var(--gray-600);
+}
+
+.logVisitButton {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 24px;
+}
+
+.logVisitButton:hover {
+  background: var(--primary-dark, #4f46e5);
+}
+
+.logVisitButton:active {
+  transform: scale(0.98);
+}
+
+.reviewsSection {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--gray-200, #e5e7eb);
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 16px 0;
+}
+
+.reviewsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .cafeStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .statItem {
+    gap: 2px;
+  }
+
+  .statValue {
+    font-size: 16px;
+  }
+
+  .statLabel {
+    font-size: 10px;
+  }
+}

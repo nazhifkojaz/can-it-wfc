@@ -1,0 +1,229 @@
+/* ReviewForm Styles */
+
+.formHeader {
+  margin-bottom: 16px;
+}
+
+.formSubtitle {
+  font-size: 14px;
+  color: var(--gray-600, #6b7280);
+  margin: 4px 0 0 0;
+}
+
+.formBody {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900, #111827);
+  margin: 0;
+}
+
+.sectionDescription {
+  font-size: 14px;
+  color: var(--gray-600, #6b7280);
+  margin: 0;
+}
+
+.ratingCategories {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.ratingCategory {
+  background: var(--gray-50, #f9fafb);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.categoryHeader {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.categoryIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #6366f1);
+  flex-shrink: 0;
+}
+
+.categoryInfo {
+  flex: 1;
+}
+
+.categoryLabel {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900, #111827);
+  margin: 0 0 4px 0;
+}
+
+.categoryDescription {
+  font-size: 13px;
+  color: var(--gray-600, #6b7280);
+  margin: 0;
+}
+
+.starRating {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.star {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  color: var(--gray-300, #d1d5db);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.star.active {
+  color: #fbbf24;
+  transform: scale(1.1);
+}
+
+.star:hover {
+  transform: scale(1.15);
+}
+
+.timeCheckboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.timeCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--gray-50, #f9fafb);
+  border: 2px solid var(--gray-200, #e5e7eb);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeCheckbox:hover {
+  border-color: var(--primary, #6366f1);
+  background: white;
+}
+
+.timeCheckbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gray-900, #111827);
+  flex: 1;
+}
+
+.timeIcon {
+  font-size: 24px;
+}
+
+.textareaContainer {
+  margin-top: 12px;
+}
+
+.reviewTextarea {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid var(--gray-200, #e5e7eb);
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.reviewTextarea:focus {
+  outline: none;
+  border-color: var(--primary, #6366f1);
+}
+
+.characterCount {
+  text-align: right;
+  font-size: 12px;
+  color: var(--gray-500, #6b7280);
+  margin: 8px 0 0 0;
+}
+
+.errorMessage {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.errorMessage p {
+  color: var(--danger, #ef4444);
+  font-size: 14px;
+  margin: 0;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: var(--primary-dark, #4f46e5);
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submitButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+@media (min-width: 768px) {
+  .ratingCategories {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
