@@ -1,64 +1,64 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import Navbar from './components/layout/Navbar';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import HomePage from './pages/HomePage';
-import Login from './components/auth/Login';
-import Register from './components/auth/Register';
 
-import './App.css';
+// Pages
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import MapPage from './pages/MapPage';
+import VisitsPage from './pages/VisitsPage';
+import FavoritesPage from './pages/FavoritesPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <div className="App">
-          <Navbar />
-          <main className="main-content">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              
-              {/* Placeholder routes - we'll build these in future steps */}
-              <Route 
-                path="/cafes" 
-                element={
-                  <div className="page-container">
-                    <h1>Cafes Page (Coming Soon)</h1>
-                    <p>This will show the cafe list with map</p>
-                  </div>
-                } 
-              />
-              
-              <Route 
-                path="/visits" 
-                element={
-                  <ProtectedRoute>
-                    <div className="page-container">
-                      <h1>My Visits (Coming Soon)</h1>
-                      <p>This will show your visit history</p>
-                    </div>
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/favorites" 
-                element={
-                  <ProtectedRoute>
-                    <div className="page-container">
-                      <h1>My Favorites (Coming Soon)</h1>
-                      <p>This will show your favorite cafes</p>
-                    </div>
-                  </ProtectedRoute>
-                } 
-              />
-            </Routes>
-          </main>
-        </div>
-      </AuthProvider>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/map"
+          element={
+            <ProtectedRoute>
+              <MapPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/visits"
+          element={
+            <ProtectedRoute>
+              <VisitsPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/favorites"
+          element={
+            <ProtectedRoute>
+              <FavoritesPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
     </Router>
   );
 }
