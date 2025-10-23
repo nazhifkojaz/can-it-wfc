@@ -17,9 +17,15 @@ export const useFavorites = () => {
 
     try {
       const data = await cafeApi.getFavorites();
-      setFavorites(data);
+      // Backend returns array of Favorite objects with nested cafe property
+      // Extract the cafe objects: [{ id, cafe, created_at }] -> [cafe]
+      const cafes = Array.isArray(data)
+        ? data.map((fav: any) => fav.cafe).filter(Boolean)
+        : [];
+      setFavorites(cafes);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch favorites');
+      setFavorites([]); // Ensure favorites is always an array
     } finally {
       setLoading(false);
     }
@@ -50,7 +56,8 @@ export const useFavorites = () => {
   }, [fetchFavorites]);
 
   const isFavorite = useCallback((cafeId: string) => {
-    return favorites.some(cafe => cafe.id === cafeId);
+    // Safety check: ensure favorites is an array
+    return Array.isArray(favorites) && favorites.some(cafe => cafe.id === cafeId);
   }, [favorites]);
 
   return {

@@ -63,12 +63,11 @@ const CafeMarker: React.FC<CafeMarkerProps> = ({ cafe, onClick }) => {
   };
 
   return (
-    <Marker position={position} icon={icon} eventHandlers={{ click: onClick }}>
+    <Marker position={position} icon={icon}>
       <Popup>
         <div className="cafe-popup">
           <h3 className="popup-title">{cafe.name}</h3>
 
-          {/* NEW: Badge for unregistered cafes */}
           {!cafe.is_registered && (
             <span className="popup-badge">Not yet in WFC</span>
           )}

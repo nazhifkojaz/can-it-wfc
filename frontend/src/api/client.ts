@@ -13,6 +13,7 @@ import {
   VisitCreate,
   Review,
   ReviewCreate,
+  Favorite,
 } from '../types';
 import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
@@ -236,7 +237,7 @@ export const cafeApi = {
 
   // Get user's favorite cafes
   getFavorites: async () => {
-    const response = await api.get<Cafe[]>('/cafes/favorites/');
+    const response = await api.get<Favorite[]>('/cafes/favorites/');
     return response.data;
   },
 

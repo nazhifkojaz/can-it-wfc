@@ -20,7 +20,10 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   onClose,
   onLogVisit,
 }) => {
-  const { reviews, loading: loadingReviews } = useReviews(cafe.id);
+  // Only fetch reviews for registered cafes (cafes in database)
+  const { reviews, loading: loadingReviews } = useReviews(
+    cafe.is_registered ? cafe.id : undefined
+  );
   const { toggleFavorite, isFavorite } = useFavorites();
   const isFavorited = isFavorite(cafe.id);
 
@@ -39,7 +42,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       onClose={onClose}
       showHandle
       showCloseButton
-      snapPoints={[85]}
+      snapPoints={[75]}
     >
       {/* Cafe Header */}
       <div className={styles.cafeHeader}>
@@ -104,10 +107,33 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       {/* Reviews Section */}
       <div className={styles.reviewsSection}>
         <h3 className={styles.sectionTitle}>
-          Reviews ({cafe.total_reviews || 0})
+          Reviews {cafe.is_registered ? `(${cafe.total_reviews || 0})` : ''}
         </h3>
 
-        {loadingReviews ? (
+        {!cafe.is_registered ? (
+          // Show Google ratings for unregistered cafes
+          cafe.google_rating ? (
+            <div className={styles.googleRating}>
+              <div className={styles.googleRatingHeader}>
+                <Star size={20} fill="#fbbc04" color="#fbbc04" />
+                <span className={styles.googleRatingValue}>
+                  {cafe.google_rating.toFixed(1)}
+                </span>
+                <span className={styles.googleRatingCount}>
+                  ({cafe.google_ratings_count || 0} Google reviews)
+                </span>
+              </div>
+              <p className={styles.googleRatingNote}>
+                Log a visit to leave your WFC review and see reviews from our community!
+              </p>
+            </div>
+          ) : (
+            <EmptyState
+              title="Cafe not yet registered"
+              description="Log a visit to add this cafe and be the first to review it!"
+            />
+          )
+        ) : loadingReviews ? (
           <Loading message="Loading reviews..." />
         ) : reviews.length > 0 ? (
           <div className={styles.reviewsList}>

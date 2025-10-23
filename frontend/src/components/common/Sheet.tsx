@@ -20,7 +20,7 @@ const Sheet: React.FC<SheetProps> = ({
   children,
   showCloseButton = true,
   showHandle = true,
-  snapPoints = [90],
+  snapPoints = [75],
   closeOnOverlayClick = true,
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -78,7 +78,7 @@ const Sheet: React.FC<SheetProps> = ({
     currentYRef.current = 0;
   };
 
-  const maxHeight = snapPoints.length > 0 ? `${Math.max(...snapPoints)}vh` : '90vh';
+  const maxHeight = snapPoints.length > 0 ? `${Math.max(...snapPoints)}vh` : '75vh';
 
   return (
     <>
@@ -89,7 +89,7 @@ const Sheet: React.FC<SheetProps> = ({
           left: 0;
           right: 0;
           bottom: 0;
-          background-color: ${theme.colors.background.overlay};
+          background-color: rgba(0, 0, 0, 0.3);
           z-index: ${theme.zIndex.sheet};
           animation: fadeIn ${theme.transitions.base} ease-out;
         }

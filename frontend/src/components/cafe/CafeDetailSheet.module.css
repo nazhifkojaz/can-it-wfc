@@ -127,6 +127,39 @@
   gap: 16px;
 }
 
+.googleRating {
+  padding: 20px;
+  background: var(--gray-50, #f9fafb);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.googleRatingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.googleRatingValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.googleRatingCount {
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.googleRatingNote {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 0;
+  line-height: 1.5;
+}
+
 @media (max-width: 640px) {
   .cafeStats {
     grid-template-columns: repeat(2, 1fr);
