@@ -46,9 +46,28 @@
   font-weight: 500;
 }
 
-/* Desktop: hide bottom nav */
+/* Desktop: contained and centered bottom nav with glass effect */
 @media (min-width: 1024px) {
   .bottom-nav {
-    display: none;
+    max-width: 600px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 12px 12px 0 0;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(229, 231, 235, 0.5);
+    border-bottom: none;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  .nav-item:hover {
+    color: var(--primary);
+    background-color: rgba(249, 250, 251, 0.6);
+    border-radius: 8px;
+  }
+
+  .nav-item:active {
+    transform: scale(1);
   }
 }

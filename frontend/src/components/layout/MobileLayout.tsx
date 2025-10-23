@@ -35,7 +35,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
           position: relative;
         }
 
-        /* Desktop adjustments */
+        /* Desktop: Remove padding so content extends behind transparent navbar */
         @media (min-width: 1024px) {
           .mobile-content {
             padding-bottom: 0;

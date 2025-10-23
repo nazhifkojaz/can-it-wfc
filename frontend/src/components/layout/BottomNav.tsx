@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Map, ClipboardList, Star, User } from 'lucide-react';
+import { ClipboardList, Star, User } from 'lucide-react';
 import './BottomNav.css';
 
 interface NavItem {
@@ -13,11 +13,6 @@ const BottomNav: React.FC = () => {
   const location = useLocation();
 
   const navItems: NavItem[] = [
-    {
-      path: '/map',
-      label: 'Map',
-      icon: <Map size={24} />,
-    },
     {
       path: '/visits',
       label: 'Visits',

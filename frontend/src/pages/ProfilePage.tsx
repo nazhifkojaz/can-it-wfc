@@ -209,6 +209,13 @@ const ProfilePage: React.FC = () => {
             padding-bottom: 20px;
           }
 
+          /* Desktop: Add bottom padding to account for transparent navbar */
+          @media (min-width: 1024px) {
+            .profile-page {
+              padding-bottom: calc(var(--bottom-nav-height) + 20px);
+            }
+          }
+
           .profile-header {
             background: white;
             padding: 32px 20px;

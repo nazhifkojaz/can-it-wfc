@@ -41,6 +41,13 @@
   padding: 20px;
 }
 
+/* Desktop: Add bottom padding to account for transparent navbar */
+@media (min-width: 1024px) {
+  .visits-container {
+    padding-bottom: calc(var(--bottom-nav-height) + 20px);
+  }
+}
+
 .visits-group {
   margin-bottom: 32px;
 }
