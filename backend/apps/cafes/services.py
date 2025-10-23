@@ -16,7 +16,7 @@ class GooglePlacesService:
         latitude: float,
         longitude: float,
         radius_meters: int = 1000,
-        keyword: str = "coffee shop"
+        keyword: str = "coffee"
     ) -> List[Dict]:
         """
         Search for coffee shops near a location using Google Places API.
