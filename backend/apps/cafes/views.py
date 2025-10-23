@@ -12,6 +12,7 @@ from .serializers import (
     FavoriteSerializer
 )
 from core.permissions import IsOwnerOrReadOnly
+from .services import GooglePlacesService
 
 
 class CafeListCreateView(generics.ListCreateAPIView):
@@ -74,7 +75,7 @@ class NearbyCafesView(APIView):
         # Get parameters
         latitude = serializer.validated_data['latitude']
         longitude = serializer.validated_data['longitude']
-        radius_km = serializer.validated_data.get('radius_km', 5)
+        radius_km = serializer.validated_data.get('radius_km', 1)
         limit = serializer.validated_data.get('limit', 50)
         
         # Find nearby cafes
@@ -141,11 +142,141 @@ class FavoriteListCreateView(generics.ListCreateAPIView):
 class FavoriteDetailView(generics.DestroyAPIView):
     """
     Remove a cafe from favorites.
-    
+
     DELETE /api/cafes/favorites/{id}/
     """
     serializer_class = FavoriteSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         return Favorite.objects.filter(user=self.request.user)
+
+
+class MergedNearbyCafesView(APIView):
+    """
+    Get nearby cafes from both database and Google Places.
+    Shows all coffee shops in the area (registered + unregistered).
+
+    GET /api/cafes/nearby/all/?latitude={lat}&longitude={lng}&radius_km={radius}
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        # Validate query parameters
+        serializer = NearbyQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        latitude = serializer.validated_data['latitude']
+        longitude = serializer.validated_data['longitude']
+        radius_km = float(serializer.validated_data.get('radius_km', 1))
+        limit = serializer.validated_data.get('limit', 100)
+
+        # 1. Get registered cafes from database
+        db_cafes = Cafe.nearby(
+            latitude=latitude,
+            longitude=longitude,
+            radius_km=radius_km,
+            limit=limit
+        )
+
+        # Serialize database cafes
+        db_cafes_data = CafeListSerializer(
+            db_cafes,
+            many=True,
+            context={'request': request}
+        ).data
+
+        # Mark as registered and format distance
+        for cafe in db_cafes_data:
+            cafe['is_registered'] = True
+            cafe['source'] = 'database'
+            # Format distance to match frontend expectations (string with " km")
+            if cafe.get('distance') is not None:
+                cafe['distance'] = f"{float(cafe['distance']):.2f} km"
+
+        # 2. Get coffee shops from Google Places (non-blocking)
+        google_places = []
+        try:
+            google_places = GooglePlacesService.search_nearby_coffee_shops(
+                latitude=latitude,
+                longitude=longitude,
+                radius_meters=int(radius_km * 1000)
+            )
+        except Exception as e:
+            # Log the error but continue with database results only
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Google Places API error (non-blocking): {e}")
+
+        # 3. Filter out Google Places that already exist in database
+        db_google_ids = {cafe.google_place_id for cafe in db_cafes if cafe.google_place_id}
+
+        # Pre-compute db cafe locations for distance checking (only if needed)
+        db_cafe_locations = [(db_cafe.latitude, db_cafe.longitude) for db_cafe in db_cafes] if db_cafes else []
+
+        unregistered_places = []
+        for place in google_places:
+            # Skip if already in database by google_place_id
+            if place['google_place_id'] in db_google_ids:
+                continue
+
+            # Skip if too close to existing cafe (only if we have database cafes)
+            is_duplicate = False
+            if db_cafe_locations:
+                place_lat = float(place['latitude'])
+                place_lng = float(place['longitude'])
+
+                for db_lat, db_lng in db_cafe_locations:
+                    distance = Cafe.calculate_distance(
+                        place_lat,
+                        place_lng,
+                        db_lat,
+                        db_lng
+                    )
+                    if distance < 0.05:  # Within 50 meters
+                        is_duplicate = True
+                        break
+
+            if not is_duplicate:
+                # Calculate distance to user location
+                distance_km = Cafe.calculate_distance(
+                    float(place['latitude']),
+                    float(place['longitude']),
+                    latitude,
+                    longitude
+                )
+
+                # Format to match our Cafe interface
+                unregistered_places.append({
+                    'id': f"google_{place['google_place_id']}",  # Temporary ID
+                    'name': place['name'],
+                    'address': place['address'],
+                    'latitude': place['latitude'],
+                    'longitude': place['longitude'],
+                    'google_place_id': place['google_place_id'],
+                    'price_range': place.get('price_level'),
+                    'distance': f"{distance_km:.2f} km",
+                    'total_visits': 0,
+                    'unique_visitors': 0,
+                    'total_reviews': 0,
+                    'average_wfc_rating': None,
+                    'is_closed': False,
+                    'is_verified': False,
+                    'created_at': None,
+                    'updated_at': None,
+                    'is_registered': False,  # KEY: Not in our database yet
+                    'source': 'google_places',
+                    'google_rating': place.get('rating'),
+                    'google_ratings_count': place.get('user_ratings_total', 0),
+                    'is_open_now': place.get('is_open_now'),
+                })
+
+        # 4. Combine and return
+        all_cafes = db_cafes_data + unregistered_places
+
+        return Response({
+            'count': len(all_cafes),
+            'registered_count': len(db_cafes_data),
+            'unregistered_count': len(unregistered_places),
+            'results': all_cafes
+        })

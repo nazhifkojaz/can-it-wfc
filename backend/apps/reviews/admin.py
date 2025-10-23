@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Avg
-from .models import Visit, Review, ReviewFlag
+from .models import Visit, Review, ReviewFlag, ReviewHelpful
 
 
 @admin.register(Visit)
@@ -345,3 +345,33 @@ class ReviewFlagAdmin(admin.ModelAdmin):
         queryset.delete()
         self.message_user(request, f"Dismissed {count} flags.")
     dismiss_flags.short_description = "Dismiss flags"
+
+
+@admin.register(ReviewHelpful)
+class ReviewHelpfulAdmin(admin.ModelAdmin):
+    """Admin interface for review helpful marks."""
+
+    list_display = [
+        'review_summary',
+        'user',
+        'created_at'
+    ]
+
+    list_filter = [
+        'created_at'
+    ]
+
+    search_fields = [
+        'review__user__username',
+        'review__cafe__name',
+        'user__username'
+    ]
+
+    ordering = ['-created_at']
+
+    readonly_fields = ['created_at']
+
+    def review_summary(self, obj):
+        """Short summary of the review."""
+        return f"Review by {obj.review.user.username} of {obj.review.cafe.name}"
+    review_summary.short_description = 'Review'

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 class CafeListSerializer(serializers.ModelSerializer):
     """Serializer for cafe list view (minimal fields)."""
-    
+
     distance = serializers.DecimalField(
         max_digits=8,
         decimal_places=2,
@@ -14,7 +14,7 @@ class CafeListSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text="Distance in kilometers (only in nearby queries)"
     )
-    
+
     class Meta:
         model = Cafe
         fields = [
@@ -23,12 +23,16 @@ class CafeListSerializer(serializers.ModelSerializer):
             'address',
             'latitude',
             'longitude',
+            'google_place_id',
             'price_range',
             'average_wfc_rating',
             'total_reviews',
             'total_visits',
+            'unique_visitors',
             'is_closed',
             'is_verified',
+            'created_at',
+            'updated_at',
             'distance'
         ]
 
@@ -143,7 +147,7 @@ class NearbyQuerySerializer(serializers.Serializer):
     
     latitude = serializers.DecimalField(max_digits=10, decimal_places=8, required=True)
     longitude = serializers.DecimalField(max_digits=11, decimal_places=8, required=True)
-    radius_km = serializers.DecimalField(max_digits=5, decimal_places=2, default=Decimal('5.0'))
+    radius_km = serializers.DecimalField(max_digits=5, decimal_places=2, default=Decimal('1.0'))
     limit = serializers.IntegerField(default=50, min_value=1, max_value=100)
 
 

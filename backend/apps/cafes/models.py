@@ -126,7 +126,7 @@ class Cafe(models.Model):
         )
     
     @classmethod
-    def nearby(cls, latitude, longitude, radius_km=5, limit=50):
+    def nearby(cls, latitude, longitude, radius_km=1, limit=50):
         """
         Find cafes near given coordinates within radius.
         """

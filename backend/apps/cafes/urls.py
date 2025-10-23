@@ -3,6 +3,7 @@ from .views import (
     CafeListCreateView,
     CafeDetailView,
     NearbyCafesView,
+    MergedNearbyCafesView,
     FavoriteListCreateView,
     FavoriteDetailView
 )
@@ -12,7 +13,8 @@ urlpatterns = [
     path('', CafeListCreateView.as_view(), name='cafe-list-create'),
     path('<uuid:pk>/', CafeDetailView.as_view(), name='cafe-detail'),
     path('nearby/', NearbyCafesView.as_view(), name='cafe-nearby'),
-    
+    path('nearby/all/', MergedNearbyCafesView.as_view(), name='cafe-nearby-all'),
+
     # Favorites
     path('favorites/', FavoriteListCreateView.as_view(), name='favorite-list-create'),
     path('favorites/<int:pk>/', FavoriteDetailView.as_view(), name='favorite-detail'),

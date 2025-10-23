@@ -8,27 +8,37 @@ dependencies = [
     "django>=5.0.1",
     "djangorestframework>=3.14.0",
     "django-cors-headers>=4.3.1",
+    
     # Database & PostGIS
     "psycopg2-binary>=2.9.9",
     "django-environ>=0.11.2",
+    
     # Authentication
     "djangorestframework-simplejwt>=5.3.1",
     "djoser>=2.2.2",
-    # Geospatial (disabled for now - requires GDAL)
-    # "django-geojson>=4.1.0",
+    
+    # Geospatial
+    "django-geojson>=4.1.0",
+    
     # Filtering & Search
     "django-filter>=23.5",
+    
     # Rate Limiting
     "django-ratelimit>=4.1.0",
+    
     # Image handling
     "pillow>=10.2.0",
+    
     # API Documentation
     "drf-spectacular>=0.27.0",
+    
     # Utilities
     "python-dateutil>=2.8.2",
     "requests>=2.31.0",
+    
     # Supabase client (optional)
     "supabase>=2.3.4",
+    
     # Production
     "gunicorn>=21.2.0",
     "whitenoise>=6.6.0",

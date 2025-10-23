@@ -5,13 +5,24 @@ from apps.cafes.serializers import CafeListSerializer
 
 
 class VisitSerializer(serializers.ModelSerializer):
-    """Serializer for Visit model."""
-    
+    """Serializer for Visit model with auto-cafe-registration support."""
+
     cafe = CafeListSerializer(read_only=True)
-    cafe_id = serializers.UUIDField(write_only=True)
+    cafe_id = serializers.UUIDField(write_only=True, required=False)
     user = UserSerializer(read_only=True)
     has_review = serializers.SerializerMethodField()
-    
+
+    # NEW: For creating cafes from Google Places
+    google_place_id = serializers.CharField(write_only=True, required=False)
+    cafe_name = serializers.CharField(write_only=True, required=False)
+    cafe_address = serializers.CharField(write_only=True, required=False)
+    cafe_latitude = serializers.DecimalField(
+        max_digits=10, decimal_places=8, write_only=True, required=False
+    )
+    cafe_longitude = serializers.DecimalField(
+        max_digits=11, decimal_places=8, write_only=True, required=False
+    )
+
     class Meta:
         model = Visit
         fields = [
@@ -23,7 +34,13 @@ class VisitSerializer(serializers.ModelSerializer):
             'check_in_latitude',
             'check_in_longitude',
             'has_review',
-            'created_at'
+            'created_at',
+            # NEW fields for cafe creation
+            'google_place_id',
+            'cafe_name',
+            'cafe_address',
+            'cafe_latitude',
+            'cafe_longitude',
         ]
         read_only_fields = ['id', 'user', 'created_at']
     
@@ -31,60 +48,125 @@ class VisitSerializer(serializers.ModelSerializer):
         """Check if visit has a review."""
         return hasattr(obj, 'review') and obj.review is not None
     
-    def validate_cafe_id(self, value):
-        """Validate cafe exists and is not closed."""
-        from apps.cafes.models import Cafe
-        
-        try:
-            cafe = Cafe.objects.get(id=value, is_closed=False)
-            return cafe
-        except Cafe.DoesNotExist:
-            raise serializers.ValidationError("Cafe not found or is closed.")
-    
     def validate(self, attrs):
-        """Validate visit data."""
+        """Validate visit data and handle cafe creation if needed."""
         request = self.context.get('request')
-        cafe = attrs.get('cafe_id')
-        visit_date = attrs.get('visit_date')
-        
+        from apps.cafes.models import Cafe
+
+        # Scenario 1: cafe_id provided (existing registered cafe)
+        if 'cafe_id' in attrs:
+            try:
+                cafe = Cafe.objects.get(id=attrs['cafe_id'], is_closed=False)
+                attrs['cafe_id'] = cafe
+            except Cafe.DoesNotExist:
+                raise serializers.ValidationError({
+                    'cafe_id': 'Cafe not found or is closed.'
+                })
+
+        # Scenario 2: google_place_id provided (unregistered cafe from Google Places)
+        elif 'google_place_id' in attrs:
+            google_place_id = attrs['google_place_id']
+
+            # Check if cafe already exists with this google_place_id
+            existing_cafe = Cafe.objects.filter(
+                google_place_id=google_place_id
+            ).first()
+
+            if existing_cafe:
+                # Cafe was already registered by someone else
+                attrs['cafe_id'] = existing_cafe
+            else:
+                # Need to create new cafe - validate required fields
+                required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
+                missing_fields = [f for f in required_fields if f not in attrs]
+
+                if missing_fields:
+                    raise serializers.ValidationError({
+                        'non_field_errors': [
+                            f'Missing required fields for new cafe: {", ".join(missing_fields)}'
+                        ]
+                    })
+
+                # Get additional details from Google Places if available
+                from apps.cafes.services import GooglePlacesService
+                place_details = GooglePlacesService.get_place_details(google_place_id)
+
+                # Create the cafe
+                new_cafe = Cafe.objects.create(
+                    name=attrs['cafe_name'],
+                    address=attrs['cafe_address'],
+                    latitude=attrs['cafe_latitude'],
+                    longitude=attrs['cafe_longitude'],
+                    google_place_id=google_place_id,
+                    price_range=place_details.get('price_level') if place_details else None,
+                    created_by=request.user,
+                    is_verified=False  # Will be verified by admin later
+                )
+
+                attrs['cafe_id'] = new_cafe
+
+        else:
+            raise serializers.ValidationError({
+                'non_field_errors': [
+                    'Either cafe_id or google_place_id must be provided.'
+                ]
+            })
+
         # Check for duplicate visit on same day
+        visit_date = attrs.get('visit_date')
+        cafe = attrs['cafe_id']
+
         if Visit.objects.filter(
             user=request.user,
             cafe=cafe,
             visit_date=visit_date
         ).exists():
             raise serializers.ValidationError({
-                'non_field_errors': ['You already logged a visit to this cafe on this date.']
+                'non_field_errors': [
+                    'You already logged a visit to this cafe on this date.'
+                ]
             })
-        
-        # Validate location if provided
+
+        # Validate check-in location if provided
         check_in_lat = attrs.get('check_in_latitude')
         check_in_lng = attrs.get('check_in_longitude')
-        
+
         if check_in_lat and check_in_lng:
-            from apps.cafes.models import Cafe
             distance = Cafe.calculate_distance(
                 check_in_lat,
                 check_in_lng,
                 cafe.latitude,
                 cafe.longitude
             )
-            # Allow within 1km
-            if distance > 1.0:
+            if distance > 1.0:  # More than 1km away
                 raise serializers.ValidationError({
                     'check_in_latitude': [
                         f'Check-in location is {distance:.2f}km from cafe. Must be within 1km.'
                     ]
                 })
-        
+
         return attrs
-    
+
     def create(self, validated_data):
         """Create visit with current user."""
+        # Remove cafe creation fields (they were used in validate())
+        validated_data.pop('google_place_id', None)
+        validated_data.pop('cafe_name', None)
+        validated_data.pop('cafe_address', None)
+        validated_data.pop('cafe_latitude', None)
+        validated_data.pop('cafe_longitude', None)
+
+        # cafe_id is already a Cafe object from validate()
         cafe = validated_data.pop('cafe_id')
         validated_data['cafe'] = cafe
         validated_data['user'] = self.context['request'].user
-        return super().create(validated_data)
+
+        visit = super().create(validated_data)
+
+        # Update cafe stats
+        cafe.update_stats()
+
+        return visit
 
 
 class ReviewListSerializer(serializers.ModelSerializer):
