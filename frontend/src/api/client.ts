@@ -13,6 +13,7 @@ import {
   VisitCreate,
   Review,
   ReviewCreate,
+  ReviewUpdate,
   Favorite,
 } from '../types';
 import { tokenStorage } from '../utils/storage';
@@ -197,7 +198,7 @@ export const cafeApi = {
   },
 
   // Get cafe by ID
-  getById: async (id: string) => {
+  getById: async (id: number) => {
     const response = await api.get<Cafe>(`/cafes/${id}/`);
     return response.data;
   },
@@ -209,29 +210,31 @@ export const cafeApi = {
   },
 
   // Update cafe
-  update: async (id: string, data: CafeUpdate) => {
+  update: async (id: number, data: CafeUpdate) => {
     const response = await api.patch<Cafe>(`/cafes/${id}/`, data);
     return response.data;
   },
 
-  // Toggle favorite
-  toggleFavorite: async (cafeId: string) => {
-    // First check if already favorited
-    try {
-      const favorites = await api.get('/cafes/favorites/');
-      const existing = favorites.data.find((fav: any) => fav.cafe.id === cafeId);
+  toggleFavorite: async (cafeId: number | undefined) => {
+    if (cafeId === undefined || cafeId === null) {
+      throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
+    }
 
-      if (existing) {
-        // Unfavorite (delete)
-        await api.delete(`/cafes/favorites/${existing.id}/`);
-        return { is_favorited: false };
-      } else {
-        // Favorite (create) - backend expects 'cafe_id' field
-        const response = await api.post('/cafes/favorites/', { cafe_id: cafeId });
-        return { is_favorited: true, ...response.data };
-      }
-    } catch (error) {
-      throw error;
+    const favoritesResponse = await api.get('/cafes/favorites/');
+
+    const favoritesList = Array.isArray(favoritesResponse.data)
+      ? favoritesResponse.data
+      : (favoritesResponse.data as any).results || [];
+
+    const existing = favoritesList.find((fav: any) => fav.cafe.id === cafeId);
+
+    if (existing) {
+      await api.delete(`/cafes/favorites/${existing.id}/`);
+      return { is_favorited: false };
+    } else {
+      const payload = { cafe_id: cafeId };
+      const response = await api.post('/cafes/favorites/', payload);
+      return { is_favorited: true, ...response.data };
     }
   },
 
@@ -268,7 +271,7 @@ export const visitApi = {
   },
 
   // Get visit by ID
-  getById: async (id: string) => {
+  getById: async (id: number) => {
     const response = await api.get<Visit>(`/visits/${id}/`);
     return response.data;
   },
@@ -284,13 +287,13 @@ export const visitApi = {
   },
 
   // Update visit
-  update: async (id: string, data: Partial<VisitCreate>) => {
+  update: async (id: number, data: Partial<VisitCreate>) => {
     const response = await api.patch<Visit>(`/visits/${id}/`, data);
     return response.data;
   },
 
   // Delete visit
-  delete: async (id: string) => {
+  delete: async (id: number) => {
     await api.delete(`/visits/${id}/`);
   },
 };
@@ -307,7 +310,7 @@ export const reviewApi = {
   },
 
   // Get reviews for a cafe
-  getByCafe: async (cafeId: string) => {
+  getByCafe: async (cafeId: number) => {
     const response = await api.get<Review[]>('/reviews/', {
       params: { cafe: cafeId },
     });
@@ -315,19 +318,19 @@ export const reviewApi = {
   },
 
   // Get review by ID
-  getById: async (id: string) => {
+  getById: async (id: number) => {
     const response = await api.get<Review>(`/reviews/${id}/`);
     return response.data;
   },
 
   // Update review
-  update: async (id: string, data: Partial<ReviewCreate>) => {
+  update: async (id: number, data: ReviewUpdate) => {
     const response = await api.patch<Review>(`/reviews/${id}/`, data);
     return response.data;
   },
 
   // Delete review
-  delete: async (id: string) => {
+  delete: async (id: number) => {
     await api.delete(`/reviews/${id}/`);
   },
 
@@ -338,13 +341,13 @@ export const reviewApi = {
   },
 
   // Mark review as helpful (toggle - marks or unmarks)
-  markHelpful: async (reviewId: string) => {
+  markHelpful: async (reviewId: number) => {
     const response = await api.post(`/reviews/${reviewId}/mark_helpful/`);
     return response.data;
   },
 
   // Flag review
-  flagReview: async (reviewId: string, reason: string) => {
+  flagReview: async (reviewId: number, reason: string) => {
     const response = await api.post('/reviews/flags/', {
       review: reviewId,
       reason

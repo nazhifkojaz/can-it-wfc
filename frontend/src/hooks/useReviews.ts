@@ -6,12 +6,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { reviewApi } from '../api/client';
 import { Review, ReviewCreate } from '../types';
 
-export const useReviews = (cafeId?: string) => {
+export const useReviews = (cafeId?: number) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReviews = useCallback(async (id: string) => {
+  const fetchReviews = useCallback(async (id: number) => {
     setLoading(true);
     setError(null);
 
@@ -54,7 +54,7 @@ export const useReviews = (cafeId?: string) => {
     }
   }, []);
 
-  const deleteReview = useCallback(async (reviewId: string) => {
+  const deleteReview = useCallback(async (reviewId: number) => {
     setLoading(true);
     setError(null);
 

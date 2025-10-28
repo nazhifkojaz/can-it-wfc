@@ -44,7 +44,7 @@ export interface UserUpdate {
 // ===========================
 
 export interface Cafe {
-  id: string;
+  id: number;  // Backend uses integer ID (AutoField), not UUID
   name: string;
   address: string;
   latitude: string;
@@ -101,7 +101,7 @@ export interface NearbyCafesParams {
 // ===========================
 
 export interface Visit {
-  id: string;
+  id: number;  // Backend uses integer ID, not UUID
   cafe: Cafe;
   user: User;
   visit_date: string;
@@ -116,19 +116,21 @@ export interface Visit {
 
 export interface VisitCreate {
   // Scenario 1: Existing registered cafe
-  cafe_id?: string; // Cafe UUID
+  cafe_id?: number; // Cafe integer ID
 
   // Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
   google_place_id?: string;
   cafe_name?: string;
   cafe_address?: string;
-  cafe_latitude?: string;
-  cafe_longitude?: string;
+  cafe_latitude?: number;  // Changed to number to match backend DecimalField
+  cafe_longitude?: number; // Changed to number to match backend DecimalField
 
   // Common fields
   visit_date: string; // ISO date string
-  check_in_latitude?: string;
-  check_in_longitude?: string;
+
+  // REQUIRED: Check-in location for visit verification (within 1km of cafe)
+  check_in_latitude: number;
+  check_in_longitude: number;
 }
 
 // ===========================
@@ -136,7 +138,7 @@ export interface VisitCreate {
 // ===========================
 
 export interface Review {
-  id: string;
+  id: number;
   visit: Visit;
   user: User;
   cafe: Cafe;
@@ -179,8 +181,7 @@ export interface Review {
 }
 
 export interface ReviewCreate {
-  visit: string; // Visit ID
-  cafe: string; // Cafe ID
+  visit_id: number;
 
   // WFC Ratings (1-5)
   wifi_quality: number;
@@ -207,24 +208,32 @@ export interface ReviewCreate {
 // ===========================
 
 export interface ReviewFlag {
-  id: string;
-  review: string; // Review ID
+  id: number;
+  review: number;
   user: User;
   reason: string;
   created_at: string;
 }
 
 export interface ReviewUpdate {
+  // WFC Ratings (1-5)
   wifi_quality?: number;
-  power_outlets?: number;
+  power_outlets_rating?: number;
   noise_level?: number;
   seating_comfort?: number;
-  menu_selection?: number;
-  price_value?: number;
-  review_text?: string;
-  suitable_morning?: boolean;
-  suitable_afternoon?: boolean;
-  suitable_evening?: boolean;
+  space_availability?: number;
+  coffee_quality?: number;
+  menu_options?: number;
+  bathroom_quality?: number;
+
+  // Overall WFC rating
+  wfc_rating?: number;
+
+  // Visit time (1=morning, 2=afternoon, 3=evening)
+  visit_time?: number;
+
+  // Optional text review (max 160 chars)
+  comment?: string;
 }
 
 // ===========================
@@ -232,7 +241,7 @@ export interface ReviewUpdate {
 // ===========================
 
 export interface Favorite {
-  id: string;
+  id: number;
   user: User;
   cafe: Cafe;
   created_at: string;
@@ -404,11 +413,11 @@ export function isUser(obj: any): obj is User {
 }
 
 export function isCafe(obj: any): obj is Cafe {
-  return obj && typeof obj.id === 'string' && typeof obj.name === 'string';
+  return obj && typeof obj.id === 'number' && typeof obj.name === 'string';
 }
 
 export function isReview(obj: any): obj is Review {
-  return obj && typeof obj.id === 'string' && typeof obj.average_rating === 'number';
+  return obj && typeof obj.id === 'number' && typeof obj.average_rating === 'number';
 }
 
 // ===========================
