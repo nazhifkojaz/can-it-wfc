@@ -14,7 +14,7 @@ from .views import (
 urlpatterns = [
     # Visits
     path('visits/', VisitListCreateView.as_view(), name='visit-list-create'),
-    path('visits/<uuid:pk>/', VisitDetailView.as_view(), name='visit-detail'),
+    path('visits/<int:pk>/', VisitDetailView.as_view(), name='visit-detail'),
 
     # Reviews
     path('reviews/', ReviewListView.as_view(), name='review-list'),
