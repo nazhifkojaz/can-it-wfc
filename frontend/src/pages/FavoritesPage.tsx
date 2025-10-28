@@ -1,27 +1,85 @@
 import React, { useState } from 'react';
-import { MapPin, Star, Heart } from 'lucide-react';
+import { MapPin, Star, Heart, Home } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/layout/MobileLayout';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
+import AddVisitModal from '../components/visit/AddVisitModal';
+import ReviewForm from '../components/review/ReviewForm';
 import { Loading, EmptyState } from '../components/common';
 import { useFavorites } from '../hooks';
 import { formatPriceRange, formatRating } from '../utils';
 import { Cafe } from '../types';
+import './FavoritesPage.css';
 
 const FavoritesPage: React.FC = () => {
-  const { favorites, loading, toggleFavorite } = useFavorites();
+  const navigate = useNavigate();
+  const { favorites, loading, toggleFavorite, refetch } = useFavorites();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
+
+  // Visit logging state
+  const [showAddVisit, setShowAddVisit] = useState(false);
+  const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
+
+  // Review form state
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
+  const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
+  const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
   const handleCafeClick = (cafe: Cafe) => {
     setSelectedCafe(cafe);
   };
 
-  const handleRemoveFavorite = async (cafeId: string, e: React.MouseEvent) => {
+  const handleRemoveFavorite = async (cafeId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing favorite:', error);
+      alert(`❌ ${error.message || 'Failed to remove favorite'}`);
     }
+  };
+
+  const handleLogVisit = () => {
+    if (selectedCafe) {
+      setVisitCafe(selectedCafe);
+    }
+    setShowAddVisit(true);
+    setSelectedCafe(null); // Close cafe detail sheet for clean modal transition
+  };
+
+  const handleVisitSuccess = () => {
+    setShowAddVisit(false);
+    setVisitCafe(undefined);
+    setSelectedCafe(null);
+
+    // Refetch favorites to update stats
+    refetch();
+
+    // Show success message
+    alert('✅ Visit logged successfully!');
+  };
+
+  const handleAddReview = (visitId: number, cafeId: number, cafeName: string) => {
+    setReviewVisitId(visitId);
+    setReviewCafeId(cafeId);
+    setReviewCafeName(cafeName);
+    setShowAddVisit(false);
+    setVisitCafe(undefined);
+    setShowReviewForm(true);
+  };
+
+  const handleReviewSuccess = () => {
+    setShowReviewForm(false);
+    setReviewVisitId(null);
+    setReviewCafeId(null);
+    setReviewCafeName('');
+
+    // Refetch favorites to update stats
+    refetch();
+
+    // Show success message
+    alert('✅ Review submitted successfully!');
   };
 
   if (loading) {
@@ -30,6 +88,13 @@ const FavoritesPage: React.FC = () => {
         <div className="favorites-page">
           <div className="page-header">
             <h1 className="page-title">Favorites</h1>
+            <button
+              className="home-button"
+              onClick={() => navigate('/map')}
+              aria-label="Return to map"
+            >
+              <Home size={20} />
+            </button>
           </div>
           <Loading message="Loading favorites..." />
         </div>
@@ -43,6 +108,13 @@ const FavoritesPage: React.FC = () => {
         <div className="favorites-page">
           <div className="page-header">
             <h1 className="page-title">Favorites</h1>
+            <button
+              className="home-button"
+              onClick={() => navigate('/map')}
+              aria-label="Return to map"
+            >
+              <Home size={20} />
+            </button>
           </div>
           <EmptyState
             icon={<Heart size={64} />}
@@ -60,16 +132,28 @@ const FavoritesPage: React.FC = () => {
         {/* Header */}
         <div className="page-header">
           <h1 className="page-title">Favorites</h1>
-          <span className="count-badge">{favorites.length}</span>
+          <div className="header-right">
+            <span className="count-badge">{favorites.length}</span>
+            <button
+              className="home-button"
+              onClick={() => navigate('/map')}
+              aria-label="Return to map"
+            >
+              <Home size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Favorites Grid */}
         <div className="favorites-grid">
           {favorites.map((cafe) => (
-            <button
+            <div
               key={cafe.id}
               className="cafe-card"
               onClick={() => handleCafeClick(cafe)}
+              role="button"
+              tabIndex={0}
+              onKeyPress={(e) => e.key === 'Enter' && handleCafeClick(cafe)}
             >
               <div className="card-header">
                 <h3 className="cafe-name">{cafe.name}</h3>
@@ -106,7 +190,7 @@ const FavoritesPage: React.FC = () => {
                 <span className="stat">{cafe.total_reviews || 0} reviews</span>
                 <span className="stat">{cafe.total_visits || 0} visits</span>
               </div>
-            </button>
+            </div>
           ))}
         </div>
 
@@ -116,7 +200,31 @@ const FavoritesPage: React.FC = () => {
             cafe={selectedCafe}
             isOpen={!!selectedCafe}
             onClose={() => setSelectedCafe(null)}
-            onLogVisit={() => {}}
+            onLogVisit={handleLogVisit}
+          />
+        )}
+
+        {/* Add Visit Modal */}
+        <AddVisitModal
+          isOpen={showAddVisit}
+          onClose={() => {
+            setShowAddVisit(false);
+            setVisitCafe(undefined); // Clear visit cafe on close
+          }}
+          onSuccess={handleVisitSuccess}
+          onAddReview={handleAddReview}
+          preselectedCafe={visitCafe}
+        />
+
+        {/* Review Form Modal */}
+        {showReviewForm && reviewVisitId !== null && reviewCafeId !== null && (
+          <ReviewForm
+            visitId={reviewVisitId}
+            cafeId={reviewCafeId}
+            cafeName={reviewCafeName}
+            isOpen={showReviewForm}
+            onClose={() => setShowReviewForm(false)}
+            onSuccess={handleReviewSuccess}
           />
         )}
       </div>

@@ -1,24 +1,37 @@
 import React, { useState } from 'react';
-import { Calendar, MapPin, Clock, Plus } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/layout/MobileLayout';
 import ReviewForm from '../components/review/ReviewForm';
 import { Loading, EmptyState } from '../components/common';
 import { useVisits } from '../hooks';
+import { reviewApi } from '../api/client';
 import { formatDate, formatRating } from '../utils';
 import { REVIEW_CONFIG } from '../config/constants';
-import { Visit } from '../types';
+import { Visit, Review } from '../types';
 import { differenceInDays, format } from 'date-fns';
 import './VisitsPage.css';
 
 const VisitsPage: React.FC = () => {
-  const { visits, loading } = useVisits();
+  const navigate = useNavigate();
+  const { visits, loading, deleteVisit, refetch } = useVisits();
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [deletingVisitId, setDeletingVisitId] = useState<number | null>(null);
+  const [loadingReview, setLoadingReview] = useState(false);
 
   const canAddReview = (visit: Visit): boolean => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
     return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT && !visit.has_review;
+  };
+
+  const canEditReview = (visit: Visit): boolean => {
+    const visitDate = new Date(visit.visit_date);
+    const daysSince = differenceInDays(new Date(), visitDate);
+    return visit.has_review && daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
   };
 
   const getDaysRemaining = (visit: Visit): number => {
@@ -30,12 +43,91 @@ const VisitsPage: React.FC = () => {
 
   const handleAddReview = (visit: Visit) => {
     setSelectedVisit(visit);
+    setExistingReview(null);
+    setIsViewMode(false);
     setShowReviewForm(true);
+  };
+
+  const handleEditReview = async (visit: Visit) => {
+    setLoadingReview(true);
+    try {
+      // Fetch all user's reviews and find the one for this visit
+      const data = await reviewApi.getMyReviews();
+      // Handle paginated response from DRF
+      const reviewsList = Array.isArray(data) ? data : (data as any).results || [];
+      const review = reviewsList.find((r: Review) => r.visit.id === visit.id);
+
+      if (!review) {
+        throw new Error('Review not found');
+      }
+
+      setSelectedVisit(visit);
+      setExistingReview(review);
+      setIsViewMode(false);
+      setShowReviewForm(true);
+    } catch (error) {
+      console.error('Error loading review:', error);
+      alert('❌ Failed to load review. Please try again.');
+    } finally {
+      setLoadingReview(false);
+    }
+  };
+
+  const handleViewReview = async (visit: Visit) => {
+    setLoadingReview(true);
+    try {
+      // Fetch all user's reviews and find the one for this visit
+      const data = await reviewApi.getMyReviews();
+      // Handle paginated response from DRF
+      const reviewsList = Array.isArray(data) ? data : (data as any).results || [];
+      const review = reviewsList.find((r: Review) => r.visit.id === visit.id);
+
+      if (!review) {
+        throw new Error('Review not found');
+      }
+
+      setSelectedVisit(visit);
+      setExistingReview(review);
+      setIsViewMode(true);
+      setShowReviewForm(true);
+    } catch (error) {
+      console.error('Error loading review:', error);
+      alert('❌ Failed to load review. Please try again.');
+    } finally {
+      setLoadingReview(false);
+    }
   };
 
   const handleReviewSuccess = () => {
     setShowReviewForm(false);
     setSelectedVisit(null);
+    setExistingReview(null);
+    setIsViewMode(false);
+    // Refetch visits to update the UI with new review status
+    refetch();
+  };
+
+  const handleDeleteVisit = async (visitId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering other click handlers
+
+    if (!window.confirm('Are you sure you want to delete this visit? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingVisitId(visitId);
+
+    try {
+      await deleteVisit(visitId);
+      alert('✅ Visit deleted successfully!');
+      // Refetch to update the list
+      refetch();
+    } catch (error: any) {
+      console.error('Error deleting visit:', error);
+      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to delete visit';
+      alert(`❌ ${errorMsg}`);
+    } finally {
+      setDeletingVisitId(null);
+    }
   };
 
   const groupVisitsByDate = (visits: Visit[]) => {
@@ -90,11 +182,21 @@ const VisitsPage: React.FC = () => {
         {/* Header */}
         <div className="page-header">
           <h1 className="page-title">My Visits</h1>
-          <span className="count-badge">{visits.length}</span>
+          <div className="header-right">
+            <span className="count-badge">{visits.length}</span>
+            <button
+              className="home-button"
+              onClick={() => navigate('/map')}
+              aria-label="Return to map"
+            >
+              <Home size={20} />
+            </button>
+          </div>
         </div>
 
-        {/* Visits Timeline */}
-        <div className="visits-timeline">
+        {/* Visits Container - Scrollable wrapper */}
+        <div className="visits-container">
+          <div className="visits-timeline">
           {Object.entries(groupedVisits).map(([month, monthVisits]) => (
             <div key={month} className="month-group">
               <h2 className="month-header">
@@ -107,11 +209,25 @@ const VisitsPage: React.FC = () => {
                   <div key={visit.id} className="visit-card">
                     {/* Cafe Info */}
                     <div className="visit-header">
-                      <h3 className="cafe-name">{visit.cafe.name}</h3>
-                      <p className="visit-date">
-                        <Clock size={14} />
-                        {formatDate(visit.visit_date)}
-                      </p>
+                      <div className="visit-info">
+                        <h3 className="cafe-name">{visit.cafe.name}</h3>
+                        <p className="visit-date">
+                          <Clock size={14} />
+                          {formatDate(visit.visit_date)}
+                        </p>
+                      </div>
+                      <button
+                        className="delete-button"
+                        onClick={(e) => handleDeleteVisit(visit.id, e)}
+                        disabled={deletingVisitId === visit.id}
+                        aria-label="Delete visit"
+                      >
+                        {deletingVisitId === visit.id ? (
+                          <div className="delete-spinner" />
+                        ) : (
+                          <Trash2 size={18} />
+                        )}
+                      </button>
                     </div>
 
                     <p className="cafe-address">
@@ -132,9 +248,36 @@ const VisitsPage: React.FC = () => {
                     </div>
 
                     {/* Review Status */}
-                    {visit.has_review ? (
-                      <div className="review-status completed">
-                        ✓ Review added
+                    {canEditReview(visit) ? (
+                      <div className="review-actions">
+                        <div className="deadline-notice">
+                          <p className="deadline-text">
+                            {getDaysRemaining(visit)} {getDaysRemaining(visit) === 1 ? 'day' : 'days'} left to edit
+                          </p>
+                        </div>
+                        <button
+                          className="add-review-button"
+                          onClick={() => handleEditReview(visit)}
+                          disabled={loadingReview}
+                        >
+                          <Edit size={18} />
+                          {loadingReview ? 'Loading...' : 'Edit Review'}
+                        </button>
+                      </div>
+                    ) : visit.has_review ? (
+                      <div className="review-actions">
+                        <div className="review-status completed">
+                          ✓ Review added
+                        </div>
+                        <button
+                          className="add-review-button"
+                          onClick={() => handleViewReview(visit)}
+                          disabled={loadingReview}
+                          style={{ marginTop: '8px' }}
+                        >
+                          <Eye size={18} />
+                          {loadingReview ? 'Loading...' : 'View Review'}
+                        </button>
                       </div>
                     ) : canAddReview(visit) ? (
                       <div className="review-actions">
@@ -161,6 +304,7 @@ const VisitsPage: React.FC = () => {
               </div>
             </div>
           ))}
+          </div>
         </div>
 
         {/* Review Form Modal */}
@@ -169,8 +313,14 @@ const VisitsPage: React.FC = () => {
             visitId={selectedVisit.id}
             cafeId={selectedVisit.cafe.id}
             cafeName={selectedVisit.cafe.name}
+            existingReview={existingReview}
+            isViewMode={isViewMode}
             isOpen={showReviewForm}
-            onClose={() => setShowReviewForm(false)}
+            onClose={() => {
+              setShowReviewForm(false);
+              setExistingReview(null);
+              setIsViewMode(false);
+            }}
             onSuccess={handleReviewSuccess}
           />
         )}
