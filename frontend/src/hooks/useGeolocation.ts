@@ -98,9 +98,9 @@ export const useGeolocation = (options?: GeolocationOptions) => {
     onError,
   ]);
 
-  const refetch = () => {
+  const refetch = useCallback(() => {
     setState(prev => ({ ...prev, loading: true }));
-    
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setState({
@@ -123,7 +123,7 @@ export const useGeolocation = (options?: GeolocationOptions) => {
         maximumAge: options?.maximumAge ?? 0,
       }
     );
-  };
+  }, [options?.enableHighAccuracy, options?.timeout, options?.maximumAge]);
 
   // Memoize location object to prevent unnecessary re-renders
   const location = useMemo(() => {

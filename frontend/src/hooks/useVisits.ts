@@ -17,7 +17,9 @@ export const useVisits = () => {
 
     try {
       const data = await visitApi.getMyVisits();
-      setVisits(data);
+      // Handle paginated response from DRF (returns {count, results, next, previous})
+      const visitList = Array.isArray(data) ? data : (data as any).results || [];
+      setVisits(visitList);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch visits');
     } finally {
@@ -35,7 +37,8 @@ export const useVisits = () => {
 
     try {
       const newVisit = await visitApi.create(visitData);
-      setVisits(prev => [newVisit, ...prev]);
+      // Ensure prev is always an array before spreading
+      setVisits(prev => [newVisit, ...(Array.isArray(prev) ? prev : [])]);
       return newVisit;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to create visit';
@@ -46,13 +49,14 @@ export const useVisits = () => {
     }
   }, []);
 
-  const deleteVisit = useCallback(async (visitId: string) => {
+  const deleteVisit = useCallback(async (visitId: number) => {
     setLoading(true);
     setError(null);
 
     try {
       await visitApi.delete(visitId);
-      setVisits(prev => prev.filter(visit => visit.id !== visitId));
+      // Ensure prev is always an array before filtering
+      setVisits(prev => (Array.isArray(prev) ? prev : []).filter(visit => visit.id !== visitId));
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to delete visit';
       setError(errorMessage);

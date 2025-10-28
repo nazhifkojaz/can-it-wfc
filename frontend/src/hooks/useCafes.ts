@@ -107,12 +107,12 @@ export const useNearbyCafes = (params?: NearbyCafesParams) => {
   };
 };
 
-export const useCafe = (cafeId?: string) => {
+export const useCafe = (cafeId?: number) => {
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCafe = useCallback(async (id: string) => {
+  const fetchCafe = useCallback(async (id: number) => {
     setLoading(true);
     setError(null);
 
