@@ -78,8 +78,8 @@ class NearbyCafesView(APIView):
         radius_km = serializer.validated_data.get('radius_km', 1)
         limit = serializer.validated_data.get('limit', 50)
         
-        # Find nearby cafes
-        cafes = Cafe.nearby(
+        # Find nearby cafes (using optimized method)
+        cafes = Cafe.nearby_optimized(
             latitude=latitude,
             longitude=longitude,
             radius_km=float(radius_km),
@@ -171,8 +171,8 @@ class MergedNearbyCafesView(APIView):
         radius_km = float(serializer.validated_data.get('radius_km', 1))
         limit = serializer.validated_data.get('limit', 100)
 
-        # 1. Get registered cafes from database
-        db_cafes = Cafe.nearby(
+        # 1. Get registered cafes from database (using optimized method)
+        db_cafes = Cafe.nearby_optimized(
             latitude=latitude,
             longitude=longitude,
             radius_km=radius_km,
