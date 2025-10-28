@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -48,6 +48,9 @@ const MapView: React.FC<MapViewProps> = ({
   const [showSearchButton, setShowSearchButton] = useState(false);
   const [shouldFlyToCenter, setShouldFlyToCenter] = useState(false);
 
+  // Use ref for debounce timer
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Default center (Jakarta, Indonesia)
   const defaultCenter: LatLngExpression = [-6.2088, 106.8456];
   const mapCenter = searchCenter
@@ -64,50 +67,69 @@ const MapView: React.FC<MapViewProps> = ({
     }
   }, [searchCenter?.lat, searchCenter?.lng]);
 
-  // Calculate distance between two points (Haversine formula simplified)
-  const calculateDistance = (
-    point1: { lat: number; lng: number },
-    point2: { lat: number; lng: number }
-  ): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = ((point2.lat - point1.lat) * Math.PI) / 180;
-    const dLng = ((point2.lng - point1.lng) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((point1.lat * Math.PI) / 180) *
-        Math.cos((point2.lat * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  // Memoize calculateDistance to avoid recreating it
+  const calculateDistance = useMemo(() => {
+    return (
+      point1: { lat: number; lng: number },
+      point2: { lat: number; lng: number }
+    ): number => {
+      const R = 6371; // Earth's radius in km
+      const dLat = ((point2.lat - point1.lat) * Math.PI) / 180;
+      const dLng = ((point2.lng - point1.lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((point1.lat * Math.PI) / 180) *
+          Math.cos((point2.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+  }, []);
 
-  // Handle map movement
-  const handleMapMoveEnd = (center: { lat: number; lng: number }) => {
-    setCurrentMapCenter(center);
-
-    if (searchCenter) {
-      const distance = calculateDistance(center, searchCenter);
-      // Show button if moved more than 500 meters from search center
-      setShowSearchButton(distance > 0.5);
+  // Handle map movement with debouncing
+  const handleMapMoveEnd = useCallback((center: { lat: number; lng: number }) => {
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-  };
+
+    // Debounce state updates by 200ms
+    debounceTimerRef.current = setTimeout(() => {
+      setCurrentMapCenter(center);
+
+      if (searchCenter) {
+        const distance = calculateDistance(center, searchCenter);
+        // Show button if moved more than 500 meters from search center
+        setShowSearchButton(distance > 0.5);
+      }
+    }, 200);
+  }, [searchCenter, calculateDistance]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // Handle search this area
-  const handleSearchArea = () => {
+  const handleSearchArea = useCallback(() => {
     if (currentMapCenter) {
       setShowSearchButton(false);
       onSearchArea(currentMapCenter);
     }
-  };
+  }, [currentMapCenter, onSearchArea]);
 
   // Handle recenter to user location
-  const handleRecenter = () => {
+  const handleRecenter = useCallback(() => {
     if (userLocation) {
       setShowSearchButton(false);
       onSearchArea(userLocation);
     }
-  };
+  }, [userLocation, onSearchArea]);
 
   return (
     <div className="map-container">
