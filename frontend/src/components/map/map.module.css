@@ -1,0 +1,171 @@
+/* ================================
+   SearchAreaButton Component
+   ================================ */
+.searchAreaButton {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  background: white;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 20px;
+
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  animation: slideDown 0.3s ease;
+}
+
+.searchAreaButton:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.searchAreaButton:active:not(:disabled) {
+  transform: translateX(-50%) translateY(0);
+}
+
+.searchAreaButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.searchAreaBadge {
+  background: var(--primary, #007bff);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .searchAreaButton {
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+}
+
+/* ================================
+   RecenterButton Component
+   ================================ */
+.recenterButton {
+  position: absolute;
+  bottom: 100px;
+  right: 16px;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 44px;
+  height: 44px;
+
+  background: white;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+
+  color: var(--primary, #007bff);
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.recenterButton:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.recenterButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .recenterButton {
+    bottom: 80px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ================================
+   MapLegend Component
+   ================================ */
+.mapLegend {
+  position: absolute;
+  bottom: 80px;
+  right: 16px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.legendTitle {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900, #111827);
+}
+
+.legendItems {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray-700, #374151);
+}
+
+.legendMarker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.markerGreen {
+  background: #10b981;
+}
+
+.markerBlue {
+  background: #60a5fa;
+}
+
+.markerGray {
+  background: #9ca3af;
+}

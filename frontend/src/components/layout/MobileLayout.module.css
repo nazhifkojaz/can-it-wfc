@@ -1,0 +1,27 @@
+/* Mobile layout container */
+.mobileLayout {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Main content area */
+.mobileContent {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Add padding when bottom nav is shown */
+.withBottomNav {
+  padding-bottom: var(--bottom-nav-height, 64px);
+}
+
+/* Desktop: Remove padding so content extends behind transparent navbar */
+@media (min-width: 1024px) {
+  .mobileContent {
+    padding-bottom: 0;
+  }
+}
