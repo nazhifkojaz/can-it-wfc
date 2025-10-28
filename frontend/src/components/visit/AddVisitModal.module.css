@@ -77,6 +77,31 @@
   white-space: nowrap;
 }
 
+/* Cafe context header (when preselected from map/detail) */
+.cafeContext {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.contextLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.contextCafeName {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
 .selectedCafe {
   padding: 20px;
   background: var(--gray-50, #f9fafb);

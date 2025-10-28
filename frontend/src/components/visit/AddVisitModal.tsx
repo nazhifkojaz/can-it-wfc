@@ -1,20 +1,18 @@
-import React, { useState } from 'react';
-import { Search, MapPin, Clock } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Clock, MapPinned } from 'lucide-react';
 import { Cafe, VisitCreate } from '../../types';
-import { Modal, Loading, EmptyState } from '../common';
-import { useCafes, useVisits } from '../../hooks';
-import { formatDistance } from '../../utils';
+import { Modal } from '../common';
+import { useVisits, useGeolocation } from '../../hooks';
+import { calculateDistance } from '../../utils';
 import styles from './AddVisitModal.module.css';
 
 interface AddVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  onAddReview?: (visitId: string, cafeId: string, cafeName: string) => void;
+  onAddReview?: (visitId: number, cafeId: number, cafeName: string) => void;
   preselectedCafe?: Cafe;
 }
-
-type Step = 'search' | 'confirm';
 
 const AddVisitModal: React.FC<AddVisitModalProps> = ({
   isOpen,
@@ -23,127 +21,150 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
   onAddReview,
   preselectedCafe,
 }) => {
-  const [step, setStep] = useState<Step>(preselectedCafe ? 'confirm' : 'search');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCafe, setSelectedCafe] = useState<Cafe | undefined>(preselectedCafe);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [addReviewNow, setAddReviewNow] = useState(false);
 
-  const { searchCafes, cafes: searchResults, loading: searching } = useCafes({ autoFetch: false });
   const { createVisit, loading: submitting } = useVisits();
+  const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation({ watch: false });
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
+  // Calculate distance from user to selected cafe
+  const distanceKm = useMemo(() => {
+    if (!location || !selectedCafe) return null;
 
-    if (query.length < 2) {
-      return;
+    const cafeLat = parseFloat(selectedCafe.latitude);
+    const cafeLng = parseFloat(selectedCafe.longitude);
+
+    if (isNaN(cafeLat) || isNaN(cafeLng)) return null;
+
+    return calculateDistance(location.lat, location.lng, cafeLat, cafeLng);
+  }, [location, selectedCafe]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedCafe(preselectedCafe);
+      setVisitDate(new Date().toISOString().split('T')[0]);
+      setAddReviewNow(false);
+      refetch();
     }
-
-    await searchCafes(query);
-  };
-
-  const handleSelectCafe = (cafe: Cafe) => {
-    setSelectedCafe(cafe);
-    setStep('confirm');
-  };
+  }, [isOpen, preselectedCafe, refetch]);
 
   const handleLogVisit = async () => {
     if (!selectedCafe) return;
 
+    if (!location) {
+      alert('❌ Location required to verify visit. Please enable location access and try again.');
+      return;
+    }
+
     try {
       const visitData: VisitCreate = {
         visit_date: visitDate,
+        check_in_latitude: location.lat,
+        check_in_longitude: location.lng,
       };
 
-      // Scenario 1: Registered cafe (already in database)
       if (selectedCafe.is_registered) {
         visitData.cafe_id = selectedCafe.id;
-      }
-      // Scenario 2: Unregistered cafe (from Google Places - will auto-register)
-      else {
+      } else {
         if (!selectedCafe.google_place_id) {
           throw new Error('Missing Google Place ID for unregistered cafe');
+        }
+
+        if (!selectedCafe.latitude || !selectedCafe.longitude) {
+          throw new Error('Cafe coordinates are missing. Please try selecting a different cafe.');
+        }
+
+        const lat = parseFloat(selectedCafe.latitude);
+        const lng = parseFloat(selectedCafe.longitude);
+
+        if (isNaN(lat) || isNaN(lng)) {
+          throw new Error('Invalid cafe coordinates. Please try selecting a different cafe.');
         }
 
         visitData.google_place_id = selectedCafe.google_place_id;
         visitData.cafe_name = selectedCafe.name;
         visitData.cafe_address = selectedCafe.address;
-        visitData.cafe_latitude = selectedCafe.latitude;
-        visitData.cafe_longitude = selectedCafe.longitude;
+        visitData.cafe_latitude = lat;
+        visitData.cafe_longitude = lng;
       }
 
       const newVisit = await createVisit(visitData);
 
-      if (addReviewNow && onAddReview && newVisit) {
-        onAddReview(newVisit.id, newVisit.cafe.id, newVisit.cafe.name);
+      if (!newVisit) {
+        throw new Error('Failed to create visit');
       }
 
-      onSuccess();
-      onClose();
-    } catch (error) {
+      if (addReviewNow && onAddReview) {
+        onAddReview(newVisit.id, newVisit.cafe.id, newVisit.cafe.name);
+      } else {
+        onSuccess();
+        onClose();
+      }
+    } catch (error: any) {
       console.error('Error logging visit:', error);
+
+      if (error.response?.data?.check_in_latitude) {
+        const distanceError = error.response.data.check_in_latitude[0];
+        alert(`❌ ${distanceError}`);
+      } else {
+        alert(`❌ ${error.response?.data?.message || error.message || 'Failed to log visit. Please try again.'}`);
+      }
     }
   };
-
-  const renderSearchStep = () => (
-    <>
-      <div className={styles.searchBox}>
-        <Search size={20} />
-        <input
-          type="text"
-          placeholder="Search cafe name..."
-          value={searchQuery}
-          onChange={(e) => handleSearch(e.target.value)}
-          autoFocus
-        />
-      </div>
-
-      {searching && <Loading message="Searching cafes..." />}
-
-      {!searching && searchResults.length > 0 && (
-        <div className={styles.searchResults}>
-          {searchResults.map((cafe) => (
-            <button
-              key={cafe.id}
-              className={styles.cafeResult}
-              onClick={() => handleSelectCafe(cafe)}
-            >
-              <div className={styles.resultInfo}>
-                <p className={styles.resultName}>{cafe.name}</p>
-                <p className={styles.resultAddress}>
-                  <MapPin size={14} />
-                  {cafe.address}
-                </p>
-              </div>
-              {cafe.distance && (
-                <span className={styles.resultDistance}>
-                  {formatDistance(cafe.distance)}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
-        <EmptyState
-          title="No cafes found"
-          description="Try a different search term"
-        />
-      )}
-    </>
-  );
 
   const renderConfirmStep = () => {
     if (!selectedCafe) return null;
 
     return (
       <>
+        {preselectedCafe && (
+          <div className={styles.cafeContext}>
+            <p className={styles.contextLabel}>Logging visit for:</p>
+            <h3 className={styles.contextCafeName}>{selectedCafe.name}</h3>
+          </div>
+        )}
+
         <div className={styles.selectedCafe}>
-          <h3 className={styles.cafeName}>{selectedCafe.name}</h3>
           <p className={styles.cafeAddress}>{selectedCafe.address}</p>
 
-          {/* NEW: Show info for unregistered cafes */}
+          {locationLoading && (
+            <div className={styles.infoBanner}>
+              <MapPinned size={16} />
+              <p>Getting your location for check-in verification...</p>
+            </div>
+          )}
+
+          {locationError && (
+            <div className={styles.errorBanner}>
+              <p>
+                ❌ {locationError}
+                <br />
+                <small>Location is required to verify you're at the cafe (within 1km).</small>
+              </p>
+            </div>
+          )}
+
+          {!locationLoading && !locationError && location && distanceKm !== null && (
+            <>
+              {distanceKm <= 1.0 ? (
+                <div className={styles.successBanner}>
+                  <MapPinned size={16} />
+                  <p>✅ You are {(distanceKm * 1000).toFixed(0)}m from the cafe - ready to log visit!</p>
+                </div>
+              ) : (
+                <div className={styles.errorBanner}>
+                  <MapPinned size={16} />
+                  <p>
+                    ⚠️ You are {distanceKm.toFixed(2)}km from the cafe.
+                    <br />
+                    <small>You must be within 1km to log a visit.</small>
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
           {!selectedCafe.is_registered && (
             <div className={styles.infoBanner}>
               <p>
@@ -182,15 +203,22 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
         <div className={styles.modalActions}>
           <button
             className={styles.buttonSecondary}
-            onClick={() => setStep('search')}
+            onClick={onClose}
             disabled={submitting}
           >
-            Back
+            Cancel
           </button>
           <button
             className={styles.buttonPrimary}
             onClick={handleLogVisit}
-            disabled={submitting}
+            disabled={submitting || locationLoading || !location || (distanceKm !== null && distanceKm > 1.0)}
+            title={
+              !location
+                ? 'Location required for check-in verification'
+                : distanceKm !== null && distanceKm > 1.0
+                ? `You are ${distanceKm.toFixed(2)}km away - must be within 1km`
+                : ''
+            }
           >
             {submitting ? 'Logging...' : 'Log Visit'}
           </button>
@@ -199,16 +227,9 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
     );
   };
 
-  const getTitle = () => {
-    if (step === 'search') return 'Search Cafe';
-    if (step === 'confirm') return 'Confirm Visit';
-    return '';
-  };
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={getTitle()} size="md">
-      {step === 'search' && renderSearchStep()}
-      {step === 'confirm' && renderConfirmStep()}
+    <Modal isOpen={isOpen} onClose={onClose} title="Log Visit" size="md">
+      {renderConfirmStep()}
     </Modal>
   );
 };
