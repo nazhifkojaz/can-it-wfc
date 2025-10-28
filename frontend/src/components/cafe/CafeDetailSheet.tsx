@@ -25,14 +25,21 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     cafe.is_registered ? cafe.id : undefined
   );
   const { toggleFavorite, isFavorite } = useFavorites();
-  const isFavorited = isFavorite(cafe.id);
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Don't allow favoriting unregistered cafes
+    if (!cafe.is_registered) {
+      alert('⚠️ This cafe is not registered yet. Log a visit first to add it to the platform!');
+      return;
+    }
+
     try {
       await toggleFavorite(cafe.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling favorite:', error);
+      alert(`❌ ${error.message || 'Failed to toggle favorite'}`);
     }
   };
 
@@ -48,11 +55,11 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       <div className={styles.cafeHeader}>
         <h2 className={styles.cafeName}>{cafe.name}</h2>
         <button
-          className={`${styles.favoriteButton} ${isFavorited ? styles.active : ''}`}
+          className={`${styles.favoriteButton} ${isFavorite(cafe.id) ? styles.active : ''}`}
           onClick={handleToggleFavorite}
-          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite(cafe.id) ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart size={24} fill={isFavorited ? 'currentColor' : 'none'} />
+          <Heart size={24} fill={isFavorite(cafe.id) ? 'currentColor' : 'none'} />
         </button>
       </div>
 

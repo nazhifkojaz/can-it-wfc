@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  Calendar, 
-  Coffee, 
-  Star, 
-  Edit, 
-  LogOut, 
-  Eye, 
+import {
+  User,
+  Mail,
+  Calendar,
+  Coffee,
+  Star,
+  Edit,
+  LogOut,
+  Eye,
   EyeOff,
-  ChevronRight 
+  ChevronRight,
+  Home
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/layout/MobileLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import './ProfilePage.css';
 
 const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [bio, setBio] = useState(user?.bio || '');
@@ -52,7 +56,21 @@ const ProfilePage: React.FC = () => {
   return (
     <MobileLayout>
       <div className="profile-page">
-        {/* Header */}
+        {/* Top Navigation */}
+        <div className="page-header">
+          <div className="header-left">
+            <button
+              className="home-button"
+              onClick={() => navigate('/map')}
+              aria-label="Return to map"
+            >
+              <Home size={20} />
+            </button>
+            <h2 className="page-title">Profile</h2>
+          </div>
+        </div>
+
+        {/* Profile Header */}
         <div className="profile-header">
           <div className="avatar-section">
             <div className="avatar">

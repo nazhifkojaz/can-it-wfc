@@ -12,6 +12,37 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--primary);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.home-button:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+}
+
+.home-button:active {
+  transform: translateY(0);
 }
 
 .page-title {
@@ -19,6 +50,15 @@
   font-weight: 700;
   color: var(--gray-900);
   margin: 0;
+}
+
+.count-badge {
+  padding: 6px 12px;
+  background: var(--primary);
+  color: white;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .stats {
@@ -41,11 +81,31 @@
   padding: 20px;
 }
 
+.visits-timeline {
+  /* Content wrapper inside scrollable container */
+}
+
 /* Desktop: Add bottom padding to account for transparent navbar */
 @media (min-width: 1024px) {
   .visits-container {
     padding-bottom: calc(var(--bottom-nav-height) + 20px);
   }
+}
+
+.month-group {
+  margin-bottom: 32px;
+}
+
+.month-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .visits-group {
@@ -75,7 +135,80 @@
 }
 
 .visit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 12px;
+}
+
+.visit-info {
+  flex: 1;
+}
+
+.visit-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 4px 0 0 0;
+}
+
+.delete-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.delete-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.delete-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--gray-300);
+  border-top-color: #dc2626;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.visit-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.visit-stats .stat {
+  font-size: 13px;
+  color: var(--gray-600);
 }
 
 .cafe-info {
@@ -125,7 +258,12 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  margin-bottom: 12px;
+  margin-top: 12px;
+}
+
+.review-status.completed {
+  background: #f0fdf4;
+  color: #166534;
 }
 
 .review-status.reviewed {
@@ -141,6 +279,24 @@
 .review-status.expired {
   background: var(--gray-100);
   color: var(--gray-600);
+}
+
+.review-actions {
+  margin-top: 12px;
+}
+
+.deadline-notice {
+  background: #fef3c7;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.deadline-text {
+  font-size: 13px;
+  color: #92400e;
+  margin: 0;
+  font-weight: 500;
 }
 
 .status-icon {

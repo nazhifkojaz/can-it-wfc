@@ -6,7 +6,6 @@ import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitModal from '../components/visit/AddVisitModal';
 import ReviewForm from '../components/review/ReviewForm';
-import FloatingActionButton from '../components/common/FloatingActionButton';
 import { Loading } from '../components/common';
 import { useGeolocation } from '../hooks';
 import { Cafe } from '../types';
@@ -19,9 +18,10 @@ const MapPage: React.FC = () => {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [showAddVisit, setShowAddVisit] = useState(false);
+  const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined); // Cafe to log visit for
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewVisitId, setReviewVisitId] = useState<string>('');
-  const [reviewCafeId, setReviewCafeId] = useState<string>('');
+  const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
+  const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
   const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
   // Shared cafe data state
@@ -105,32 +105,49 @@ const MapPage: React.FC = () => {
   };
 
   const handleLogVisit = () => {
+    if (selectedCafe) {
+      setVisitCafe(selectedCafe); // Save cafe for visit modal
+    }
     setShowAddVisit(true);
-  };
-
-  const handleAddVisit = () => {
-    setSelectedCafe(null);
-    setShowAddVisit(true);
+    setSelectedCafe(null); // Close cafe detail sheet for clean modal transition
   };
 
   const handleVisitSuccess = () => {
     setShowAddVisit(false);
+    setVisitCafe(undefined); // Clear visit cafe
     setSelectedCafe(null);
+
+    // Refetch cafes to update markers with new visit count
+    if (searchCenter) {
+      fetchNearbyCafes(searchCenter);
+    }
+
+    // Show success message
+    alert('✅ Visit logged successfully!');
   };
 
-  const handleAddReview = (visitId: string, cafeId: string, cafeName: string) => {
+  const handleAddReview = (visitId: number, cafeId: number, cafeName: string) => {
     setReviewVisitId(visitId);
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setShowAddVisit(false);
+    setVisitCafe(undefined); // Clear visit cafe when opening review form
     setShowReviewForm(true);
   };
 
   const handleReviewSuccess = () => {
     setShowReviewForm(false);
-    setReviewVisitId('');
-    setReviewCafeId('');
+    setReviewVisitId(null);
+    setReviewCafeId(null);
     setReviewCafeName('');
+
+    // Refetch cafes to update markers with new review/rating
+    if (searchCenter) {
+      fetchNearbyCafes(searchCenter);
+    }
+
+    // Show success message
+    alert('✅ Review submitted successfully!');
   };
 
   const toggleViewMode = () => {
@@ -206,9 +223,6 @@ const MapPage: React.FC = () => {
           </div>
         )}
 
-        {/* Floating Action Button */}
-        <FloatingActionButton onClick={handleAddVisit} />
-
         {/* Cafe Detail Sheet */}
         {selectedCafe && (
           <CafeDetailSheet
@@ -222,14 +236,17 @@ const MapPage: React.FC = () => {
         {/* Add Visit Modal */}
         <AddVisitModal
           isOpen={showAddVisit}
-          onClose={() => setShowAddVisit(false)}
+          onClose={() => {
+            setShowAddVisit(false);
+            setVisitCafe(undefined); // Clear visit cafe on close
+          }}
           onSuccess={handleVisitSuccess}
           onAddReview={handleAddReview}
-          preselectedCafe={selectedCafe || undefined}
+          preselectedCafe={visitCafe}
         />
 
         {/* Review Form Modal */}
-        {showReviewForm && (
+        {showReviewForm && reviewVisitId !== null && reviewCafeId !== null && (
           <ReviewForm
             visitId={reviewVisitId}
             cafeId={reviewCafeId}

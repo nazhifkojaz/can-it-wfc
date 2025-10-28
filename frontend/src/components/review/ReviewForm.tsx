@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { Wifi, Zap, Volume2, Armchair, Coffee, DollarSign } from 'lucide-react';
-import { ReviewCreate } from '../../types';
+import { ReviewCreate, Review, ReviewUpdate } from '../../types';
 import { Modal } from '../common';
 import { useReviews } from '../../hooks';
+import { reviewApi } from '../../api/client';
 import { isValidReviewComment } from '../../utils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import styles from './ReviewForm.module.css';
 
 interface ReviewFormProps {
-  visitId: string;
-  cafeId: string;
+  visitId: number;
+  cafeId: number;
   cafeName: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  existingReview?: ReviewCreate;
+  existingReview?: Review | null;
+  isViewMode?: boolean;
 }
 
 const ReviewForm: React.FC<ReviewFormProps> = ({
@@ -25,12 +27,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   onClose,
   onSuccess,
   existingReview,
+  isViewMode = false,
 }) => {
   const { createReview } = useReviews(cafeId);
+  const isEditMode = !!existingReview && !isViewMode;
 
   const [formData, setFormData] = useState<ReviewCreate>({
-    visit: visitId,
-    cafe: cafeId,
+    visit_id: visitId,
     wifi_quality: existingReview?.wifi_quality || 3,
     power_outlets_rating: existingReview?.power_outlets_rating || 3,
     noise_level: existingReview?.noise_level || 3,
@@ -38,6 +41,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     space_availability: existingReview?.space_availability || 3,
     coffee_quality: existingReview?.coffee_quality || 3,
     menu_options: existingReview?.menu_options || 3,
+    bathroom_quality: existingReview?.bathroom_quality || undefined,
     wfc_rating: existingReview?.wfc_rating || 3,
     visit_time: existingReview?.visit_time || 2,
     comment: existingReview?.comment || '',
@@ -69,7 +73,28 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     setLoading(true);
 
     try {
-      await createReview(formData);
+      if (isEditMode && existingReview) {
+        // Update existing review
+        const updateData: ReviewUpdate = {
+          wifi_quality: formData.wifi_quality,
+          power_outlets_rating: formData.power_outlets_rating,
+          noise_level: formData.noise_level,
+          seating_comfort: formData.seating_comfort,
+          space_availability: formData.space_availability,
+          coffee_quality: formData.coffee_quality,
+          menu_options: formData.menu_options,
+          bathroom_quality: formData.bathroom_quality,
+          wfc_rating: formData.wfc_rating,
+          visit_time: formData.visit_time,
+          comment: formData.comment,
+        };
+        await reviewApi.update(existingReview.id, updateData);
+        alert('✅ Review updated successfully!');
+      } else {
+        // Create new review
+        await createReview(formData);
+        alert('✅ Review submitted successfully!');
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -127,8 +152,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             key={star}
             type="button"
             className={`${styles.star} ${value >= star ? styles.active : ''}`}
-            onClick={() => handleRatingChange(field, star)}
+            onClick={() => !isViewMode && handleRatingChange(field, star)}
             aria-label={`Rate ${star} stars`}
+            disabled={isViewMode}
+            style={isViewMode ? { cursor: 'default' } : undefined}
           >
             ★
           </button>
@@ -137,11 +164,17 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     );
   };
 
+  const getModalTitle = () => {
+    if (isViewMode) return "Your Review";
+    if (isEditMode) return "Edit Your Review";
+    return "Rate Your Experience";
+  };
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Rate Your Experience"
+      title={getModalTitle()}
       size="lg"
     >
       <div className={styles.formHeader}>
@@ -186,21 +219,25 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         {/* Review Text */}
         <div className={styles.section}>
           <label htmlFor="review-text" className={styles.sectionTitle}>
-            Your Review (Optional)
+            Your Review {!isViewMode && '(Optional)'}
           </label>
           <div className={styles.textareaContainer}>
             <textarea
               id="review-text"
               className={styles.reviewTextarea}
-              placeholder="Share your experience working from this cafe..."
+              placeholder={isViewMode ? '' : "Share your experience working from this cafe..."}
               value={formData.comment}
               onChange={(e) => handleTextChange(e.target.value)}
               rows={4}
               maxLength={REVIEW_CONFIG.MAX_COMMENT_LENGTH}
+              disabled={isViewMode}
+              readOnly={isViewMode}
             />
-            <p className={styles.characterCount}>
-              {formData.comment?.length || 0} / {REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-            </p>
+            {!isViewMode && (
+              <p className={styles.characterCount}>
+                {formData.comment?.length || 0} / {REVIEW_CONFIG.MAX_COMMENT_LENGTH}
+              </p>
+            )}
           </div>
         </div>
 
@@ -211,14 +248,19 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </div>
         )}
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          className={styles.submitButton}
-          disabled={loading}
-        >
-          {loading ? 'Submitting...' : 'Submit Review'}
-        </button>
+        {/* Submit Button - hidden in view mode */}
+        {!isViewMode && (
+          <button
+            type="submit"
+            className={styles.submitButton}
+            disabled={loading}
+          >
+            {loading
+              ? (isEditMode ? 'Updating...' : 'Submitting...')
+              : (isEditMode ? 'Update Review' : 'Submit Review')
+            }
+          </button>
+        )}
       </form>
     </Modal>
   );
