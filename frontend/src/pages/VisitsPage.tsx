@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useInView } from 'react-intersection-observer';
 import MobileLayout from '../components/layout/MobileLayout';
 import ReviewForm from '../components/review/ReviewForm';
 import { Loading, EmptyState } from '../components/common';
@@ -14,13 +15,32 @@ import './VisitsPage.css';
 
 const VisitsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { visits, loading, deleteVisit, refetch } = useVisits();
+  const {
+    visits,
+    loading,
+    deleteVisit,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useVisits();
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [deletingVisitId, setDeletingVisitId] = useState<number | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
+
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '200px',
+  });
+
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const canAddReview = (visit: Visit): boolean => {
     const visitDate = new Date(visit.visit_date);
@@ -304,6 +324,17 @@ const VisitsPage: React.FC = () => {
               </div>
             </div>
           ))}
+
+          {/* Load More Trigger */}
+          {hasNextPage && (
+            <div ref={loadMoreRef} className="load-more-trigger">
+              {isFetchingNextPage && (
+                <div className="load-more-spinner">
+                  <Loading message="Loading more visits..." />
+                </div>
+              )}
+            </div>
+          )}
           </div>
         </div>
 

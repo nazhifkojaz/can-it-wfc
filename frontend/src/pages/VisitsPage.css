@@ -380,3 +380,16 @@
   color: var(--gray-600);
   margin: 0;
 }
+
+.load-more-trigger {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+  min-height: 80px;
+}
+
+.load-more-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

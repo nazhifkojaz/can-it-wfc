@@ -265,8 +265,15 @@ export const visitApi = {
   },
 
   // Get user's visits (backend filters by current user automatically)
-  getMyVisits: async () => {
-    const response = await api.get<Visit[]>('/visits/');
+  getMyVisits: async (page: number = 1) => {
+    const response = await api.get<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Visit[];
+    }>('/visits/', {
+      params: { page },
+    });
     return response.data;
   },
 
@@ -310,9 +317,14 @@ export const reviewApi = {
   },
 
   // Get reviews for a cafe
-  getByCafe: async (cafeId: number) => {
-    const response = await api.get<Review[]>('/reviews/', {
-      params: { cafe: cafeId },
+  getByCafe: async (cafeId: number, page: number = 1) => {
+    const response = await api.get<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Review[];
+    }>('/reviews/', {
+      params: { cafe: cafeId, page },
     });
     return response.data;
   },

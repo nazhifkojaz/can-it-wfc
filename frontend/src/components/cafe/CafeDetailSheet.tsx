@@ -1,5 +1,6 @@
 import React from 'react';
 import { MapPin, Star, DollarSign, Users, Coffee, Heart } from 'lucide-react';
+import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState } from '../common';
 import { useReviews, useFavorites } from '../../hooks';
@@ -20,11 +21,25 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   onClose,
   onLogVisit,
 }) => {
-  // Only fetch reviews for registered cafes (cafes in database)
-  const { reviews, loading: loadingReviews } = useReviews(
-    cafe.is_registered ? cafe.id : undefined
-  );
+  const {
+    reviews,
+    loading: loadingReviews,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useReviews(cafe.is_registered ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
+
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '100px',
+  });
+
+  React.useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -147,6 +162,11 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
             {reviews.map((review: Review) => (
               <ReviewCard key={review.id} review={review} />
             ))}
+            {hasNextPage && (
+              <div ref={loadMoreRef} className={styles.loadMoreTrigger}>
+                {isFetchingNextPage && <Loading message="Loading more reviews..." />}
+              </div>
+            )}
           </div>
         ) : (
           <EmptyState

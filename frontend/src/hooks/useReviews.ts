@@ -1,26 +1,38 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reviewApi } from '../api/client';
-import { Review, ReviewCreate, ReviewUpdate } from '../types';
+import { ReviewUpdate } from '../types';
 import { queryKeys } from '../config/queryKeys';
 
 export const useReviews = (cafeId?: number) => {
   const queryClient = useQueryClient();
 
   const {
-    data: reviews = [],
+    data,
     isLoading: loading,
     error: fetchError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     refetch,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: queryKeys.reviewsList(cafeId),
-    queryFn: async () => {
-      if (!cafeId) return [];
-      const data = await reviewApi.getByCafe(cafeId);
-      return Array.isArray(data) ? data : (data as any).results || [];
+    queryFn: async ({ pageParam = 1 }) => {
+      if (!cafeId) return { results: [], count: 0, next: null, previous: null };
+      const response = await reviewApi.getByCafe(cafeId, pageParam);
+      return response;
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.next) return undefined;
+      const url = new URL(lastPage.next);
+      const page = url.searchParams.get('page');
+      return page ? parseInt(page) : undefined;
     },
     enabled: !!cafeId,
     staleTime: 3 * 60 * 1000,
+    initialPageParam: 1,
   });
+
+  const reviews = data?.pages.flatMap(page => page.results) || [];
 
   const createReviewMutation = useMutation({
     mutationFn: reviewApi.create,
@@ -54,6 +66,9 @@ export const useReviews = (cafeId?: number) => {
     loading,
     error: fetchError ? String(fetchError) : null,
     refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     createReview: createReviewMutation.mutateAsync,
     updateReview: (id: number, data: ReviewUpdate) =>
       updateReviewMutation.mutateAsync({ id, data }),
@@ -62,8 +77,6 @@ export const useReviews = (cafeId?: number) => {
 };
 
 export const useMyReviews = () => {
-  const queryClient = useQueryClient();
-
   const {
     data: reviews = [],
     isLoading: loading,

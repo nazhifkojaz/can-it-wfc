@@ -127,6 +127,13 @@
   gap: 16px;
 }
 
+.loadMoreTrigger {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  min-height: 60px;
+}
+
 .googleRating {
   padding: 20px;
   background: var(--gray-50, #f9fafb);

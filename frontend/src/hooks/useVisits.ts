@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { visitApi } from '../api/client';
 import { VisitCreate } from '../types';
 import { queryKeys } from '../config/queryKeys';
@@ -7,18 +7,30 @@ export const useVisits = () => {
   const queryClient = useQueryClient();
 
   const {
-    data: visits = [],
+    data,
     isLoading: loading,
     error: fetchError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     refetch,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: queryKeys.visitsList(),
-    queryFn: async () => {
-      const data = await visitApi.getMyVisits();
-      return Array.isArray(data) ? data : (data as any).results || [];
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await visitApi.getMyVisits(pageParam);
+      return response;
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.next) return undefined;
+      const url = new URL(lastPage.next);
+      const page = url.searchParams.get('page');
+      return page ? parseInt(page) : undefined;
     },
     staleTime: 1 * 60 * 1000,
+    initialPageParam: 1,
   });
+
+  const visits = data?.pages.flatMap(page => page.results) || [];
 
   const createVisitMutation = useMutation({
     mutationFn: visitApi.create,
@@ -49,6 +61,9 @@ export const useVisits = () => {
     loading,
     error: fetchError ? String(fetchError) : null,
     refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     createVisit,
     deleteVisit,
   };
