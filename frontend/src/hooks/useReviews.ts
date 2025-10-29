@@ -36,6 +36,48 @@ export const useReviews = (cafeId?: number) => {
 
   const createReviewMutation = useMutation({
     mutationFn: reviewApi.create,
+    onMutate: async (newReview) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.reviewsList(cafeId) });
+
+      const previousReviews = queryClient.getQueryData(queryKeys.reviewsList(cafeId));
+
+      queryClient.setQueryData(queryKeys.reviewsList(cafeId), (old: any) => {
+        if (!old) return old;
+
+        const optimisticReview = {
+          id: Date.now(),
+          ...newReview,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          helpful_count: 0,
+          user: {
+            id: 0,
+            username: 'You',
+            display_name: 'You',
+          },
+        };
+
+        return {
+          ...old,
+          pages: old.pages.map((page: any, index: number) => {
+            if (index === 0) {
+              return {
+                ...page,
+                results: [optimisticReview, ...page.results],
+              };
+            }
+            return page;
+          }),
+        };
+      });
+
+      return { previousReviews };
+    },
+    onError: (_err, _newReview, context) => {
+      if (context?.previousReviews && cafeId) {
+        queryClient.setQueryData(queryKeys.reviewsList(cafeId), context.previousReviews);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
       queryClient.invalidateQueries({ queryKey: queryKeys.visits });
@@ -54,6 +96,30 @@ export const useReviews = (cafeId?: number) => {
 
   const deleteReviewMutation = useMutation({
     mutationFn: reviewApi.delete,
+    onMutate: async (reviewId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.reviewsList(cafeId) });
+
+      const previousReviews = queryClient.getQueryData(queryKeys.reviewsList(cafeId));
+
+      queryClient.setQueryData(queryKeys.reviewsList(cafeId), (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            results: page.results.filter((review: any) => review.id !== reviewId),
+          })),
+        };
+      });
+
+      return { previousReviews };
+    },
+    onError: (_err, _reviewId, context) => {
+      if (context?.previousReviews && cafeId) {
+        queryClient.setQueryData(queryKeys.reviewsList(cafeId), context.previousReviews);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
       queryClient.invalidateQueries({ queryKey: queryKeys.visits });

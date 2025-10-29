@@ -34,6 +34,42 @@ export const useVisits = () => {
 
   const createVisitMutation = useMutation({
     mutationFn: visitApi.create,
+    onMutate: async (newVisit) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList() });
+
+      const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
+
+      queryClient.setQueryData(queryKeys.visitsList(), (old: any) => {
+        if (!old) return old;
+
+        const optimisticVisit = {
+          id: Date.now(),
+          ...newVisit,
+          created_at: new Date().toISOString(),
+          has_review: false,
+        };
+
+        return {
+          ...old,
+          pages: old.pages.map((page: any, index: number) => {
+            if (index === 0) {
+              return {
+                ...page,
+                results: [optimisticVisit, ...page.results],
+              };
+            }
+            return page;
+          }),
+        };
+      });
+
+      return { previousVisits };
+    },
+    onError: (_err, _newVisit, context) => {
+      if (context?.previousVisits) {
+        queryClient.setQueryData(queryKeys.visitsList(), context.previousVisits);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
       queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
@@ -42,6 +78,30 @@ export const useVisits = () => {
 
   const deleteVisitMutation = useMutation({
     mutationFn: visitApi.delete,
+    onMutate: async (visitId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList() });
+
+      const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
+
+      queryClient.setQueryData(queryKeys.visitsList(), (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            results: page.results.filter((visit: any) => visit.id !== visitId),
+          })),
+        };
+      });
+
+      return { previousVisits };
+    },
+    onError: (_err, _visitId, context) => {
+      if (context?.previousVisits) {
+        queryClient.setQueryData(queryKeys.visitsList(), context.previousVisits);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
       queryClient.invalidateQueries({ queryKey: queryKeys.cafes });

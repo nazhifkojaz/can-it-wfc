@@ -28,6 +28,29 @@ export const useFavorites = () => {
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: cafeApi.toggleFavorite,
+    onMutate: async (cafeId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.favoritesList() });
+
+      const previousFavorites = queryClient.getQueryData(queryKeys.favoritesList());
+
+      queryClient.setQueryData(queryKeys.favoritesList(), (old: Cafe[] | undefined) => {
+        if (!old) return old;
+        const isFavorited = old.some((cafe) => cafe.id === cafeId);
+
+        if (isFavorited) {
+          return old.filter((cafe) => cafe.id !== cafeId);
+        } else {
+          return old;
+        }
+      });
+
+      return { previousFavorites };
+    },
+    onError: (_err, _cafeId, context) => {
+      if (context?.previousFavorites) {
+        queryClient.setQueryData(queryKeys.favoritesList(), context.previousFavorites);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.favoritesList() });
     },
