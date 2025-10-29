@@ -1,75 +1,61 @@
-/**
- * Custom hook for managing favorite cafes
- */
-
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cafeApi } from '../api/client';
 import { Cafe } from '../types';
+import { queryKeys } from '../config/queryKeys';
+import { useCallback } from 'react';
 
 export const useFavorites = () => {
-  const [favorites, setFavorites] = useState<Cafe[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchFavorites = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
+  const {
+    data: favorites = [],
+    isLoading: loading,
+    error: fetchError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.favoritesList(),
+    queryFn: async () => {
       const data = await cafeApi.getFavorites();
-
       const favoritesList = Array.isArray(data)
         ? data
         : (data as any).results || [];
-
-      const cafes = favoritesList
+      return favoritesList
         .map((fav: any) => fav.cafe)
-        .filter(Boolean);
+        .filter(Boolean) as Cafe[];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
 
-      setFavorites(cafes);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch favorites');
-      setFavorites([]);
-    } finally {
-      setLoading(false);
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: cafeApi.toggleFavorite,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.favoritesList() });
+    },
+  });
+
+  const toggleFavorite = async (cafeId: number | undefined) => {
+    if (!cafeId) {
+      throw new Error('Cannot favorite unregistered cafes');
     }
-  }, []);
+    const result = await toggleFavoriteMutation.mutateAsync(cafeId);
+    return result.is_favorited;
+  };
 
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
-
-  const toggleFavorite = useCallback(async (cafeId: number | undefined) => {
-    try {
-      const result = await cafeApi.toggleFavorite(cafeId);
-
-      if (result.is_favorited) {
-        await fetchFavorites();
-      } else {
-        setFavorites(prev => prev.filter(cafe => cafe.id !== cafeId));
+  const isFavorite = useCallback(
+    (cafeId: number | undefined) => {
+      if (cafeId === undefined || cafeId === null) {
+        return false;
       }
-
-      return result.is_favorited;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to toggle favorite';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  }, [fetchFavorites]);
-
-  const isFavorite = useCallback((cafeId: number | undefined) => {
-    if (cafeId === undefined || cafeId === null) {
-      return false;
-    }
-
-    return Array.isArray(favorites) && favorites.some(cafe => cafe.id === cafeId);
-  }, [favorites]);
+      return Array.isArray(favorites) && favorites.some((cafe) => cafe.id === cafeId);
+    },
+    [favorites]
+  );
 
   return {
     favorites,
     loading,
-    error,
-    refetch: fetchFavorites,
+    error: fetchError ? String(fetchError) : null,
+    refetch,
     toggleFavorite,
     isFavorite,
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AlertCircle, List, Map as MapIcon } from 'lucide-react';
 import MobileLayout from '../components/layout/MobileLayout';
 import MapView from '../components/map/MapView';
@@ -7,9 +7,8 @@ import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitModal from '../components/visit/AddVisitModal';
 import ReviewForm from '../components/review/ReviewForm';
 import { Loading } from '../components/common';
-import { useGeolocation } from '../hooks';
+import { useGeolocation, useNearbyCafes } from '../hooks';
 import { Cafe } from '../types';
-import { cafeApi } from '../api/client';
 import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
@@ -18,82 +17,31 @@ const MapPage: React.FC = () => {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [showAddVisit, setShowAddVisit] = useState(false);
-  const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined); // Cafe to log visit for
+  const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
   const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
   const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
-  // Shared cafe data state
-  const [cafes, setCafes] = useState<Cafe[]>([]);
-  const [loadingCafes, setLoadingCafes] = useState(false);
-  const [cafesError, setCafesError] = useState<string | null>(null);
-  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
 
-  // Fetch nearby cafes (shared by both map and list views)
-  const fetchNearbyCafes = async (center: { lat: number; lng: number }, signal?: AbortSignal) => {
-    setLoadingCafes(true);
-    setCafesError(null);
+  const searchCenter = manualSearchCenter || location;
+  const {
+    cafes,
+    loading: loadingCafes,
+    error: cafesError,
+    refetch: refetchCafes,
+    searchCenter: activeSearchCenter,
+  } = useNearbyCafes({
+    latitude: searchCenter?.lat || 0,
+    longitude: searchCenter?.lng || 0,
+    enabled: !!searchCenter,
+  });
 
-    // Round coordinates to 8 decimal places to match backend validation
-    // Backend expects: latitude (max_digits=10, decimal_places=8), longitude (max_digits=11, decimal_places=8)
-    const latitude = Number(center.lat.toFixed(8));
-    const longitude = Number(center.lng.toFixed(8));
-
-    try {
-      const response = await cafeApi.getAllNearby({
-        latitude,
-        longitude,
-        radius_km: 1,
-        limit: 100,
-      }, signal);
-
-      if (!signal?.aborted) {
-        setCafes(response.results);
-        // Store rounded coordinates as search center
-        setSearchCenter({ lat: latitude, lng: longitude });
-        console.log(
-          `Loaded ${response.registered_count} registered + ` +
-          `${response.unregistered_count} unregistered cafes at (${latitude}, ${longitude})`
-        );
-      }
-    } catch (err: any) {
-      if (!signal?.aborted) {
-        console.error('Error fetching nearby cafes:', err);
-        if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-          setCafesError('Failed to load nearby cafes');
-          setCafes([]);
-        }
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setLoadingCafes(false);
-      }
-    }
-  };
-
-  // Initial fetch when user location is available
-  useEffect(() => {
-    if (!location) {
-      setCafes([]);
-      setSearchCenter(null);
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    fetchNearbyCafes(location, abortController.signal);
-
-    return () => {
-      abortController.abort();
-    };
-  }, [location?.lat, location?.lng]);
-
-  // Handle search area request from map
   const handleSearchArea = (center: { lat: number; lng: number }) => {
-    fetchNearbyCafes(center);
+    setManualSearchCenter(center);
   };
 
   const handleCafeClick = (cafe: Cafe) => {
@@ -114,15 +62,13 @@ const MapPage: React.FC = () => {
 
   const handleVisitSuccess = () => {
     setShowAddVisit(false);
-    setVisitCafe(undefined); // Clear visit cafe
+    setVisitCafe(undefined);
     setSelectedCafe(null);
 
     // Refetch cafes to update markers with new visit count
-    if (searchCenter) {
-      fetchNearbyCafes(searchCenter);
-    }
+    // React Query will automatically update related queries
+    refetchCafes();
 
-    // Show success message
     alert('✅ Visit logged successfully!');
   };
 
@@ -131,7 +77,7 @@ const MapPage: React.FC = () => {
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setShowAddVisit(false);
-    setVisitCafe(undefined); // Clear visit cafe when opening review form
+    setVisitCafe(undefined);
     setShowReviewForm(true);
   };
 
@@ -142,11 +88,8 @@ const MapPage: React.FC = () => {
     setReviewCafeName('');
 
     // Refetch cafes to update markers with new review/rating
-    if (searchCenter) {
-      fetchNearbyCafes(searchCenter);
-    }
+    refetchCafes();
 
-    // Show success message
     alert('✅ Review submitted successfully!');
   };
 
@@ -202,7 +145,7 @@ const MapPage: React.FC = () => {
               cafes={cafes}
               loading={loadingCafes}
               error={cafesError}
-              searchCenter={searchCenter}
+              searchCenter={activeSearchCenter}
               onCafeClick={handleCafeClick}
               onSearchArea={handleSearchArea}
               userLocation={location}

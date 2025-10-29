@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Star, DollarSign, Users, Coffee, Heart } from 'lucide-react';
-import { Cafe } from '../../types';
+import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState } from '../common';
 import { useReviews, useFavorites } from '../../hooks';
 import { formatPriceRange, formatRating } from '../../utils';
@@ -144,7 +144,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           <Loading message="Loading reviews..." />
         ) : reviews.length > 0 ? (
           <div className={styles.reviewsList}>
-            {reviews.map((review) => (
+            {reviews.map((review: Review) => (
               <ReviewCard key={review.id} review={review} />
             ))}
           </div>

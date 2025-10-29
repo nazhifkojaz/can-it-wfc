@@ -1,112 +1,87 @@
-/**
- * Custom hook for managing reviews
- */
-
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reviewApi } from '../api/client';
-import { Review, ReviewCreate } from '../types';
+import { Review, ReviewCreate, ReviewUpdate } from '../types';
+import { queryKeys } from '../config/queryKeys';
 
 export const useReviews = (cafeId?: number) => {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchReviews = useCallback(async (id: number) => {
-    setLoading(true);
-    setError(null);
+  const {
+    data: reviews = [],
+    isLoading: loading,
+    error: fetchError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.reviewsList(cafeId),
+    queryFn: async () => {
+      if (!cafeId) return [];
+      const data = await reviewApi.getByCafe(cafeId);
+      return Array.isArray(data) ? data : (data as any).results || [];
+    },
+    enabled: !!cafeId,
+    staleTime: 3 * 60 * 1000,
+  });
 
-    try {
-      const data = await reviewApi.getByCafe(id);
-      setReviews(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch reviews');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createReviewMutation = useMutation({
+    mutationFn: reviewApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+      queryClient.invalidateQueries({ queryKey: queryKeys.visits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
+    },
+  });
 
-  useEffect(() => {
-    if (cafeId) {
-      fetchReviews(cafeId);
-    }
-  }, [cafeId, fetchReviews]);
+  const updateReviewMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ReviewUpdate }) =>
+      reviewApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
+    },
+  });
 
-  const refetch = useCallback(() => {
-    if (cafeId) {
-      fetchReviews(cafeId);
-    }
-  }, [cafeId, fetchReviews]);
-
-  const createReview = useCallback(async (reviewData: ReviewCreate) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const newReview = await reviewApi.create(reviewData);
-      setReviews(prev => [newReview, ...prev]);
-      return newReview;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to create review';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const deleteReview = useCallback(async (reviewId: number) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      await reviewApi.delete(reviewId);
-      setReviews(prev => prev.filter(review => review.id !== reviewId));
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to delete review';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const deleteReviewMutation = useMutation({
+    mutationFn: reviewApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+      queryClient.invalidateQueries({ queryKey: queryKeys.visits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
+    },
+  });
 
   return {
     reviews,
     loading,
-    error,
+    error: fetchError ? String(fetchError) : null,
     refetch,
-    createReview,
-    deleteReview,
+    createReview: createReviewMutation.mutateAsync,
+    updateReview: (id: number, data: ReviewUpdate) =>
+      updateReviewMutation.mutateAsync({ id, data }),
+    deleteReview: deleteReviewMutation.mutateAsync,
   };
 };
 
 export const useMyReviews = () => {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchMyReviews = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
+  const {
+    data: reviews = [],
+    isLoading: loading,
+    error: fetchError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.myReviews(),
+    queryFn: async () => {
       const data = await reviewApi.getMyReviews();
-      setReviews(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch your reviews');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMyReviews();
-  }, [fetchMyReviews]);
+      return Array.isArray(data) ? data : (data as any).results || [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
 
   return {
     reviews,
     loading,
-    error,
-    refetch: fetchMyReviews,
+    error: fetchError ? String(fetchError) : null,
+    refetch,
   };
 };
