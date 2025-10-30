@@ -1,6 +1,7 @@
 from rest_framework import generics, status, permissions, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Cafe, Favorite
 from .serializers import (
@@ -13,6 +14,22 @@ from .serializers import (
 )
 from core.permissions import IsOwnerOrReadOnly
 from .services import GooglePlacesService
+
+
+class NearbySearchThrottle(UserRateThrottle):
+    """
+    Rate limit for Google Places nearby search.
+    30 requests per minute per user to prevent API cost explosion.
+    """
+    rate = '30/min'
+
+
+class NearbySearchAnonThrottle(AnonRateThrottle):
+    """
+    Rate limit for anonymous users on Google Places search.
+    10 requests per minute for anonymous users.
+    """
+    rate = '10/min'
 
 
 class CafeListCreateView(generics.ListCreateAPIView):
@@ -158,8 +175,13 @@ class MergedNearbyCafesView(APIView):
     Shows all coffee shops in the area (registered + unregistered).
 
     GET /api/cafes/nearby/all/?latitude={lat}&longitude={lng}&radius_km={radius}
+
+    Rate limits:
+    - Authenticated: 30 requests/min
+    - Anonymous: 10 requests/min
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [NearbySearchThrottle, NearbySearchAnonThrottle]
 
     def get(self, request):
         # Validate query parameters
