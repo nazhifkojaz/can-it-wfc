@@ -105,6 +105,8 @@ export interface Visit {
   cafe: Cafe;
   user: User;
   visit_date: string;
+  amount_spent?: number | null;  // New field
+  visit_time?: number | null;    // New field (1=Morning, 2=Afternoon, 3=Evening)
   check_in_latitude?: string;
   check_in_longitude?: string;
   created_at: string;
@@ -127,10 +129,39 @@ export interface VisitCreate {
 
   // Common fields
   visit_date: string; // ISO date string
+  amount_spent?: number | null;  // New field
+  visit_time?: number | null;    // New field
 
   // REQUIRED: Check-in location for visit verification (within 1km of cafe)
   check_in_latitude: number;
   check_in_longitude: number;
+}
+
+// Combined Visit + Review Creation (new simplified flow)
+export interface CombinedVisitReviewCreate {
+  // Scenario 1: Existing registered cafe
+  cafe_id?: number;
+
+  // Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
+  google_place_id?: string;
+  cafe_name?: string;
+  cafe_address?: string;
+  cafe_latitude?: number;
+  cafe_longitude?: number;
+
+  // Common fields
+  visit_date: string;
+  amount_spent?: number | null;
+  visit_time?: number | null;
+  check_in_latitude?: number;
+  check_in_longitude?: number;
+  include_review: boolean;
+  wfc_rating?: number;
+  wifi_quality?: number;
+  power_outlets_rating?: number;
+  seating_comfort?: number;
+  noise_level?: number;
+  comment?: string;
 }
 
 // ===========================

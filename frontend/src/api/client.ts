@@ -11,6 +11,7 @@ import {
   NearbyCafesParams,
   Visit,
   VisitCreate,
+  CombinedVisitReviewCreate,
   Review,
   ReviewCreate,
   ReviewUpdate,
@@ -261,6 +262,16 @@ export const visitApi = {
   // Create new visit
   create: async (data: VisitCreate) => {
     const response = await api.post<Visit>('/visits/', data);
+    return response.data;
+  },
+
+  // NEW: Create visit with optional review in one request
+  createWithReview: async (data: CombinedVisitReviewCreate) => {
+    const response = await api.post<{
+      visit: Visit;
+      review: Review | null;
+      message: string;
+    }>('/visits/create-with-review/', data);
     return response.data;
   },
 

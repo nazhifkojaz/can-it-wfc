@@ -66,10 +66,25 @@ export const VISIT_TIME = {
 } as const;
 
 export const VISIT_TIME_LABELS = {
-  [VISIT_TIME.MORNING]: 'Morning (Open - 1pm)',
-  [VISIT_TIME.AFTERNOON]: 'Afternoon (1pm - 6pm)',
-  [VISIT_TIME.EVENING]: 'Evening (6pm - Close)',
+  [VISIT_TIME.MORNING]: 'Morning (6AM - 12PM)',
+  [VISIT_TIME.AFTERNOON]: 'Afternoon (12PM - 6PM)',
+  [VISIT_TIME.EVENING]: 'Evening (6PM - 12AM)',
 } as const;
+
+export const VISIT_TIME_OPTIONS = [
+  { value: VISIT_TIME.MORNING, label: VISIT_TIME_LABELS[VISIT_TIME.MORNING] },
+  { value: VISIT_TIME.AFTERNOON, label: VISIT_TIME_LABELS[VISIT_TIME.AFTERNOON] },
+  { value: VISIT_TIME.EVENING, label: VISIT_TIME_LABELS[VISIT_TIME.EVENING] },
+] as const;
+
+// Amount Spent Ranges
+export const AMOUNT_SPENT_RANGES = [
+  { value: 2.5, label: 'Under $5' },
+  { value: 7.5, label: '$5 - $10' },
+  { value: 12.5, label: '$10 - $15' },
+  { value: 17.5, label: '$15 - $20' },
+  { value: 25, label: 'Over $20' },
+] as const;
 
 // Price Range
 export const PRICE_RANGE = {

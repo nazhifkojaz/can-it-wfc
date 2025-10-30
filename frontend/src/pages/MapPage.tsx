@@ -4,8 +4,7 @@ import MobileLayout from '../components/layout/MobileLayout';
 import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
-import AddVisitModal from '../components/visit/AddVisitModal';
-import ReviewForm from '../components/review/ReviewForm';
+import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
 import { Loading } from '../components/common';
 import { useGeolocation, useNearbyCafes } from '../hooks';
 import { Cafe } from '../types';
@@ -16,12 +15,8 @@ type ViewMode = 'map' | 'list';
 const MapPage: React.FC = () => {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('map');
-  const [showAddVisit, setShowAddVisit] = useState(false);
+  const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
-  const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
-  const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
   const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -56,41 +51,20 @@ const MapPage: React.FC = () => {
     if (selectedCafe) {
       setVisitCafe(selectedCafe); // Save cafe for visit modal
     }
-    setShowAddVisit(true);
+    setShowAddVisitReview(true);
     setSelectedCafe(null); // Close cafe detail sheet for clean modal transition
   };
 
-  const handleVisitSuccess = () => {
-    setShowAddVisit(false);
+  const handleVisitReviewSuccess = () => {
+    setShowAddVisitReview(false);
     setVisitCafe(undefined);
     setSelectedCafe(null);
 
-    // Refetch cafes to update markers with new visit count
+    // Refetch cafes to update markers with new visit count and review/rating
     // React Query will automatically update related queries
     refetchCafes();
 
     alert('✅ Visit logged successfully!');
-  };
-
-  const handleAddReview = (visitId: number, cafeId: number, cafeName: string) => {
-    setReviewVisitId(visitId);
-    setReviewCafeId(cafeId);
-    setReviewCafeName(cafeName);
-    setShowAddVisit(false);
-    setVisitCafe(undefined);
-    setShowReviewForm(true);
-  };
-
-  const handleReviewSuccess = () => {
-    setShowReviewForm(false);
-    setReviewVisitId(null);
-    setReviewCafeId(null);
-    setReviewCafeName('');
-
-    // Refetch cafes to update markers with new review/rating
-    refetchCafes();
-
-    alert('✅ Review submitted successfully!');
   };
 
   const toggleViewMode = () => {
@@ -176,29 +150,16 @@ const MapPage: React.FC = () => {
           />
         )}
 
-        {/* Add Visit Modal */}
-        <AddVisitModal
-          isOpen={showAddVisit}
+        {/* Add Visit + Review Modal (Combined) */}
+        <AddVisitReviewModal
+          isOpen={showAddVisitReview}
           onClose={() => {
-            setShowAddVisit(false);
+            setShowAddVisitReview(false);
             setVisitCafe(undefined); // Clear visit cafe on close
           }}
-          onSuccess={handleVisitSuccess}
-          onAddReview={handleAddReview}
+          onSuccess={handleVisitReviewSuccess}
           preselectedCafe={visitCafe}
         />
-
-        {/* Review Form Modal */}
-        {showReviewForm && reviewVisitId !== null && reviewCafeId !== null && (
-          <ReviewForm
-            visitId={reviewVisitId}
-            cafeId={reviewCafeId}
-            cafeName={reviewCafeName}
-            isOpen={showReviewForm}
-            onClose={() => setShowReviewForm(false)}
-            onSuccess={handleReviewSuccess}
-          />
-        )}
       </div>
     </MobileLayout>
   );

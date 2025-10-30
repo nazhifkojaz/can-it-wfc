@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { visitApi } from '../api/client';
-import { VisitCreate } from '../types';
+import { VisitCreate, CombinedVisitReviewCreate } from '../types';
 import { queryKeys } from '../config/queryKeys';
 
 export const useVisits = () => {
@@ -76,6 +76,55 @@ export const useVisits = () => {
     },
   });
 
+  const createWithReviewMutation = useMutation({
+    mutationFn: visitApi.createWithReview,
+    onMutate: async (newData) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.cafes });
+
+      const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
+
+      queryClient.setQueryData(queryKeys.visitsList(), (old: any) => {
+        if (!old) return old;
+
+        const optimisticVisit = {
+          id: Date.now(),
+          cafe_id: newData.cafe_id,
+          visit_date: newData.visit_date,
+          amount_spent: newData.amount_spent,
+          visit_time: newData.visit_time,
+          created_at: new Date().toISOString(),
+          has_review: newData.include_review,
+        };
+
+        return {
+          ...old,
+          pages: old.pages.map((page: any, index: number) => {
+            if (index === 0) {
+              return {
+                ...page,
+                results: [optimisticVisit, ...page.results],
+              };
+            }
+            return page;
+          }),
+        };
+      });
+
+      return { previousVisits };
+    },
+    onError: (_err, _newData, context) => {
+      if (context?.previousVisits) {
+        queryClient.setQueryData(queryKeys.visitsList(), context.previousVisits);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+    },
+  });
+
   const deleteVisitMutation = useMutation({
     mutationFn: visitApi.delete,
     onMutate: async (visitId) => {
@@ -108,8 +157,25 @@ export const useVisits = () => {
     },
   });
 
+  const updateVisitMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<VisitCreate> }) =>
+      visitApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
+    },
+  });
+
   const createVisit = async (data: VisitCreate) => {
     return await createVisitMutation.mutateAsync(data);
+  };
+
+  const createWithReview = async (data: CombinedVisitReviewCreate) => {
+    return await createWithReviewMutation.mutateAsync(data);
+  };
+
+  const updateVisit = async (id: number, data: Partial<VisitCreate>) => {
+    return await updateVisitMutation.mutateAsync({ id, data });
   };
 
   const deleteVisit = async (id: number) => {
@@ -125,6 +191,8 @@ export const useVisits = () => {
     hasNextPage,
     isFetchingNextPage,
     createVisit,
+    createWithReview,
+    updateVisit,
     deleteVisit,
   };
 };
