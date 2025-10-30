@@ -22,8 +22,8 @@ urlpatterns = [
     path('reviews/', ReviewListView.as_view(), name='review-list'),
     path('reviews/create/', ReviewCreateView.as_view(), name='review-create'),
     path('reviews/me/', MyReviewsView.as_view(), name='my-reviews'),
-    path('reviews/<uuid:pk>/', ReviewDetailView.as_view(), name='review-detail'),
-    path('reviews/<uuid:pk>/mark_helpful/', MarkReviewHelpfulView.as_view(), name='review-mark-helpful'),
+    path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
+    path('reviews/<int:pk>/mark_helpful/', MarkReviewHelpfulView.as_view(), name='review-mark-helpful'),
 
     # Cafe reviews
     path('cafes/<uuid:cafe_id>/reviews/', CafeReviewsView.as_view(), name='cafe-reviews'),

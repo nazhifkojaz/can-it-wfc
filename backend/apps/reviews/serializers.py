@@ -13,11 +13,11 @@ class VisitSerializer(serializers.ModelSerializer):
     has_review = serializers.SerializerMethodField()
 
     check_in_latitude = serializers.DecimalField(
-        max_digits=10, decimal_places=8, write_only=True, required=True,
+        max_digits=10, decimal_places=8, write_only=True, required=False,
         error_messages={'required': 'Check-in location is required to verify visit.'}
     )
     check_in_longitude = serializers.DecimalField(
-        max_digits=11, decimal_places=8, write_only=True, required=True,
+        max_digits=11, decimal_places=8, write_only=True, required=False,
         error_messages={'required': 'Check-in location is required to verify visit.'}
     )
 
@@ -61,6 +61,10 @@ class VisitSerializer(serializers.ModelSerializer):
         """Validate visit data and handle cafe creation if needed."""
         request = self.context.get('request')
         from apps.cafes.models import Cafe
+
+        # Skip most validation for updates (only allow amount_spent and visit_time)
+        if self.instance is not None:
+            return attrs
 
         if 'cafe_id' in attrs:
             try:
@@ -171,6 +175,28 @@ class VisitSerializer(serializers.ModelSerializer):
         cafe.update_stats()
 
         return visit
+
+    def update(self, instance, validated_data):
+        """Update visit within 7-day window."""
+        from datetime import date, timedelta
+
+        # Check 7-day window
+        days_since_visit = (date.today() - instance.visit_date).days
+        if days_since_visit > 7:
+            raise serializers.ValidationError({
+                'non_field_errors': [
+                    f'Cannot edit visit after 7 days. This visit was {days_since_visit} days ago.'
+                ]
+            })
+
+        # Only allow updating amount_spent and visit_time
+        allowed_fields = ['amount_spent', 'visit_time']
+        for field in allowed_fields:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+
+        instance.save()
+        return instance
 
 
 class ReviewListSerializer(serializers.ModelSerializer):
@@ -483,6 +509,7 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         from apps.cafes.models import Cafe
 
         # Validate that either cafe_id or google_place_id is provided
+        cafe = None
         if 'cafe_id' in data:
             # Scenario 1: Registered cafe
             try:
@@ -501,12 +528,27 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                         f'Missing required fields for new cafe: {", ".join(missing_fields)}'
                     ]
                 })
+            # Check if cafe already exists with this google_place_id
+            cafe = Cafe.objects.filter(google_place_id=data['google_place_id']).first()
         else:
             raise serializers.ValidationError({
                 'non_field_errors': [
                     'Either cafe_id or google_place_id must be provided.'
                 ]
             })
+
+        # Check for duplicate visit (same user, cafe, date)
+        if cafe and data.get('visit_date'):
+            user = self.context['request'].user
+            existing_visit = Visit.objects.filter(
+                user=user,
+                cafe=cafe,
+                visit_date=data['visit_date']
+            ).exists()
+            if existing_visit:
+                raise serializers.ValidationError({
+                    'visit_date': 'You have already logged a visit to this cafe on this date.'
+                })
 
         if data.get('include_review', False):
             if not data.get('wfc_rating'):
