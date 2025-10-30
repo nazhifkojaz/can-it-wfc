@@ -39,6 +39,8 @@ class VisitSerializer(serializers.ModelSerializer):
             'cafe_id',
             'user',
             'visit_date',
+            'amount_spent',
+            'visit_time',
             'check_in_latitude',
             'check_in_longitude',
             'has_review',
@@ -393,3 +395,199 @@ class ReviewFlagSerializer(serializers.ModelSerializer):
         validated_data['review'] = review
         validated_data['flagged_by'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class CombinedVisitReviewSerializer(serializers.Serializer):
+    """
+    Serializer for creating a visit with optional review in one request.
+    Simplified review form with 5 key criteria.
+    Supports both registered cafes (cafe_id) and unregistered cafes (google_place_id).
+    """
+    # Scenario 1: Existing registered cafe
+    cafe_id = serializers.IntegerField(required=False)
+
+    # Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
+    google_place_id = serializers.CharField(required=False)
+    cafe_name = serializers.CharField(required=False)
+    cafe_address = serializers.CharField(required=False)
+    cafe_latitude = serializers.DecimalField(
+        max_digits=10, decimal_places=8, required=False
+    )
+    cafe_longitude = serializers.DecimalField(
+        max_digits=11, decimal_places=8, required=False
+    )
+
+    visit_date = serializers.DateField()
+    amount_spent = serializers.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        required=False,
+        allow_null=True
+    )
+    visit_time = serializers.ChoiceField(
+        choices=Visit.VISIT_TIME_CHOICES,
+        required=False,
+        allow_null=True
+    )
+    check_in_latitude = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=8,
+        required=False,
+        allow_null=True
+    )
+    check_in_longitude = serializers.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        required=False,
+        allow_null=True
+    )
+
+    include_review = serializers.BooleanField(default=False)
+    wfc_rating = serializers.IntegerField(
+        min_value=1,
+        max_value=5,
+        required=False,
+        allow_null=True
+    )
+    wifi_quality = serializers.IntegerField(
+        min_value=1,
+        max_value=5,
+        required=False,
+        allow_null=True
+    )
+    power_outlets_rating = serializers.IntegerField(
+        min_value=1,
+        max_value=5,
+        required=False,
+        allow_null=True
+    )
+    seating_comfort = serializers.IntegerField(
+        min_value=1,
+        max_value=5,
+        required=False,
+        allow_null=True
+    )
+    noise_level = serializers.IntegerField(
+        min_value=1,
+        max_value=5,
+        required=False,
+        allow_null=True
+    )
+    comment = serializers.CharField(
+        max_length=160,
+        required=False,
+        allow_blank=True
+    )
+
+    def validate(self, data):
+        from apps.cafes.models import Cafe
+
+        # Validate that either cafe_id or google_place_id is provided
+        if 'cafe_id' in data:
+            # Scenario 1: Registered cafe
+            try:
+                cafe = Cafe.objects.get(id=data['cafe_id'], is_closed=False)
+            except Cafe.DoesNotExist:
+                raise serializers.ValidationError({
+                    'cafe_id': 'Cafe not found or is closed.'
+                })
+        elif 'google_place_id' in data:
+            # Scenario 2: Unregistered cafe - validate required fields
+            required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
+            missing_fields = [f for f in required_fields if f not in data]
+            if missing_fields:
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        f'Missing required fields for new cafe: {", ".join(missing_fields)}'
+                    ]
+                })
+        else:
+            raise serializers.ValidationError({
+                'non_field_errors': [
+                    'Either cafe_id or google_place_id must be provided.'
+                ]
+            })
+
+        if data.get('include_review', False):
+            if not data.get('wfc_rating'):
+                raise serializers.ValidationError({
+                    'wfc_rating': 'Overall WFC rating is required when adding a review.'
+                })
+        return data
+
+    def create(self, validated_data):
+        from apps.cafes.models import Cafe
+        from apps.cafes.services import GooglePlacesService
+
+        request = self.context['request']
+        user = request.user
+        include_review = validated_data.pop('include_review', False)
+
+        review_fields = [
+            'wfc_rating', 'wifi_quality', 'power_outlets_rating',
+            'seating_comfort', 'noise_level', 'comment'
+        ]
+        review_data = {}
+        for field in review_fields:
+            if field in validated_data:
+                review_data[field] = validated_data.pop(field)
+
+        # Handle cafe - either get existing or create new
+        if 'cafe_id' in validated_data:
+            cafe = Cafe.objects.get(id=validated_data.pop('cafe_id'))
+        else:
+            # Create cafe from Google Places data
+            google_place_id = validated_data.pop('google_place_id')
+
+            # Check if cafe already exists
+            existing_cafe = Cafe.objects.filter(google_place_id=google_place_id).first()
+            if existing_cafe:
+                cafe = existing_cafe
+            else:
+                # Fetch Google Places details for additional data
+                place_details = GooglePlacesService.get_place_details(google_place_id)
+
+                cafe = Cafe.objects.create(
+                    name=validated_data.pop('cafe_name'),
+                    address=validated_data.pop('cafe_address'),
+                    latitude=validated_data.pop('cafe_latitude'),
+                    longitude=validated_data.pop('cafe_longitude'),
+                    google_place_id=google_place_id,
+                    price_range=place_details.get('price_level') if place_details else None,
+                    created_by=user,
+                    is_verified=False
+                )
+
+        validated_data['cafe'] = cafe
+        validated_data['user'] = user
+
+        visit = Visit.objects.create(**validated_data)
+
+        review = None
+        if include_review and review_data.get('wfc_rating'):
+            review_data['visit_time'] = validated_data.get('visit_time')
+
+            wfc_rating = review_data['wfc_rating']
+            review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
+            review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
+            review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
+            review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
+            review_data.setdefault('space_availability', wfc_rating)
+            review_data.setdefault('coffee_quality', wfc_rating)
+            review_data.setdefault('menu_options', wfc_rating)
+            review_data.setdefault('bathroom_quality', wfc_rating)
+
+            review = Review.objects.create(
+                visit=visit,
+                user=user,
+                cafe=cafe,
+                **review_data
+            )
+
+            cafe.update_stats()
+            user.update_stats()
+
+        return {
+            'visit': visit,
+            'review': review
+        }

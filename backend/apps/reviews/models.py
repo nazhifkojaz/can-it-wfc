@@ -23,7 +23,30 @@ class Visit(models.Model):
         default=timezone.now,
         help_text="Date of the visit"
     )
-    
+
+    # Amount spent (new field)
+    amount_spent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount spent in USD"
+    )
+
+    # Visit time (new field)
+    VISIT_TIME_CHOICES = [
+        (1, 'Morning (6AM - 12PM)'),
+        (2, 'Afternoon (12PM - 6PM)'),
+        (3, 'Evening (6PM - 12AM)'),
+    ]
+    visit_time = models.IntegerField(
+        choices=VISIT_TIME_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(3)],
+        null=True,
+        blank=True,
+        help_text="Time of day visited (1=Morning, 2=Afternoon, 3=Evening)"
+    )
+
     # Optional: Location verification (check-in)
     check_in_latitude = models.DecimalField(
         max_digits=10,
@@ -39,7 +62,7 @@ class Visit(models.Model):
         blank=True,
         help_text="Longitude when checking in (for verification)"
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

@@ -9,7 +9,8 @@ from .serializers import (
     ReviewDetailSerializer,
     ReviewCreateSerializer,
     ReviewUpdateSerializer,
-    ReviewFlagSerializer
+    ReviewFlagSerializer,
+    CombinedVisitReviewSerializer
 )
 from core.permissions import IsOwnerOrReadOnly
 from django_ratelimit.decorators import ratelimit
@@ -34,18 +35,65 @@ class VisitListCreateView(generics.ListCreateAPIView):
         return Visit.objects.filter(user=self.request.user)
 
 
-class VisitDetailView(generics.RetrieveDestroyAPIView):
+class VisitDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    Retrieve or delete a visit.
-    
+    Retrieve, update or delete a visit.
+
     GET /api/visits/{id}/
+    PATCH /api/visits/{id}/
     DELETE /api/visits/{id}/
     """
     serializer_class = VisitSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         return Visit.objects.filter(user=self.request.user)
+
+
+class CombinedVisitReviewCreateView(generics.CreateAPIView):
+    """
+    Create a visit with optional review in one request.
+
+    POST /api/visits/create-with-review/
+
+    Body:
+    {
+        "cafe_id": 123,
+        "visit_date": "2025-10-30",
+        "amount_spent": 12.50,
+        "visit_time": 2,
+        "include_review": true,
+        "wfc_rating": 5,
+        "wifi_quality": 5,
+        "power_outlets_rating": 4,
+        "seating_comfort": 5,
+        "noise_level": 3,
+        "comment": "Great cafe for WFC!"
+    }
+
+    Returns:
+    {
+        "visit": { ... visit object ... },
+        "review": { ... review object ... } or null,
+        "message": "Visit and review created successfully!"
+    }
+    """
+    serializer_class = CombinedVisitReviewSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+
+        visit_serializer = VisitSerializer(result['visit'], context={'request': request})
+        review_serializer = ReviewDetailSerializer(result['review'], context={'request': request}) if result['review'] else None
+
+        return Response({
+            'visit': visit_serializer.data,
+            'review': review_serializer.data if review_serializer else None,
+            'message': 'Visit and review created successfully!' if result['review'] else 'Visit created successfully!'
+        }, status=status.HTTP_201_CREATED)
 
 
 class ReviewListView(generics.ListAPIView):

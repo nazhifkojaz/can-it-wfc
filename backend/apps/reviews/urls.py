@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     VisitListCreateView,
     VisitDetailView,
+    CombinedVisitReviewCreateView,
     ReviewListView,
     ReviewCreateView,
     ReviewDetailView,
@@ -15,6 +16,7 @@ urlpatterns = [
     # Visits
     path('visits/', VisitListCreateView.as_view(), name='visit-list-create'),
     path('visits/<int:pk>/', VisitDetailView.as_view(), name='visit-detail'),
+    path('visits/create-with-review/', CombinedVisitReviewCreateView.as_view(), name='visit-create-with-review'),
 
     # Reviews
     path('reviews/', ReviewListView.as_view(), name='review-list'),
