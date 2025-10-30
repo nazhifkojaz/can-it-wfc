@@ -40,11 +40,6 @@ export const useNearbyCafes = ({
         limit: 100,
       });
 
-      console.log(
-        `Loaded ${response.registered_count} registered + ` +
-        `${response.unregistered_count} unregistered cafes at (${roundedLat}, ${roundedLng})`
-      );
-
       return response;
     },
     enabled: enabled && !!latitude && !!longitude,
