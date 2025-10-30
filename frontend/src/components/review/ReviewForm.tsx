@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wifi, Zap, Volume2, Armchair, Coffee, DollarSign } from 'lucide-react';
+import { Wifi, Zap, Volume2, Armchair, Star } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
 import { Modal } from '../common';
 import { useReviews } from '../../hooks';
@@ -74,16 +74,17 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
     try {
       if (isEditMode && existingReview) {
-        // Update existing review
+        // Update existing review - default missing criteria to wfc_rating
         const updateData: ReviewUpdate = {
           wifi_quality: formData.wifi_quality,
           power_outlets_rating: formData.power_outlets_rating,
           noise_level: formData.noise_level,
           seating_comfort: formData.seating_comfort,
-          space_availability: formData.space_availability,
-          coffee_quality: formData.coffee_quality,
-          menu_options: formData.menu_options,
-          bathroom_quality: formData.bathroom_quality,
+          // Default these to wfc_rating for consistency
+          space_availability: formData.space_availability || formData.wfc_rating,
+          coffee_quality: formData.coffee_quality || formData.wfc_rating,
+          menu_options: formData.menu_options || formData.wfc_rating,
+          bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
           wfc_rating: formData.wfc_rating,
           visit_time: formData.visit_time,
           comment: formData.comment,
@@ -91,8 +92,15 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         await reviewApi.update(existingReview.id, updateData);
         alert('✅ Review updated successfully!');
       } else {
-        // Create new review
-        await createReview(formData);
+        // Create new review - default missing criteria to wfc_rating
+        const reviewData: ReviewCreate = {
+          ...formData,
+          space_availability: formData.space_availability || formData.wfc_rating,
+          coffee_quality: formData.coffee_quality || formData.wfc_rating,
+          menu_options: formData.menu_options || formData.wfc_rating,
+          bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
+        };
+        await createReview(reviewData);
         alert('✅ Review submitted successfully!');
       }
       onSuccess();
@@ -105,6 +113,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     }
   };
 
+  // Simplified 5-criteria review (matching AddVisitReviewModal)
   const ratingCategories = [
     {
       field: 'wifi_quality' as keyof ReviewCreate,
@@ -119,28 +128,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       description: 'Availability and access',
     },
     {
+      field: 'seating_comfort' as keyof ReviewCreate,
+      label: 'Seat/Desk Comfort',
+      icon: <Armchair size={20} />,
+      description: 'Comfort for long work sessions',
+    },
+    {
       field: 'noise_level' as keyof ReviewCreate,
       label: 'Noise Level',
       icon: <Volume2 size={20} />,
       description: 'Quieter is better for WFC',
-    },
-    {
-      field: 'seating_comfort' as keyof ReviewCreate,
-      label: 'Seating Comfort',
-      icon: <Armchair size={20} />,
-      description: 'Comfort for long sessions',
-    },
-    {
-      field: 'coffee_quality' as keyof ReviewCreate,
-      label: 'Coffee Quality',
-      icon: <Coffee size={20} />,
-      description: 'Taste and variety',
-    },
-    {
-      field: 'menu_options' as keyof ReviewCreate,
-      label: 'Menu Options',
-      icon: <DollarSign size={20} />,
-      description: 'Food and drink variety',
     },
   ];
 
@@ -184,9 +181,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       <form onSubmit={handleSubmit} className={styles.formBody}>
         {/* WFC Rating Categories */}
         <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>WFC Ratings</h3>
+          <h3 className={styles.sectionTitle}>Key WFC Criteria</h3>
           <p className={styles.sectionDescription}>
-            Rate each aspect from {REVIEW_CONFIG.RATING_MIN} (poor) to {REVIEW_CONFIG.RATING_MAX} (excellent)
+            Rate the most important aspects for working from this cafe
           </p>
 
           <div className={styles.ratingCategories}>

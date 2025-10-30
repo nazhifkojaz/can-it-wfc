@@ -393,3 +393,213 @@
   justify-content: center;
   align-items: center;
 }
+
+/* Visit Details - Amount Spent & Visit Time */
+.visit-details {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.detail-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ede9fe;
+  color: var(--primary);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Edit Visit Button */
+.edit-visit-button {
+  width: 100%;
+  padding: 12px;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  border: 2px solid var(--gray-200);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.edit-visit-button:hover {
+  background: white;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Edit Visit Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.edit-visit-modal {
+  background: white;
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.edit-visit-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.edit-visit-modal .modal-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.edit-visit-modal .close-button {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: var(--gray-400);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.edit-visit-modal .close-button:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.edit-visit-modal .modal-body {
+  padding: 20px;
+}
+
+.edit-cafe-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 8px 0;
+}
+
+.edit-visit-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 0 0 24px 0;
+}
+
+.edit-visit-modal .form-group {
+  margin-bottom: 20px;
+}
+
+.edit-visit-modal .form-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.edit-visit-modal .form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  font-size: 15px;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.edit-visit-modal .form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.deadline-info {
+  background: #fef3c7;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.deadline-info p {
+  font-size: 13px;
+  color: #92400e;
+  margin: 0;
+  font-weight: 500;
+}
+
+.edit-visit-modal .modal-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.edit-visit-modal .cancel-button {
+  flex: 1;
+  padding: 12px 20px;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-visit-modal .cancel-button:hover {
+  background: var(--gray-200);
+}
+
+.edit-visit-modal .save-button {
+  flex: 1;
+  padding: 12px 20px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-visit-modal .save-button:hover {
+  background: var(--primary-dark);
+}

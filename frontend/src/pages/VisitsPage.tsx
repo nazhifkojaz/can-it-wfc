@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, Eye } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, Eye, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MobileLayout from '../components/layout/MobileLayout';
@@ -8,7 +8,7 @@ import { Loading, EmptyState } from '../components/common';
 import { useVisits } from '../hooks';
 import { reviewApi } from '../api/client';
 import { formatDate, formatRating } from '../utils';
-import { REVIEW_CONFIG } from '../config/constants';
+import { REVIEW_CONFIG, VISIT_TIME_LABELS, AMOUNT_SPENT_RANGES } from '../config/constants';
 import { Visit, Review } from '../types';
 import { differenceInDays, format } from 'date-fns';
 import './VisitsPage.css';
@@ -19,6 +19,7 @@ const VisitsPage: React.FC = () => {
     visits,
     loading,
     deleteVisit,
+    updateVisit,
     refetch,
     fetchNextPage,
     hasNextPage,
@@ -30,6 +31,12 @@ const VisitsPage: React.FC = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   const [deletingVisitId, setDeletingVisitId] = useState<number | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
+
+  // Edit visit state
+  const [showEditVisit, setShowEditVisit] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
+  const [editAmountSpent, setEditAmountSpent] = useState<number | null>(null);
+  const [editVisitTime, setEditVisitTime] = useState<number | null>(null);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -54,11 +61,32 @@ const VisitsPage: React.FC = () => {
     return visit.has_review && daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
   };
 
+  const canEditVisit = (visit: Visit): boolean => {
+    const visitDate = new Date(visit.visit_date);
+    const daysSince = differenceInDays(new Date(), visitDate);
+    return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
+  };
+
   const getDaysRemaining = (visit: Visit): number => {
     const visitDate = new Date(visit.visit_date);
     const deadline = new Date(visitDate);
     deadline.setDate(deadline.getDate() + REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT);
     return Math.max(0, differenceInDays(deadline, new Date()));
+  };
+
+  const getAmountSpentLabel = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return 'Not specified';
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numValue)) return 'Not specified';
+    const range = AMOUNT_SPENT_RANGES.find(r => r.value === numValue);
+    return range ? range.label : `$${numValue.toFixed(2)}`;
+  };
+
+  const getVisitTimeLabel = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return 'Not specified';
+    const numValue = typeof value === 'string' ? parseInt(value) : value;
+    if (isNaN(numValue) || ![1, 2, 3].includes(numValue)) return 'Not specified';
+    return VISIT_TIME_LABELS[numValue as 1 | 2 | 3] || 'Not specified';
   };
 
   const handleAddReview = (visit: Visit) => {
@@ -125,6 +153,32 @@ const VisitsPage: React.FC = () => {
     setIsViewMode(false);
     // Refetch visits to update the UI with new review status
     refetch();
+  };
+
+  const handleEditVisit = (visit: Visit) => {
+    setEditingVisit(visit);
+    setEditAmountSpent(visit.amount_spent || null);
+    setEditVisitTime(visit.visit_time || null);
+    setShowEditVisit(true);
+  };
+
+  const handleSaveVisitEdit = async () => {
+    if (!editingVisit) return;
+
+    try {
+      await updateVisit(editingVisit.id, {
+        amount_spent: editAmountSpent,
+        visit_time: editVisitTime,
+      });
+      alert('✅ Visit updated successfully!');
+      setShowEditVisit(false);
+      setEditingVisit(null);
+      refetch();
+    } catch (error: any) {
+      console.error('Error updating visit:', error);
+      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to update visit';
+      alert(`❌ ${errorMsg}`);
+    }
   };
 
   const handleDeleteVisit = async (visitId: number, e: React.MouseEvent) => {
@@ -255,6 +309,24 @@ const VisitsPage: React.FC = () => {
                       {visit.cafe.address}
                     </p>
 
+                    {/* Visit Details */}
+                    {(visit.amount_spent || visit.visit_time) && (
+                      <div className="visit-details">
+                        {visit.amount_spent && (
+                          <span className="detail-badge">
+                            <DollarSign size={14} />
+                            {getAmountSpentLabel(visit.amount_spent)}
+                          </span>
+                        )}
+                        {visit.visit_time && (
+                          <span className="detail-badge">
+                            <Clock size={14} />
+                            {getVisitTimeLabel(visit.visit_time)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Visit Stats */}
                     <div className="visit-stats">
                       {visit.cafe.average_wfc_rating && (
@@ -266,6 +338,17 @@ const VisitsPage: React.FC = () => {
                         📍 {visit.cafe.total_visits} visits
                       </span>
                     </div>
+
+                    {/* Edit Visit Button (within 7 days) */}
+                    {canEditVisit(visit) && (
+                      <button
+                        className="edit-visit-button"
+                        onClick={() => handleEditVisit(visit)}
+                      >
+                        <Edit size={16} />
+                        Edit Visit Details
+                      </button>
+                    )}
 
                     {/* Review Status */}
                     {canEditReview(visit) ? (
@@ -354,6 +437,87 @@ const VisitsPage: React.FC = () => {
             }}
             onSuccess={handleReviewSuccess}
           />
+        )}
+
+        {/* Edit Visit Modal */}
+        {showEditVisit && editingVisit && (
+          <div className="modal-overlay" onClick={() => setShowEditVisit(false)}>
+            <div className="edit-visit-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Edit Visit Details</h2>
+                <button className="close-button" onClick={() => setShowEditVisit(false)}>
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <p className="edit-cafe-name">{editingVisit.cafe.name}</p>
+                <p className="edit-visit-date">
+                  <Clock size={14} />
+                  {formatDate(editingVisit.visit_date)}
+                </p>
+
+                <div className="form-group">
+                  <label htmlFor="edit-amount-spent">
+                    <DollarSign size={16} />
+                    Amount Spent
+                  </label>
+                  <select
+                    id="edit-amount-spent"
+                    value={editAmountSpent || ''}
+                    onChange={(e) => setEditAmountSpent(e.target.value ? parseFloat(e.target.value) : null)}
+                  >
+                    <option value="">Not specified</option>
+                    {AMOUNT_SPENT_RANGES.map((range) => (
+                      <option key={range.value} value={range.value}>
+                        {range.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-visit-time">
+                    <Clock size={16} />
+                    Visit Time
+                  </label>
+                  <select
+                    id="edit-visit-time"
+                    value={editVisitTime || ''}
+                    onChange={(e) => setEditVisitTime(e.target.value ? parseInt(e.target.value) : null)}
+                  >
+                    <option value="">Not specified</option>
+                    {Object.entries(VISIT_TIME_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="deadline-info">
+                  <p>
+                    {getDaysRemaining(editingVisit)} {getDaysRemaining(editingVisit) === 1 ? 'day' : 'days'} left to edit
+                  </p>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  className="cancel-button"
+                  onClick={() => setShowEditVisit(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="save-button"
+                  onClick={handleSaveVisitEdit}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </MobileLayout>
