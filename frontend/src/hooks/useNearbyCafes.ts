@@ -4,10 +4,12 @@ import { Cafe } from '../types';
 import { queryKeys } from '../config/queryKeys';
 
 interface UseNearbyCafesParams {
-  latitude: number;
-  longitude: number;
+  latitude: number;       // Search center latitude
+  longitude: number;      // Search center longitude
   radius_km?: number;
   enabled?: boolean;
+  userLatitude?: number;  // User's actual location (for distance calculation)
+  userLongitude?: number; // User's actual location (for distance calculation)
 }
 
 interface NearbyCafesResponse {
@@ -21,9 +23,13 @@ export const useNearbyCafes = ({
   longitude,
   radius_km = 1,
   enabled = true,
+  userLatitude,
+  userLongitude,
 }: UseNearbyCafesParams) => {
   const roundedLat = Number(latitude.toFixed(8));
   const roundedLng = Number(longitude.toFixed(8));
+  const roundedUserLat = userLatitude ? Number(userLatitude.toFixed(8)) : undefined;
+  const roundedUserLng = userLongitude ? Number(userLongitude.toFixed(8)) : undefined;
 
   const {
     data,
@@ -38,6 +44,8 @@ export const useNearbyCafes = ({
         longitude: roundedLng,
         radius_km,
         limit: 100,
+        user_latitude: roundedUserLat,
+        user_longitude: roundedUserLng,
       });
 
       return response;

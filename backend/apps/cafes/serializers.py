@@ -144,9 +144,16 @@ class CafeUpdateSerializer(serializers.ModelSerializer):
 
 class NearbyQuerySerializer(serializers.Serializer):
     """Serializer for nearby cafes query parameters."""
-    
+
+    # Search center coordinates (required)
     latitude = serializers.DecimalField(max_digits=10, decimal_places=8, required=True)
     longitude = serializers.DecimalField(max_digits=11, decimal_places=8, required=True)
+
+    # User's actual location for distance calculation (optional)
+    # If not provided, distance will be calculated from search center
+    user_latitude = serializers.DecimalField(max_digits=10, decimal_places=8, required=False)
+    user_longitude = serializers.DecimalField(max_digits=11, decimal_places=8, required=False)
+
     radius_km = serializers.DecimalField(max_digits=5, decimal_places=2, default=Decimal('1.0'))
     limit = serializers.IntegerField(default=50, min_value=1, max_value=100)
 

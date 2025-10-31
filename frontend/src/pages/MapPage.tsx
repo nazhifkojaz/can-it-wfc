@@ -33,6 +33,9 @@ const MapPage: React.FC = () => {
     latitude: searchCenter?.lat || 0,
     longitude: searchCenter?.lng || 0,
     enabled: !!searchCenter,
+    // Pass user's actual location for distance calculation
+    userLatitude: location?.lat,
+    userLongitude: location?.lng,
   });
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {

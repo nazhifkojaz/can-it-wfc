@@ -90,10 +90,12 @@ export interface CafeUpdate {
 }
 
 export interface NearbyCafesParams {
-  latitude: number;
-  longitude: number;
+  latitude: number;       // Search center latitude
+  longitude: number;      // Search center longitude
   radius_km?: number;
   limit?: number;
+  user_latitude?: number;  // User's actual location (for distance calculation)
+  user_longitude?: number; // User's actual location (for distance calculation)
 }
 
 // ===========================

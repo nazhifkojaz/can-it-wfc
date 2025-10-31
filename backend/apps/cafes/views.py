@@ -193,6 +193,14 @@ class MergedNearbyCafesView(APIView):
         radius_km = float(serializer.validated_data.get('radius_km', 1))
         limit = serializer.validated_data.get('limit', 100)
 
+        # Get user's actual location for distance calculation (if provided)
+        user_latitude = serializer.validated_data.get('user_latitude')
+        user_longitude = serializer.validated_data.get('user_longitude')
+
+        # Use user location for distance if available, otherwise use search center
+        distance_ref_lat = float(user_latitude) if user_latitude else float(latitude)
+        distance_ref_lng = float(user_longitude) if user_longitude else float(longitude)
+
         # 1. Get registered cafes from database (using optimized method)
         db_cafes = Cafe.nearby_optimized(
             latitude=latitude,
@@ -208,12 +216,23 @@ class MergedNearbyCafesView(APIView):
             context={'request': request}
         ).data
 
-        # Mark as registered and format distance
-        for cafe in db_cafes_data:
+        # Mark as registered and recalculate distance to user (if user location provided)
+        for i, cafe in enumerate(db_cafes_data):
             cafe['is_registered'] = True
             cafe['source'] = 'database'
-            # Format distance to match frontend expectations (string with " km")
-            if cafe.get('distance') is not None:
+
+            # Recalculate distance to user location (if different from search center)
+            if user_latitude and user_longitude:
+                db_cafe_obj = db_cafes[i]
+                distance_to_user = Cafe.calculate_distance(
+                    float(db_cafe_obj.latitude),
+                    float(db_cafe_obj.longitude),
+                    distance_ref_lat,
+                    distance_ref_lng
+                )
+                cafe['distance'] = f"{distance_to_user:.2f} km"
+            elif cafe.get('distance') is not None:
+                # Format existing distance (from search center)
                 cafe['distance'] = f"{float(cafe['distance']):.2f} km"
 
         # 2. Get coffee shops from Google Places (non-blocking)
@@ -260,12 +279,12 @@ class MergedNearbyCafesView(APIView):
                         break
 
             if not is_duplicate:
-                # Calculate distance to user location
+                # Calculate distance to user location (or search center if user location not provided)
                 distance_km = Cafe.calculate_distance(
                     float(place['latitude']),
                     float(place['longitude']),
-                    latitude,
-                    longitude
+                    distance_ref_lat,
+                    distance_ref_lng
                 )
 
                 # Format to match our Cafe interface
