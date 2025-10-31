@@ -14,6 +14,7 @@ class CafeListSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text="Distance in kilometers (only in nearby queries)"
     )
+    average_ratings = serializers.SerializerMethodField()
 
     class Meta:
         model = Cafe
@@ -33,13 +34,51 @@ class CafeListSerializer(serializers.ModelSerializer):
             'is_verified',
             'created_at',
             'updated_at',
-            'distance'
+            'distance',
+            'average_ratings'
         ]
+
+    def get_average_ratings(self, obj):
+        """
+        Calculate average ratings for each WFC criterion.
+        Returns None if cafe has no reviews.
+        Optimized version for list views.
+        """
+        # Only calculate for registered cafes with reviews
+        if not obj.is_closed and obj.total_reviews > 0:
+            from apps.reviews.models import Review
+            from django.db.models import Avg
+
+            # Get non-hidden reviews for this cafe
+            reviews = Review.objects.filter(cafe=obj, is_hidden=False)
+
+            if not reviews.exists():
+                return None
+
+            # Calculate averages for each criterion
+            aggregates = reviews.aggregate(
+                wifi_quality=Avg('wifi_quality'),
+                power_outlets_rating=Avg('power_outlets_rating'),
+                seating_comfort=Avg('seating_comfort'),
+                noise_level=Avg('noise_level'),
+                wfc_rating=Avg('wfc_rating'),
+            )
+
+            # Round to 1 decimal place and handle None values
+            return {
+                'wifi_quality': round(aggregates['wifi_quality'], 1) if aggregates['wifi_quality'] else 0,
+                'power_outlets_rating': round(aggregates['power_outlets_rating'], 1) if aggregates['power_outlets_rating'] else 0,
+                'seating_comfort': round(aggregates['seating_comfort'], 1) if aggregates['seating_comfort'] else 0,
+                'noise_level': round(aggregates['noise_level'], 1) if aggregates['noise_level'] else 0,
+                'wfc_rating': round(aggregates['wfc_rating'], 1) if aggregates['wfc_rating'] else 0,
+            }
+
+        return None
 
 
 class CafeDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for cafe detail view."""
-    
+
     created_by = UserSerializer(read_only=True)
     distance = serializers.DecimalField(
         max_digits=8,
@@ -48,7 +87,8 @@ class CafeDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
     is_favorited = serializers.SerializerMethodField()
-    
+    average_ratings = serializers.SerializerMethodField()
+
     class Meta:
         model = Cafe
         fields = [
@@ -69,7 +109,8 @@ class CafeDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'distance',
-            'is_favorited'
+            'is_favorited',
+            'average_ratings'
         ]
         read_only_fields = [
             'id',
@@ -81,13 +122,49 @@ class CafeDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
-    
+
     def get_is_favorited(self, obj):
         """Check if current user has favorited this cafe."""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return Favorite.objects.filter(user=request.user, cafe=obj).exists()
         return False
+
+    def get_average_ratings(self, obj):
+        """
+        Calculate average ratings for each WFC criterion.
+        Returns None if cafe has no reviews.
+        """
+        # Only calculate for registered cafes with reviews
+        if not obj.is_closed and obj.total_reviews > 0:
+            from apps.reviews.models import Review
+            from django.db.models import Avg
+
+            # Get non-hidden reviews for this cafe
+            reviews = Review.objects.filter(cafe=obj, is_hidden=False)
+
+            if not reviews.exists():
+                return None
+
+            # Calculate averages for each criterion
+            aggregates = reviews.aggregate(
+                wifi_quality=Avg('wifi_quality'),
+                power_outlets_rating=Avg('power_outlets_rating'),
+                seating_comfort=Avg('seating_comfort'),
+                noise_level=Avg('noise_level'),
+                wfc_rating=Avg('wfc_rating'),
+            )
+
+            # Round to 1 decimal place and handle None values
+            return {
+                'wifi_quality': round(aggregates['wifi_quality'], 1) if aggregates['wifi_quality'] else 0,
+                'power_outlets_rating': round(aggregates['power_outlets_rating'], 1) if aggregates['power_outlets_rating'] else 0,
+                'seating_comfort': round(aggregates['seating_comfort'], 1) if aggregates['seating_comfort'] else 0,
+                'noise_level': round(aggregates['noise_level'], 1) if aggregates['noise_level'] else 0,
+                'wfc_rating': round(aggregates['wfc_rating'], 1) if aggregates['wfc_rating'] else 0,
+            }
+
+        return None
 
 
 class CafeCreateSerializer(serializers.ModelSerializer):
