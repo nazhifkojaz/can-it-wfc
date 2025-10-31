@@ -136,24 +136,54 @@ class ReviewCreateView(generics.CreateAPIView):
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update or delete a review.
-    
+
     GET /api/reviews/{id}/
     PUT /api/reviews/{id}/
     PATCH /api/reviews/{id}/
     DELETE /api/reviews/{id}/
+
+    Rules:
+    - UPDATE: Only allowed within 7 days of visit date
+    - DELETE: Allowed at any time (no time restrictions)
     """
     queryset = Review.objects.filter(is_hidden=False)
     permission_classes = [IsOwnerOrReadOnly]
-    
+
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
             return ReviewUpdateSerializer
         return ReviewDetailSerializer
-    
+
     def perform_update(self, serializer):
-        """Update review and refresh cafe stats."""
+        """
+        Update review and refresh cafe stats.
+        Only allowed within 7 days of visit date.
+        """
+        from datetime import timedelta
+        from django.utils import timezone
+
+        review = self.get_object()
+        visit_date = review.visit.visit_date
+        days_since_visit = (timezone.now().date() - visit_date).days
+
+        if days_since_visit > 7:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(
+                "Reviews can only be edited within 7 days of the visit date. "
+                f"This visit was {days_since_visit} days ago."
+            )
+
         review = serializer.save()
         review.cafe.update_stats()
+
+    def perform_destroy(self, instance):
+        """
+        Delete review (hard delete).
+        Allowed at any time (no time restrictions).
+        Stats are updated automatically via signals.
+        """
+        # Hard delete (stats updated via signals)
+        instance.delete()
 
 
 class MyReviewsView(generics.ListAPIView):
