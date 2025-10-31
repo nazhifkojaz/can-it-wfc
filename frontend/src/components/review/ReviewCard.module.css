@@ -73,6 +73,14 @@
   font-weight: 500;
 }
 
+/* Header Actions (Star Rating + Delete Button) */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 /* Star Rating Display */
 .starRating {
   display: flex;
@@ -85,6 +93,41 @@
   font-size: 16px;
   font-weight: 700;
   margin-left: 4px;
+}
+
+/* Delete Button */
+.deleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #DC2626;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deleteButton:hover:not(.disabled) {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.deleteButton:active:not(.disabled) {
+  transform: scale(0.95);
+}
+
+.deleteButton.disabled {
+  color: #D1D5DB;
+  cursor: not-allowed;
+}
+
+.deleteButton.disabled:hover {
+  background: #F3F4F6;
+  color: #9CA3AF;
 }
 
 /* Review Comment */

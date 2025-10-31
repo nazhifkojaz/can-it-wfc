@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MobileLayout from '../components/layout/MobileLayout';
 import ReviewForm from '../components/review/ReviewForm';
-import { Loading, EmptyState } from '../components/common';
+import { Loading, EmptyState, ConfirmDialog } from '../components/common';
 import { useVisits } from '../hooks';
 import { reviewApi } from '../api/client';
 import { formatDate, formatRating } from '../utils';
@@ -29,7 +29,6 @@ const VisitsPage: React.FC = () => {
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  const [deletingVisitId, setDeletingVisitId] = useState<number | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
 
   // Edit visit state
@@ -37,6 +36,11 @@ const VisitsPage: React.FC = () => {
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [editAmountSpent, setEditAmountSpent] = useState<number | null>(null);
   const [editVisitTime, setEditVisitTime] = useState<number | null>(null);
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -181,27 +185,35 @@ const VisitsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteVisit = async (visitId: number, e: React.MouseEvent) => {
+  const handleDeleteClick = (visit: Visit, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering other click handlers
+    setVisitToDelete(visit);
+    setShowDeleteConfirm(true);
+  };
 
-    if (!window.confirm('Are you sure you want to delete this visit? This action cannot be undone.')) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!visitToDelete) return;
 
-    setDeletingVisitId(visitId);
+    setIsDeleting(true);
 
     try {
-      await deleteVisit(visitId);
-      alert('✅ Visit deleted successfully!');
+      await deleteVisit(visitToDelete.id);
+      setShowDeleteConfirm(false);
+      setVisitToDelete(null);
       // Refetch to update the list
       refetch();
     } catch (error: any) {
       console.error('Error deleting visit:', error);
-      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to delete visit';
+      const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to delete visit';
       alert(`❌ ${errorMsg}`);
     } finally {
-      setDeletingVisitId(null);
+      setIsDeleting(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setVisitToDelete(null);
   };
 
   const groupVisitsByDate = (visits: Visit[]) => {
@@ -292,15 +304,10 @@ const VisitsPage: React.FC = () => {
                       </div>
                       <button
                         className="delete-button"
-                        onClick={(e) => handleDeleteVisit(visit.id, e)}
-                        disabled={deletingVisitId === visit.id}
+                        onClick={(e) => handleDeleteClick(visit, e)}
                         aria-label="Delete visit"
                       >
-                        {deletingVisitId === visit.id ? (
-                          <div className="delete-spinner" />
-                        ) : (
-                          <Trash2 size={18} />
-                        )}
+                        <Trash2 size={18} />
                       </button>
                     </div>
 
@@ -518,6 +525,25 @@ const VisitsPage: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {visitToDelete && (
+          <ConfirmDialog
+            isOpen={showDeleteConfirm}
+            title="Delete Visit?"
+            message={
+              visitToDelete.has_review
+                ? `Are you sure you want to delete your visit to ${visitToDelete.cafe.name}? This will also permanently delete your review. This action cannot be undone.`
+                : `Are you sure you want to delete your visit to ${visitToDelete.cafe.name}? This action cannot be undone.`
+            }
+            confirmText="Delete"
+            cancelText="Cancel"
+            onConfirm={handleConfirmDelete}
+            onCancel={handleCancelDelete}
+            variant="danger"
+            isLoading={isDeleting}
+          />
         )}
       </div>
     </MobileLayout>

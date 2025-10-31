@@ -1,17 +1,46 @@
-import React from 'react';
-import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2 } from 'lucide-react';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
+import { ConfirmDialog } from '../common';
 import styles from './ReviewCard.module.css';
 
 interface ReviewCardProps {
   review: Review;
+  currentUserId?: number;
+  onDelete?: (reviewId: number) => Promise<void>;
 }
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
+const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete }) => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const displayName = review.user?.display_name || review.user?.username || 'Anonymous';
   const averageRating = review.average_rating || 0;
   const ratingColor = getRatingColor(averageRating);
+
+  // Check if this is the current user's review
+  const isOwnReview = currentUserId && review.user?.id === currentUserId;
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(review.id);
+      setShowDeleteConfirm(false);
+    } catch (error: any) {
+      // Error is handled by the parent component/hook
+      console.error('Failed to delete review:', error);
+      alert(`❌ Failed to delete review: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className={styles.reviewCard}>
@@ -42,19 +71,33 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
           </div>
         </div>
 
-        {/* Star rating display */}
-        <div className={styles.starRating}>
-          {[...Array(5)].map((_, i) => (
-            <Star
-              key={i}
-              size={16}
-              fill={i < Math.round(averageRating) ? '#FBBC04' : 'none'}
-              color={i < Math.round(averageRating) ? '#FBBC04' : '#D1D5DB'}
-            />
-          ))}
-          <span className={styles.ratingValue} style={{ color: ratingColor }}>
-            {formatRating(averageRating)}
-          </span>
+        {/* Star rating display + Delete button */}
+        <div className={styles.headerActions}>
+          <div className={styles.starRating}>
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                size={16}
+                fill={i < Math.round(averageRating) ? '#FBBC04' : 'none'}
+                color={i < Math.round(averageRating) ? '#FBBC04' : '#D1D5DB'}
+              />
+            ))}
+            <span className={styles.ratingValue} style={{ color: ratingColor }}>
+              {formatRating(averageRating)}
+            </span>
+          </div>
+
+          {/* Delete button (only for own reviews) */}
+          {isOwnReview && onDelete && (
+            <button
+              className={styles.deleteButton}
+              onClick={handleDeleteClick}
+              aria-label="Delete review"
+              title="Delete review"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -96,6 +139,19 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
           <span>{review.helpful_count} found helpful</span>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Review?"
+        message="Are you sure you want to delete this review? This action cannot be undone. Your visit record will remain, but the review will be permanently deleted."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

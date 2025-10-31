@@ -4,6 +4,7 @@ import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState } from '../common';
 import { useReviews, useFavorites, useGeolocation } from '../../hooks';
+import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
 import RatingsComparison from './RatingsComparison';
 import DetailedRatings from './DetailedRatings';
@@ -24,12 +25,14 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   onClose,
   onLogVisit,
 }) => {
+  const { user } = useAuth();
   const {
     reviews,
     loading: loadingReviews,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    deleteReview,
   } = useReviews(cafe.is_registered ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { location } = useGeolocation({ watch: false });
@@ -168,7 +171,12 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         ) : reviews.length > 0 ? (
           <div className={styles.reviewsList}>
             {reviews.map((review: Review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard
+                key={review.id}
+                review={review}
+                currentUserId={user?.id}
+                onDelete={deleteReview}
+              />
             ))}
             {hasNextPage && (
               <div ref={loadMoreRef} className={styles.loadMoreTrigger}>
