@@ -1,0 +1,87 @@
+.container {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.directionsButton,
+.logVisitButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.directionsButton {
+  background: #3B82F6;
+  color: white;
+  flex: 2.5;
+}
+
+.directionsButton:hover:not(:disabled) {
+  background: #2563EB;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.directionsButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.directionsButton:disabled {
+  background: #9CA3AF;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.logVisitButton {
+  background: #8B5CF6;
+  color: white;
+  flex: 2.5;
+}
+
+.logVisitButton:hover {
+  background: #7C3AED;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.logVisitButton:active {
+  transform: translateY(0);
+}
+
+/* Mobile optimization */
+@media (max-width: 480px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .directionsButton,
+  .logVisitButton {
+    flex: 1;
+    width: 100%;
+  }
+}
+
+/* Icon animation on hover */
+.directionsButton:hover:not(:disabled) svg,
+.logVisitButton:hover svg {
+  animation: bounce 0.6s ease;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}

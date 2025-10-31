@@ -1,10 +1,11 @@
 /* ReviewCard Styles */
 
 .reviewCard {
-  background: white;
-  border: 1px solid var(--gray-200, #e5e7eb);
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
   border-radius: 12px;
   padding: 16px;
+  margin-bottom: 12px;
 }
 
 .reviewHeader {
@@ -16,19 +17,20 @@
 
 .userInfo {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
+  flex: 1;
 }
 
 .userAvatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--gray-100, #f3f4f6);
+  background: #E5E7EB;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--gray-500, #6b7280);
+  color: #6B7280;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -39,86 +41,87 @@
   object-fit: cover;
 }
 
+.userDetails {
+  flex: 1;
+}
+
 .userName {
   font-weight: 600;
-  color: var(--gray-900, #111827);
-  margin: 0;
+  color: #111827;
+  margin: 0 0 4px 0;
   font-size: 14px;
+}
+
+.metaInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.metaDivider {
+  color: #D1D5DB;
 }
 
 .reviewTime {
-  font-size: 12px;
-  color: var(--gray-500, #6b7280);
-  margin: 2px 0 0 0;
+  display: inline;
 }
 
-.averageRating {
+.visitTime {
+  color: #8B5CF6;
+  font-weight: 500;
+}
+
+/* Star Rating Display */
+.starRating {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
-.ratingValue {
-  font-size: 20px;
+.starRating .ratingValue {
+  font-size: 16px;
   font-weight: 700;
+  margin-left: 4px;
 }
 
-.ratingLabel {
-  font-size: 11px;
-  color: var(--gray-500, #6b7280);
-}
-
+/* Review Comment */
 .reviewText {
   font-size: 14px;
-  color: var(--gray-700, #374151);
-  line-height: 1.5;
+  color: #374151;
+  line-height: 1.6;
   margin: 0 0 12px 0;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #8B5CF6;
 }
 
-.wfcRatings {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* Inline Ratings with Icons */
+.wfcRatingsInline {
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   padding: 12px;
-  background: var(--gray-50, #f9fafb);
+  background: white;
   border-radius: 8px;
 }
 
-.ratingItem {
+.inlineRating {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 4px;
-}
-
-.ratingItem .ratingLabel {
-  font-size: 11px;
-  color: var(--gray-600, #6b7280);
-}
-
-.ratingItem .ratingValue {
-  font-size: 16px;
+  font-size: 13px;
+  color: #4B5563;
   font-weight: 600;
-  color: var(--gray-900, #111827);
 }
 
-.timeTags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.timeTag {
-  display: inline-block;
-  padding: 4px 10px;
-  background: var(--primary, #6366f1);
-  color: white;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 12px;
+.inlineRating svg {
+  color: #8B5CF6;
+  flex-shrink: 0;
 }
 
 .helpfulCount {

@@ -1,0 +1,99 @@
+.container {
+  margin: 16px 0;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ratingsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ratingCard {
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ratingCard:hover {
+  transform: translateY(-2px);
+}
+
+.googleCard {
+  background: #FEF3C7;
+  border: 2px solid #FCD34D;
+}
+
+.googleCard:hover {
+  box-shadow: 0 4px 12px rgba(251, 188, 4, 0.2);
+}
+
+.wfcCard {
+  background: #EDE9FE;
+  border: 2px solid #C4B5FD;
+}
+
+.wfcCard:hover {
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.cardTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4B5563;
+}
+
+.ratingValue {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1F2937;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.ratingCount {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.ratingNote {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-style: italic;
+}
+
+.ctaMessage {
+  text-align: center;
+  font-size: 13px;
+  color: #6B7280;
+  margin-top: 12px;
+  padding: 12px;
+  background: #F9FAFB;
+  border-radius: 8px;
+  border-left: 3px solid #8B5CF6;
+}
+
+/* Mobile optimization */
+@media (max-width: 360px) {
+  .ratingsGrid {
+    grid-template-columns: 1fr;
+  }
+}

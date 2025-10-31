@@ -43,6 +43,14 @@ export interface UserUpdate {
 // Cafe Types
 // ===========================
 
+export interface AverageRatings {
+  wifi_quality: number;
+  power_outlets_rating: number;
+  seating_comfort: number;
+  noise_level: number;
+  wfc_rating: number;
+}
+
 export interface Cafe {
   id: number;  // Backend uses integer ID (AutoField), not UUID
   name: string;
@@ -71,6 +79,9 @@ export interface Cafe {
   google_rating?: number;
   google_ratings_count?: number;
   is_open_now?: boolean;
+
+  // NEW: Average ratings breakdown (only for registered cafes with reviews)
+  average_ratings?: AverageRatings | null;
 }
 
 export interface CafeCreate {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, ThumbsUp } from 'lucide-react';
+import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock } from 'lucide-react';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
 import styles from './ReviewCard.module.css';
@@ -25,23 +25,36 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
               <User size={20} />
             )}
           </div>
-          <div>
+          <div className={styles.userDetails}>
             <p className={styles.userName}>{displayName}</p>
-            <p className={styles.reviewTime}>
-              {formatRelativeTime(review.created_at)}
-            </p>
+            <div className={styles.metaInfo}>
+              <Clock size={12} />
+              <span className={styles.reviewTime}>
+                {formatRelativeTime(review.created_at)}
+              </span>
+              {review.visit_time_display && (
+                <>
+                  <span className={styles.metaDivider}>•</span>
+                  <span className={styles.visitTime}>{review.visit_time_display}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Average rating */}
-        <div className={styles.averageRating}>
-          <span
-            className={styles.ratingValue}
-            style={{ color: ratingColor }}
-          >
+        {/* Star rating display */}
+        <div className={styles.starRating}>
+          {[...Array(5)].map((_, i) => (
+            <Star
+              key={i}
+              size={16}
+              fill={i < Math.round(averageRating) ? '#FBBC04' : 'none'}
+              color={i < Math.round(averageRating) ? '#FBBC04' : '#D1D5DB'}
+            />
+          ))}
+          <span className={styles.ratingValue} style={{ color: ratingColor }}>
             {formatRating(averageRating)}
           </span>
-          <span className={styles.ratingLabel}>avg</span>
         </div>
       </div>
 
@@ -50,42 +63,31 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
         <p className={styles.reviewText}>{review.comment}</p>
       )}
 
-      {/* WFC Ratings Grid */}
-      <div className={styles.wfcRatings}>
-        <div className={styles.ratingItem}>
-          <span className={styles.ratingLabel}>WiFi</span>
-          <span className={styles.ratingValue}>{review.wifi_quality}/5</span>
+      {/* WFC Ratings with Icons - Inline */}
+      <div className={styles.wfcRatingsInline}>
+        <div className={styles.inlineRating}>
+          <Wifi size={14} />
+          <span>{review.wifi_quality}</span>
         </div>
         {review.power_outlets_rating && (
-          <div className={styles.ratingItem}>
-            <span className={styles.ratingLabel}>Outlets</span>
-            <span className={styles.ratingValue}>{review.power_outlets_rating}/5</span>
+          <div className={styles.inlineRating}>
+            <Zap size={14} />
+            <span>{review.power_outlets_rating}</span>
           </div>
         )}
-        <div className={styles.ratingItem}>
-          <span className={styles.ratingLabel}>Noise</span>
-          <span className={styles.ratingValue}>{review.noise_level}/5</span>
-        </div>
-        <div className={styles.ratingItem}>
-          <span className={styles.ratingLabel}>Seating</span>
-          <span className={styles.ratingValue}>{review.seating_comfort}/5</span>
-        </div>
-        <div className={styles.ratingItem}>
-          <span className={styles.ratingLabel}>Coffee</span>
-          <span className={styles.ratingValue}>{review.coffee_quality}/5</span>
-        </div>
-        <div className={styles.ratingItem}>
-          <span className={styles.ratingLabel}>Menu</span>
-          <span className={styles.ratingValue}>{review.menu_options}/5</span>
-        </div>
+        {review.seating_comfort && (
+          <div className={styles.inlineRating}>
+            <Armchair size={14} />
+            <span>{review.seating_comfort}</span>
+          </div>
+        )}
+        {review.noise_level && (
+          <div className={styles.inlineRating}>
+            <Volume2 size={14} />
+            <span>{review.noise_level}</span>
+          </div>
+        )}
       </div>
-
-      {/* Visit time tag */}
-      {review.visit_time_display && (
-        <div className={styles.timeTags}>
-          <span className={styles.timeTag}>{review.visit_time_display}</span>
-        </div>
-      )}
 
       {/* Helpful count */}
       {review.helpful_count && review.helpful_count > 0 && (

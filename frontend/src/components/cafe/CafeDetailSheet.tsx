@@ -1,11 +1,14 @@
 import React from 'react';
-import { MapPin, Star, DollarSign, Users, Coffee, Heart } from 'lucide-react';
+import { MapPin, Heart, Star } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState } from '../common';
-import { useReviews, useFavorites } from '../../hooks';
-import { formatPriceRange, formatRating } from '../../utils';
+import { useReviews, useFavorites, useGeolocation } from '../../hooks';
 import ReviewCard from '../review/ReviewCard';
+import RatingsComparison from './RatingsComparison';
+import DetailedRatings from './DetailedRatings';
+import QuickInfo from './QuickInfo';
+import ActionButtons from './ActionButtons';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -29,6 +32,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     isFetchingNextPage,
   } = useReviews(cafe.is_registered ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
+  const { location } = useGeolocation({ watch: false });
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -58,6 +62,16 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     }
   };
 
+  const handleDirections = () => {
+    if (!location) {
+      alert('⚠️ Location permission needed for directions. Please enable location access.');
+      return;
+    }
+
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${location.lat},${location.lng}&destination=${cafe.latitude},${cafe.longitude}&travelmode=driving`;
+    window.open(mapsUrl, '_blank');
+  };
+
   return (
     <Sheet
       isOpen={isOpen}
@@ -78,7 +92,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         </button>
       </div>
 
-      {/* Meta Information */}
+      {/* Address & Distance */}
       <div className={styles.cafeMeta}>
         <div className={styles.metaItem}>
           <MapPin size={16} />
@@ -86,45 +100,39 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         </div>
         {cafe.distance && (
           <div className={styles.metaItem}>
-            <span className={styles.distance}>{cafe.distance}</span>
+            <span className={styles.distance}>📍 {cafe.distance} away</span>
           </div>
         )}
       </div>
 
-      {/* Statistics */}
-      <div className={styles.cafeStats}>
-        <div className={styles.statItem}>
-          <Star size={18} />
-          <span className={styles.statValue}>
-            {formatRating(cafe.average_wfc_rating)}
-          </span>
-          <span className={styles.statLabel}>WFC Rating</span>
-        </div>
-        {cafe.price_range && (
-          <div className={styles.statItem}>
-            <DollarSign size={18} />
-            <span className={styles.statValue}>
-              {formatPriceRange(cafe.price_range)}
-            </span>
-            <span className={styles.statLabel}>Price</span>
-          </div>
-        )}
-        <div className={styles.statItem}>
-          <Users size={18} />
-          <span className={styles.statValue}>{cafe.unique_visitors || 0}</span>
-          <span className={styles.statLabel}>Visitors</span>
-        </div>
-        <div className={styles.statItem}>
-          <Coffee size={18} />
-          <span className={styles.statValue}>{cafe.total_visits || 0}</span>
-          <span className={styles.statLabel}>Visits</span>
-        </div>
-      </div>
+      {/* Ratings Comparison (Google vs WFC) */}
+      <RatingsComparison
+        googleRating={cafe.google_rating}
+        googleCount={cafe.google_ratings_count}
+        wfcRating={cafe.average_wfc_rating}
+        wfcCount={cafe.total_reviews}
+        isRegistered={cafe.is_registered}
+      />
 
-      {/* Action Button */}
-      <button className={styles.logVisitButton} onClick={onLogVisit}>
-        Log Visit
-      </button>
+      {/* WFC Detailed Ratings (only if has reviews) */}
+      {cafe.is_registered && cafe.average_ratings && (
+        <DetailedRatings ratings={cafe.average_ratings} />
+      )}
+
+      {/* Quick Info */}
+      <QuickInfo
+        priceRange={cafe.price_range}
+        visitors={cafe.unique_visitors}
+        visits={cafe.total_visits}
+      />
+
+      {/* Action Buttons */}
+      <ActionButtons
+        onDirections={handleDirections}
+        onLogVisit={onLogVisit}
+        hasUserLocation={!!location}
+        cafeName={cafe.name}
+      />
 
       {/* Reviews Section */}
       <div className={styles.reviewsSection}>
