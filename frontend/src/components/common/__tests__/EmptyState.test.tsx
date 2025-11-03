@@ -2,7 +2,6 @@
  * Tests for EmptyState component
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EmptyState from '../EmptyState';
@@ -25,7 +24,7 @@ describe('EmptyState', () => {
   });
 
   it('should render icon when provided', () => {
-    const { container } = render(
+    render(
       <EmptyState title="No cafes" icon={<Coffee data-testid="coffee-icon" />} />
     );
     expect(screen.getByTestId('coffee-icon')).toBeInTheDocument();

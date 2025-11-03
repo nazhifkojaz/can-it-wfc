@@ -9,8 +9,6 @@ import {
   parseDistance,
   formatRating,
   formatVisitTime,
-  formatDate,
-  formatRelativeTime,
   formatUsername,
   formatCount,
   truncateText,
