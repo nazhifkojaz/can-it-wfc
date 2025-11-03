@@ -1,0 +1,138 @@
+/* ResultModal Styles - Neobrutalism */
+
+.resultPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--neo-space-xl, 32px);
+  text-align: center;
+  gap: var(--neo-space-lg, 24px);
+}
+
+/* Icon Variants */
+.icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: var(--neo-border-width) solid var(--neo-black);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon--success {
+  background: var(--neo-success-light);
+  color: var(--neo-success);
+}
+
+.icon--error {
+  background: var(--neo-danger-light);
+  color: var(--neo-danger);
+}
+
+.icon--warning {
+  background: var(--neo-warning-light);
+  color: var(--neo-warning);
+}
+
+.icon--info {
+  background: var(--neo-info-light);
+  color: var(--neo-info);
+}
+
+/* Title & Message */
+.title {
+  font-size: 24px;
+  font-weight: var(--neo-font-black);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--neo-black);
+  margin: 0;
+}
+
+.message {
+  font-size: 16px;
+  color: var(--neo-gray-700);
+  font-weight: 500;
+  line-height: 1.5;
+  max-width: 450px;
+}
+
+.message p {
+  margin: 0;
+}
+
+/* Details Section (tips, summaries, badges) */
+.details {
+  width: 100%;
+  max-width: 450px;
+}
+
+/* Action Buttons */
+.actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 450px;
+}
+
+.buttonSecondary {
+  flex: 1;
+  padding: 14px 24px;
+  background: var(--neo-gray-100);
+  color: var(--neo-black);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 15px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.buttonSecondary:hover {
+  background: var(--neo-gray-200);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.buttonSecondary:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.buttonPrimary {
+  flex: 2;
+  padding: 14px 48px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 16px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  min-width: 150px;
+}
+
+.buttonPrimary:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
+  background: var(--neo-primary-dark);
+}
+
+.buttonPrimary:active {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+/* When there's only one button, make it full width */
+.actions:has(.buttonPrimary:only-child) .buttonPrimary {
+  flex: 1;
+}
