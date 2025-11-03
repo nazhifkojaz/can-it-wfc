@@ -5,8 +5,8 @@ import MobileLayout from '../components/layout/MobileLayout';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitModal from '../components/visit/AddVisitModal';
 import ReviewForm from '../components/review/ReviewForm';
-import { Loading, EmptyState } from '../components/common';
-import { useFavorites } from '../hooks';
+import { Loading, EmptyState, ResultModal } from '../components/common';
+import { useFavorites, useResultModal } from '../hooks';
 import { formatPriceRange, formatRating } from '../utils';
 import { Cafe } from '../types';
 import './FavoritesPage.css';
@@ -14,6 +14,7 @@ import './FavoritesPage.css';
 const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
   const { favorites, loading, toggleFavorite, refetch } = useFavorites();
+  const resultModal = useResultModal();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
 
   // Visit logging state
@@ -36,7 +37,11 @@ const FavoritesPage: React.FC = () => {
       await toggleFavorite(cafeId);
     } catch (error: any) {
       console.error('Error removing favorite:', error);
-      alert(`❌ ${error.message || 'Failed to remove favorite'}`);
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Remove Favorite',
+        message: error.message || 'Failed to remove favorite. Please try again.',
+      });
     }
   };
 
@@ -57,7 +62,13 @@ const FavoritesPage: React.FC = () => {
     refetch();
 
     // Show success message
-    alert('✅ Visit logged successfully!');
+    resultModal.showResultModal({
+      type: 'success',
+      title: 'Visit Logged!',
+      message: 'Your visit has been recorded successfully.',
+      autoClose: true,
+      autoCloseDelay: 2000,
+    });
   };
 
   const handleAddReview = (visitId: number, cafeId: number, cafeName: string) => {
@@ -79,7 +90,13 @@ const FavoritesPage: React.FC = () => {
     refetch();
 
     // Show success message
-    alert('✅ Review submitted successfully!');
+    resultModal.showResultModal({
+      type: 'success',
+      title: 'Review Submitted!',
+      message: 'Your review has been submitted successfully.',
+      autoClose: true,
+      autoCloseDelay: 2000,
+    });
   };
 
   if (loading) {
@@ -227,6 +244,19 @@ const FavoritesPage: React.FC = () => {
             onSuccess={handleReviewSuccess}
           />
         )}
+
+        <ResultModal
+          isOpen={resultModal.isOpen}
+          onClose={resultModal.closeResultModal}
+          type={resultModal.type}
+          title={resultModal.title}
+          message={resultModal.message}
+          details={resultModal.details}
+          primaryButton={resultModal.primaryButton}
+          secondaryButton={resultModal.secondaryButton}
+          autoClose={resultModal.autoClose}
+          autoCloseDelay={resultModal.autoCloseDelay}
+        />
       </div>
     </MobileLayout>
   );

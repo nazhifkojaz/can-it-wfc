@@ -288,6 +288,19 @@ export const visitApi = {
     return response.data;
   },
 
+  // Get visits with filters (for duplicate checking, etc.)
+  getVisits: async (filters?: { cafe?: number; visit_date?: string; page?: number }) => {
+    const response = await api.get<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: Visit[];
+    }>('/visits/', {
+      params: filters,
+    });
+    return response.data;
+  },
+
   // Get visit by ID
   getById: async (id: number) => {
     const response = await api.get<Visit>(`/visits/${id}/`);

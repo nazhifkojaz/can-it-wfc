@@ -210,26 +210,31 @@ const MapView: React.FC<MapViewProps> = ({
           top: 16px;
           left: 50%;
           transform: translateX(-50%);
-          background: white;
+          background: var(--neo-white, #fff);
           padding: 12px 24px;
-          border-radius: 24px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+          border-radius: var(--neo-border-radius, 4px);
+          box-shadow: 4px 4px 0 var(--neo-black, #000);
           z-index: 1000;
           display: flex;
           align-items: center;
           gap: 12px;
+          font-weight: var(--neo-font-bold, 700);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 14px;
         }
 
         .map-error {
-          background: #fef2f2;
-          color: var(--danger);
+          background: var(--neo-danger-light, #EF4444);
+          color: var(--neo-white, #fff);
         }
 
         .spinner {
           width: 16px;
           height: 16px;
-          border: 2px solid var(--gray-200);
-          border-top-color: var(--primary);
+          border: 2px solid var(--neo-gray-300, #D1D5DB);
+          border-top-color: var(--neo-primary, #8B5CF6);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }

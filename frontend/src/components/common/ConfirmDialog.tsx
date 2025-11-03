@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import Modal from './Modal';
 import styles from './ConfirmDialog.module.css';
@@ -6,7 +6,7 @@ import styles from './ConfirmDialog.module.css';
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message: string | ReactNode;
   confirmText?: string;
   cancelText?: string;
   onConfirm: () => void;

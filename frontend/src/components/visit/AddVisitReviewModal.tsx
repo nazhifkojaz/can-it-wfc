@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2 } from 'lucide-react';
-import { Cafe, CombinedVisitReviewCreate } from '../../types';
-import { Modal } from '../common';
-import { useVisits, useGeolocation } from '../../hooks';
-import { calculateDistance } from '../../utils';
+import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle } from 'lucide-react';
+import { Cafe, CombinedVisitReviewCreate, Visit } from '../../types';
+import { Modal, ResultModal } from '../common';
+import { useVisits, useGeolocation, useResultModal } from '../../hooks';
+import { calculateDistance, formatVisitTime } from '../../utils';
 import { VISIT_TIME_OPTIONS, AMOUNT_SPENT_RANGES } from '../../config/constants';
+import { visitApi } from '../../api/client';
 import styles from './AddVisitReviewModal.module.css';
 
 interface AddVisitReviewModalProps {
@@ -25,6 +26,14 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const [amountSpent, setAmountSpent] = useState<number | null>(null);
   const [visitTime, setVisitTime] = useState<number | null>(null);
   const [includeReview, setIncludeReview] = useState(false);
+
+  // Duplicate visit detection
+  const [showDuplicateInfo, setShowDuplicateInfo] = useState(false);
+  const [existingVisit, setExistingVisit] = useState<Visit | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+
+  // Result modal
+  const resultModal = useResultModal();
 
   // Review fields (simplified form with 5 key criteria)
   const [wfcRating, setWfcRating] = useState<number>(3);
@@ -49,7 +58,34 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     return calculateDistance(location.lat, location.lng, cafeLat, cafeLng);
   }, [location, selectedCafe]);
 
+  // Check for duplicate visit when modal opens
   useEffect(() => {
+    const checkDuplicate = async () => {
+      if (isOpen && selectedCafe?.is_registered) {
+        setCheckingDuplicate(true);
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const response = await visitApi.getVisits({ cafe: selectedCafe.id, visit_date: today });
+
+          if (response.results && response.results.length > 0) {
+            setExistingVisit(response.results[0]);
+            setShowDuplicateInfo(true);
+          } else {
+            setShowDuplicateInfo(false);
+            setExistingVisit(null);
+          }
+        } catch (error) {
+          console.error('Error checking duplicate visit:', error);
+          setShowDuplicateInfo(false);
+        } finally {
+          setCheckingDuplicate(false);
+        }
+      } else {
+        setShowDuplicateInfo(false);
+        setExistingVisit(null);
+      }
+    };
+
     if (isOpen) {
       setSelectedCafe(preselectedCafe);
       setVisitDate(new Date().toISOString().split('T')[0]);
@@ -63,14 +99,40 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setNoiseLevel(3);
       setComment('');
       refetch();
+      checkDuplicate();
     }
   }, [isOpen, preselectedCafe, refetch]);
+
+  // Show location error modal when location permission is denied
+  useEffect(() => {
+    if (isOpen && locationError && !locationLoading) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Location Permission Required',
+        message: locationError,
+        details: (
+          <div className={styles.errorTip}>
+            <p>💡 Please enable location access in your browser settings and refresh the page.</p>
+          </div>
+        ),
+      });
+    }
+  }, [isOpen, locationError, locationLoading]);
 
   const handleSubmit = async () => {
     if (!selectedCafe) return;
 
     if (!location) {
-      alert('❌ Location required to verify visit. Please enable location access and try again.');
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Location Required',
+        message: 'Location required to verify visit. Please enable location access and try again.',
+        details: (
+          <div className={styles.errorTip}>
+            <p>💡 Please enable location access in your browser settings and try again.</p>
+          </div>
+        ),
+      });
       return;
     }
 
@@ -120,19 +182,75 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
 
       await createWithReview(visitReviewData);
-      onSuccess();
-      onClose();
+
+      // Show success modal
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Visit Logged Successfully!',
+        message: includeReview
+          ? 'Your visit and review have been recorded.'
+          : 'Your visit has been recorded.',
+        details: (
+          <div className={styles.resultSummary}>
+            <div className={styles.summaryItem}>
+              <MapPinned size={16} />
+              <span>{selectedCafe.name}</span>
+            </div>
+            {amountSpent && (
+              <div className={styles.summaryItem}>
+                <DollarSign size={16} />
+                <span>${amountSpent.toFixed(2)}</span>
+              </div>
+            )}
+            {visitTime && (
+              <div className={styles.summaryItem}>
+                <Clock size={16} />
+                <span>{formatVisitTime(visitTime)}</span>
+              </div>
+            )}
+            {includeReview && (
+              <div className={styles.summaryItem}>
+                <Star size={16} />
+                <span>{wfcRating}/5 Rating</span>
+              </div>
+            )}
+          </div>
+        ),
+        primaryButton: {
+          label: 'Okay',
+          onClick: () => {
+            resultModal.closeResultModal();
+            onSuccess();
+            onClose();
+          }
+        }
+      });
     } catch (error: any) {
       console.error('Error logging visit:', error);
 
+      let errorTitle = 'Failed to Log Visit';
+      let errorMessage = error.response?.data?.message || error.message || 'Failed to log visit. Please try again.';
+      let errorDetails = null;
+
       if (error.response?.data?.check_in_latitude) {
-        const distanceError = error.response.data.check_in_latitude[0];
-        alert(`❌ ${distanceError}`);
+        errorTitle = 'Distance Check Failed';
+        errorMessage = error.response.data.check_in_latitude[0];
+        errorDetails = (
+          <div className={styles.errorTip}>
+            <p>💡 You must be within 1km of the cafe to log a visit. Please move closer and try again.</p>
+          </div>
+        );
       } else if (error.response?.data?.wfc_rating) {
-        alert(`❌ ${error.response.data.wfc_rating[0]}`);
-      } else {
-        alert(`❌ ${error.response?.data?.message || error.message || 'Failed to log visit. Please try again.'}`);
+        errorTitle = 'Validation Error';
+        errorMessage = error.response.data.wfc_rating[0];
       }
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: errorTitle,
+        message: errorMessage,
+        details: errorDetails,
+      });
     }
   };
 
@@ -163,6 +281,60 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const renderContent = () => {
     if (!selectedCafe) return null;
 
+    // Show duplicate visit info panel if visit already logged today
+    if (showDuplicateInfo && existingVisit) {
+      return (
+        <div className={styles.duplicatePanel}>
+          <div className={styles.duplicateIcon}>
+            <CheckCircle size={48} />
+          </div>
+
+          <h3 className={styles.duplicateTitle}>
+            Visit Already Logged Today
+          </h3>
+
+          <p className={styles.duplicateMessage}>
+            You've already logged a visit to <strong>{selectedCafe.name}</strong> on{' '}
+            {new Date().toLocaleDateString()}.
+          </p>
+
+          <div className={styles.existingVisitInfo}>
+            {existingVisit.visit_time && (
+              <div className={styles.visitDetail}>
+                <Clock size={16} />
+                <span>{formatVisitTime(existingVisit.visit_time)}</span>
+              </div>
+            )}
+            {existingVisit.amount_spent && (
+              <div className={styles.visitDetail}>
+                <DollarSign size={16} />
+                <span>${existingVisit.amount_spent.toFixed(2)}</span>
+              </div>
+            )}
+            {existingVisit.review ? (
+              <div className={styles.visitDetail}>
+                <Star size={16} />
+                <span>Review submitted</span>
+              </div>
+            ) : (
+              <div className={styles.visitDetail}>
+                <Star size={16} />
+                <span>No review yet</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            className={styles.okayButton}
+            onClick={onClose}
+          >
+            Okay
+          </button>
+        </div>
+      );
+    }
+
+    // Normal form content
     return (
       <>
         {preselectedCafe && (
@@ -221,7 +393,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           )}
         </div>
 
-        <div className={styles.formGroup}>
+        {/* Visit Date - Hidden (automatic to today) - Can be restored by removing display: none */}
+        <div className={styles.formGroup} style={{ display: 'none' }}>
           <label htmlFor="visit-date">
             <Clock size={18} />
             Visit Date
@@ -343,9 +516,24 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Log Visit" size="lg">
-      {renderContent()}
-    </Modal>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="Log Visit" size="lg">
+        {renderContent()}
+      </Modal>
+
+      <ResultModal
+        isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
+      />
+    </>
   );
 };
 

@@ -13,7 +13,7 @@ interface CafeListProps {
 
 type SortOption = 'distance' | 'rating' | 'visits';
 
-const CafeList: React.FC<CafeListProps> = ({ cafes: initialCafes, loading, error, userLocation, onCafeClick }) => {
+const CafeList: React.FC<CafeListProps> = ({ cafes: initialCafes, loading, error: _error, userLocation, onCafeClick }) => {
   const [sortBy, setSortBy] = useState<SortOption>('distance');
   const [sortedCafes, setSortedCafes] = useState<Cafe[]>([]);
 

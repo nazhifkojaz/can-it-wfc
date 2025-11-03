@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import MobileLayout from '../components/layout/MobileLayout';
 import ReviewForm from '../components/review/ReviewForm';
-import { Loading, EmptyState, ConfirmDialog } from '../components/common';
-import { useVisits } from '../hooks';
+import { Loading, EmptyState, ConfirmDialog, ResultModal } from '../components/common';
+import { useVisits, useResultModal } from '../hooks';
 import { reviewApi } from '../api/client';
 import { formatDate, formatRating } from '../utils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS, AMOUNT_SPENT_RANGES } from '../config/constants';
@@ -15,6 +15,7 @@ import './VisitsPage.css';
 
 const VisitsPage: React.FC = () => {
   const navigate = useNavigate();
+  const resultModal = useResultModal();
   const {
     visits,
     loading,
@@ -119,7 +120,11 @@ const VisitsPage: React.FC = () => {
       setShowReviewForm(true);
     } catch (error) {
       console.error('Error loading review:', error);
-      alert('❌ Failed to load review. Please try again.');
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Load Review',
+        message: 'Failed to load review. Please try again.',
+      });
     } finally {
       setLoadingReview(false);
     }
@@ -144,7 +149,11 @@ const VisitsPage: React.FC = () => {
       setShowReviewForm(true);
     } catch (error) {
       console.error('Error loading review:', error);
-      alert('❌ Failed to load review. Please try again.');
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Load Review',
+        message: 'Failed to load review. Please try again.',
+      });
     } finally {
       setLoadingReview(false);
     }
@@ -174,14 +183,27 @@ const VisitsPage: React.FC = () => {
         amount_spent: editAmountSpent,
         visit_time: editVisitTime,
       });
-      alert('✅ Visit updated successfully!');
+
       setShowEditVisit(false);
       setEditingVisit(null);
       refetch();
+
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Visit Updated!',
+        message: 'Your visit has been updated successfully.',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
     } catch (error: any) {
       console.error('Error updating visit:', error);
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to update visit';
-      alert(`❌ ${errorMsg}`);
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Update Visit',
+        message: errorMsg,
+      });
     }
   };
 
@@ -202,10 +224,24 @@ const VisitsPage: React.FC = () => {
       setVisitToDelete(null);
       // Refetch to update the list
       refetch();
+
+      // Show success modal
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Visit Deleted',
+        message: 'Your visit has been deleted successfully.',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
     } catch (error: any) {
       console.error('Error deleting visit:', error);
       const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to delete visit';
-      alert(`❌ ${errorMsg}`);
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Delete Visit',
+        message: errorMsg,
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -534,8 +570,8 @@ const VisitsPage: React.FC = () => {
             title="Delete Visit?"
             message={
               visitToDelete.has_review
-                ? `Are you sure you want to delete your visit to ${visitToDelete.cafe.name}? This will also permanently delete your review. This action cannot be undone.`
-                : `Are you sure you want to delete your visit to ${visitToDelete.cafe.name}? This action cannot be undone.`
+                ? <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This will also permanently delete your review. This action cannot be undone.</>
+                : <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This action cannot be undone.</>
             }
             confirmText="Delete"
             cancelText="Cancel"
@@ -545,6 +581,19 @@ const VisitsPage: React.FC = () => {
             isLoading={isDeleting}
           />
         )}
+
+        <ResultModal
+          isOpen={resultModal.isOpen}
+          onClose={resultModal.closeResultModal}
+          type={resultModal.type}
+          title={resultModal.title}
+          message={resultModal.message}
+          details={resultModal.details}
+          primaryButton={resultModal.primaryButton}
+          secondaryButton={resultModal.secondaryButton}
+          autoClose={resultModal.autoClose}
+          autoCloseDelay={resultModal.autoCloseDelay}
+        />
       </div>
     </MobileLayout>
   );

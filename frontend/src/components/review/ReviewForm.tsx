@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Wifi, Zap, Volume2, Armchair, Star } from 'lucide-react';
+import { Wifi, Zap, Volume2, Armchair } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
-import { Modal } from '../common';
-import { useReviews } from '../../hooks';
+import { Modal, ResultModal } from '../common';
+import { useReviews, useResultModal } from '../../hooks';
 import { reviewApi } from '../../api/client';
 import { isValidReviewComment } from '../../utils';
 import { REVIEW_CONFIG } from '../../config/constants';
@@ -31,6 +31,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 }) => {
   const { createReview } = useReviews(cafeId);
   const isEditMode = !!existingReview && !isViewMode;
+  const resultModal = useResultModal();
 
   const [formData, setFormData] = useState<ReviewCreate>({
     visit_id: visitId,
@@ -90,7 +91,20 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           comment: formData.comment,
         };
         await reviewApi.update(existingReview.id, updateData);
-        alert('✅ Review updated successfully!');
+
+        resultModal.showResultModal({
+          type: 'success',
+          title: 'Review Updated!',
+          message: 'Your review has been updated successfully.',
+          primaryButton: {
+            label: 'Okay',
+            onClick: () => {
+              resultModal.closeResultModal();
+              onSuccess();
+              onClose();
+            }
+          }
+        });
       } else {
         // Create new review - default missing criteria to wfc_rating
         const reviewData: ReviewCreate = {
@@ -101,10 +115,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
         };
         await createReview(reviewData);
-        alert('✅ Review submitted successfully!');
+
+        resultModal.showResultModal({
+          type: 'success',
+          title: 'Review Submitted!',
+          message: 'Your review has been submitted successfully.',
+          primaryButton: {
+            label: 'Okay',
+            onClick: () => {
+              resultModal.closeResultModal();
+              onSuccess();
+              onClose();
+            }
+          }
+        });
       }
-      onSuccess();
-      onClose();
     } catch (err: any) {
       console.error('Error submitting review:', err);
       setError(err.message || 'Failed to submit review');
@@ -168,12 +193,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={getModalTitle()}
-      size="lg"
-    >
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={getModalTitle()}
+        size="lg"
+      >
       <div className={styles.formHeader}>
         <p className={styles.formSubtitle}>{cafeName}</p>
       </div>
@@ -259,7 +285,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </button>
         )}
       </form>
-    </Modal>
+      </Modal>
+
+      <ResultModal
+        isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
+      />
+    </>
   );
 };
 

@@ -2,8 +2,8 @@ import React from 'react';
 import { MapPin, Heart, Star } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
-import { Sheet, Loading, EmptyState } from '../common';
-import { useReviews, useFavorites, useGeolocation } from '../../hooks';
+import { Sheet, Loading, EmptyState, ResultModal } from '../common';
+import { useReviews, useFavorites, useGeolocation, useResultModal } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
 import RatingsComparison from './RatingsComparison';
@@ -36,6 +36,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   } = useReviews(cafe.is_registered ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { location } = useGeolocation({ watch: false });
+  const resultModal = useResultModal();
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -53,7 +54,16 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
 
     // Don't allow favoriting unregistered cafes
     if (!cafe.is_registered) {
-      alert('⚠️ This cafe is not registered yet. Log a visit first to add it to the platform!');
+      resultModal.showResultModal({
+        type: 'warning',
+        title: 'Cafe Not Registered',
+        message: 'This cafe is not registered yet. Log a visit first to add it to the platform!',
+        details: (
+          <div style={{ marginTop: '12px', fontSize: '14px', color: 'var(--neo-gray-600)' }}>
+            <p>💡 Tip: Click "Log Visit" below to add this cafe and be the first to review it!</p>
+          </div>
+        ),
+      });
       return;
     }
 
@@ -61,13 +71,26 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       await toggleFavorite(cafe.id);
     } catch (error: any) {
       console.error('Error toggling favorite:', error);
-      alert(`❌ ${error.message || 'Failed to toggle favorite'}`);
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Toggle Favorite',
+        message: error.message || 'Failed to toggle favorite. Please try again.',
+      });
     }
   };
 
   const handleDirections = () => {
     if (!location) {
-      alert('⚠️ Location permission needed for directions. Please enable location access.');
+      resultModal.showResultModal({
+        type: 'warning',
+        title: 'Location Permission Required',
+        message: 'Location permission needed for directions. Please enable location access.',
+        details: (
+          <div style={{ marginTop: '12px', fontSize: '14px', color: 'var(--neo-gray-600)' }}>
+            <p>💡 Tip: Enable location in your browser settings to get turn-by-turn directions.</p>
+          </div>
+        ),
+      });
       return;
     }
 
@@ -191,6 +214,19 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           />
         )}
       </div>
+
+      <ResultModal
+        isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
+      />
     </Sheet>
   );
 };

@@ -5,8 +5,8 @@ import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
-import { Loading } from '../components/common';
-import { useGeolocation, useNearbyCafes } from '../hooks';
+import { Loading, ResultModal } from '../components/common';
+import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
 import { Cafe } from '../types';
 import './MapPage.css';
 
@@ -19,6 +19,7 @@ const MapPage: React.FC = () => {
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
 
   const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const resultModal = useResultModal();
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
 
@@ -67,7 +68,13 @@ const MapPage: React.FC = () => {
     // React Query will automatically update related queries
     refetchCafes();
 
-    alert('✅ Visit logged successfully!');
+    resultModal.showResultModal({
+      type: 'success',
+      title: 'Visit Logged!',
+      message: 'Your visit has been recorded successfully.',
+      autoClose: true,
+      autoCloseDelay: 2000,
+    });
   };
 
   const toggleViewMode = () => {
@@ -162,6 +169,19 @@ const MapPage: React.FC = () => {
           }}
           onSuccess={handleVisitReviewSuccess}
           preselectedCafe={visitCafe}
+        />
+
+        <ResultModal
+          isOpen={resultModal.isOpen}
+          onClose={resultModal.closeResultModal}
+          type={resultModal.type}
+          title={resultModal.title}
+          message={resultModal.message}
+          details={resultModal.details}
+          primaryButton={resultModal.primaryButton}
+          secondaryButton={resultModal.secondaryButton}
+          autoClose={resultModal.autoClose}
+          autoCloseDelay={resultModal.autoCloseDelay}
         />
       </div>
     </MobileLayout>

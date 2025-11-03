@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2 } from 'lucide-react';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
-import { ConfirmDialog } from '../common';
+import { ConfirmDialog, ResultModal } from '../common';
+import { useResultModal } from '../../hooks';
 import styles from './ReviewCard.module.css';
 
 interface ReviewCardProps {
@@ -14,6 +15,7 @@ interface ReviewCardProps {
 const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const resultModal = useResultModal();
 
   const displayName = review.user?.display_name || review.user?.username || 'Anonymous';
   const averageRating = review.average_rating || 0;
@@ -33,10 +35,24 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
     try {
       await onDelete(review.id);
       setShowDeleteConfirm(false);
+
+      // Show success modal
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Review Deleted',
+        message: 'Your review has been deleted successfully.',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
     } catch (error: any) {
-      // Error is handled by the parent component/hook
       console.error('Failed to delete review:', error);
-      alert(`❌ Failed to delete review: ${error.response?.data?.detail || error.message}`);
+      setShowDeleteConfirm(false);
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Delete Review',
+        message: error.response?.data?.detail || error.message || 'Failed to delete review. Please try again.',
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -144,13 +160,28 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
       <ConfirmDialog
         isOpen={showDeleteConfirm}
         title="Delete Review?"
-        message="Are you sure you want to delete this review? This action cannot be undone. Your visit record will remain, but the review will be permanently deleted."
+        message={
+          <>Are you sure you want to delete your review for <span className="neo-highlight">{review.cafe?.name || 'this cafe'}</span>? This action cannot be undone. Your visit record will remain, but the review will be permanently deleted.</>
+        }
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         variant="danger"
         isLoading={isDeleting}
+      />
+
+      <ResultModal
+        isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned } from 'lucide-react';
 import { Cafe, VisitCreate } from '../../types';
-import { Modal } from '../common';
-import { useVisits, useGeolocation } from '../../hooks';
+import { Modal, ResultModal } from '../common';
+import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance } from '../../utils';
 import styles from './AddVisitModal.module.css';
 
@@ -24,6 +24,9 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
   const [selectedCafe, setSelectedCafe] = useState<Cafe | undefined>(preselectedCafe);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [addReviewNow, setAddReviewNow] = useState(false);
+
+  // Result modal
+  const resultModal = useResultModal();
 
   const { createVisit, loading: submitting } = useVisits();
   const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation({ watch: false });
@@ -49,11 +52,36 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
     }
   }, [isOpen, preselectedCafe, refetch]);
 
+  // Show location error modal when location permission is denied
+  useEffect(() => {
+    if (isOpen && locationError && !locationLoading) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Location Permission Required',
+        message: locationError,
+        details: (
+          <div className={styles.errorTip}>
+            <p>💡 Please enable location access in your browser settings and refresh the page.</p>
+          </div>
+        ),
+      });
+    }
+  }, [isOpen, locationError, locationLoading]);
+
   const handleLogVisit = async () => {
     if (!selectedCafe) return;
 
     if (!location) {
-      alert('❌ Location required to verify visit. Please enable location access and try again.');
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Location Required',
+        message: 'Location required to verify visit. Please enable location access and try again.',
+        details: (
+          <div className={styles.errorTip}>
+            <p>💡 Please enable location access in your browser settings and try again.</p>
+          </div>
+        ),
+      });
       return;
     }
 
@@ -96,24 +124,63 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
       }
 
       if (addReviewNow && onAddReview) {
+        // Don't show success panel, let the review form handle it
         onAddReview(newVisit.id, newVisit.cafe.id, newVisit.cafe.name);
       } else {
-        onSuccess();
-        onClose();
+        // Show success modal
+        resultModal.showResultModal({
+          type: 'success',
+          title: 'Visit Logged Successfully!',
+          message: 'Your visit has been recorded.',
+          details: (
+            <div className={styles.resultSummary}>
+              <div className={styles.summaryItem}>
+                <MapPinned size={16} />
+                <span>{selectedCafe.name}</span>
+              </div>
+              <div className={styles.summaryItem}>
+                <Clock size={16} />
+                <span>{new Date(visitDate).toLocaleDateString()}</span>
+              </div>
+            </div>
+          ),
+          primaryButton: {
+            label: 'Okay',
+            onClick: () => {
+              resultModal.closeResultModal();
+              onSuccess();
+              onClose();
+            }
+          }
+        });
       }
     } catch (error: any) {
       console.error('Error logging visit:', error);
 
+      let errorTitle = 'Failed to Log Visit';
+      let errorMessage = error.response?.data?.message || error.message || 'Failed to log visit. Please try again.';
+      let errorDetails = null;
+
       if (error.response?.data?.check_in_latitude) {
-        const distanceError = error.response.data.check_in_latitude[0];
-        alert(`❌ ${distanceError}`);
-      } else {
-        alert(`❌ ${error.response?.data?.message || error.message || 'Failed to log visit. Please try again.'}`);
+        errorTitle = 'Distance Check Failed';
+        errorMessage = error.response.data.check_in_latitude[0];
+        errorDetails = (
+          <div className={styles.errorTip}>
+            <p>💡 You must be within 1km of the cafe to log a visit. Please move closer and try again.</p>
+          </div>
+        );
       }
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: errorTitle,
+        message: errorMessage,
+        details: errorDetails,
+      });
     }
   };
 
-  const renderConfirmStep = () => {
+  const renderContent = () => {
     if (!selectedCafe) return null;
 
     return (
@@ -228,9 +295,24 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Log Visit" size="md">
-      {renderConfirmStep()}
-    </Modal>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="Log Visit" size="md">
+        {renderContent()}
+      </Modal>
+
+      <ResultModal
+        isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
+      />
+    </>
   );
 };
 
