@@ -1,0 +1,264 @@
+/**
+ * Neobrutalism Theme - Can-It-WFC
+ * Bold, honest, and direct design language
+ */
+
+:root {
+  /* === Core Brutalism Variables === */
+
+  /* Borders */
+  --neo-border-width: 3px;
+  --neo-border-width-thick: 4px;
+  --neo-border-width-thin: 2px;
+  --neo-border-color: #000000;
+  --neo-border-radius: 4px;
+  --neo-border-radius-none: 0px;
+
+  /* Shadows */
+  --neo-shadow-offset: 6px;
+  --neo-shadow-offset-sm: 4px;
+  --neo-shadow-offset-lg: 8px;
+  --neo-shadow-color: #000000;
+
+  /* Colors - Keep your existing purple! */
+  --neo-primary: #8B5CF6;      /* Purple */
+  --neo-primary-dark: #7C3AED;
+  --neo-primary-light: #A78BFA;
+
+  --neo-accent: #F59E0B;       /* Amber - for Google ratings */
+  --neo-accent-dark: #D97706;
+  --neo-accent-light: #FBBF24;
+
+  --neo-danger: #DC2626;       /* Red */
+  --neo-danger-dark: #B91C1C;
+  --neo-danger-light: #EF4444;
+
+  --neo-success: #10B981;      /* Green */
+  --neo-success-dark: #059669;
+  --neo-success-light: #34D399;
+
+  --neo-warning: #F59E0B;      /* Yellow */
+  --neo-warning-dark: #D97706;
+  --neo-warning-light: #FBBF24;
+
+  --neo-info: #3B82F6;         /* Blue */
+  --neo-info-dark: #2563EB;
+  --neo-info-light: #60A5FA;
+
+  /* Neutrals */
+  --neo-black: #000000;
+  --neo-white: #FFFFFF;
+  --neo-gray-50: #F9FAFB;
+  --neo-gray-100: #F3F4F6;
+  --neo-gray-200: #E5E7EB;
+  --neo-gray-300: #D1D5DB;
+  --neo-gray-400: #9CA3AF;
+  --neo-gray-500: #6B7280;
+  --neo-gray-600: #4B5563;
+  --neo-gray-700: #374151;
+  --neo-gray-800: #1F2937;
+  --neo-gray-900: #111827;
+
+  /* Typography */
+  --neo-font-bold: 700;
+  --neo-font-extrabold: 800;
+  --neo-font-black: 900;
+
+  /* Spacing */
+  --neo-space-xs: 4px;
+  --neo-space-sm: 8px;
+  --neo-space-md: 12px;
+  --neo-space-lg: 16px;
+  --neo-space-xl: 24px;
+  --neo-space-2xl: 32px;
+
+  /* Transitions */
+  --neo-transition-fast: 0.1s;
+  --neo-transition-normal: 0.2s;
+  --neo-transition-slow: 0.3s;
+}
+
+/* === Utility Classes === */
+
+/* Box Shadow Utilities */
+.neo-shadow {
+  box-shadow: var(--neo-shadow-offset) var(--neo-shadow-offset) 0 var(--neo-shadow-color);
+}
+
+.neo-shadow-sm {
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-shadow-color);
+}
+
+.neo-shadow-lg {
+  box-shadow: var(--neo-shadow-offset-lg) var(--neo-shadow-offset-lg) 0 var(--neo-shadow-color);
+}
+
+.neo-shadow-none {
+  box-shadow: none;
+}
+
+/* Border Utilities */
+.neo-border {
+  border: var(--neo-border-width) solid var(--neo-border-color);
+}
+
+.neo-border-thick {
+  border: var(--neo-border-width-thick) solid var(--neo-border-color);
+}
+
+.neo-border-thin {
+  border: var(--neo-border-width-thin) solid var(--neo-border-color);
+}
+
+/* Hover/Active Effects */
+.neo-lift {
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+}
+
+.neo-lift:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset) + 2px) calc(var(--neo-shadow-offset) + 2px) 0 var(--neo-shadow-color);
+}
+
+.neo-lift:active {
+  transform: translate(2px, 2px);
+  box-shadow: calc(var(--neo-shadow-offset) - 2px) calc(var(--neo-shadow-offset) - 2px) 0 var(--neo-shadow-color);
+}
+
+/* Button Base */
+.neo-button {
+  border: var(--neo-border-width) solid var(--neo-border-color);
+  border-radius: var(--neo-border-radius);
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-shadow-color);
+  font-weight: var(--neo-font-bold);
+  padding: var(--neo-space-md) var(--neo-space-xl);
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 14px;
+}
+
+.neo-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-shadow-color);
+}
+
+.neo-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-shadow-color);
+}
+
+.neo-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Button Variants */
+.neo-button-primary {
+  background: var(--neo-primary);
+  color: var(--neo-white);
+}
+
+.neo-button-primary:hover:not(:disabled) {
+  background: var(--neo-primary-dark);
+}
+
+.neo-button-danger {
+  background: var(--neo-danger);
+  color: var(--neo-white);
+}
+
+.neo-button-danger:hover:not(:disabled) {
+  background: var(--neo-danger-dark);
+}
+
+.neo-button-secondary {
+  background: var(--neo-gray-100);
+  color: var(--neo-black);
+}
+
+.neo-button-secondary:hover:not(:disabled) {
+  background: var(--neo-gray-200);
+}
+
+/* Card Base */
+.neo-card {
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-border-color);
+  border-radius: var(--neo-border-radius);
+  box-shadow: var(--neo-shadow-offset) var(--neo-shadow-offset) 0 var(--neo-shadow-color);
+  padding: var(--neo-space-lg);
+}
+
+.neo-card-hover {
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+}
+
+.neo-card-hover:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset) + 2px) calc(var(--neo-shadow-offset) + 2px) 0 var(--neo-shadow-color);
+}
+
+/* Modal/Dialog */
+.neo-modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.neo-modal {
+  background: var(--neo-white);
+  border: var(--neo-border-width-thick) solid var(--neo-border-color);
+  border-radius: var(--neo-border-radius);
+  box-shadow: var(--neo-shadow-offset-lg) var(--neo-shadow-offset-lg) 0 var(--neo-shadow-color);
+}
+
+/* Input Base */
+.neo-input {
+  border: var(--neo-border-width) solid var(--neo-border-color);
+  border-radius: var(--neo-border-radius);
+  padding: var(--neo-space-md);
+  font-weight: 500;
+  background: var(--neo-white);
+}
+
+.neo-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--neo-primary-light);
+}
+
+/* Badge */
+.neo-badge {
+  border: var(--neo-border-width-thin) solid var(--neo-border-color);
+  border-radius: var(--neo-border-radius);
+  padding: var(--neo-space-xs) var(--neo-space-sm);
+  font-weight: var(--neo-font-bold);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 2px 2px 0 var(--neo-shadow-color);
+}
+
+/* Icon Container */
+.neo-icon-container {
+  border: var(--neo-border-width) solid var(--neo-border-color);
+  border-radius: 50%;
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-shadow-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Divider */
+.neo-divider {
+  border: none;
+  border-top: var(--neo-border-width) solid var(--neo-border-color);
+  margin: var(--neo-space-lg) 0;
+}
+
+/* Text Highlight (for emphasized text like cafe names) */
+.neo-highlight {
+  color: var(--neo-primary);
+  font-weight: var(--neo-font-extrabold);
+  padding: 0 2px;
+}

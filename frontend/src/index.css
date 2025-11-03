@@ -1,3 +1,6 @@
+/* Import Neobrutalism Theme */
+@import './styles/neobrutalism.css';
+
 :root {
   /* Primary Colors */
   --primary: #10b981;
@@ -65,18 +68,6 @@
   --z-tooltip: 1070;
   --z-sheet: 1080;
   --z-fab: 1090;
-
-  /* Legacy compatibility with App.css */
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
-  --secondary-color: #8b5cf6;
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --text-color: #1f2937;
-  --text-light: #6b7280;
-  --bg-color: #f9fafb;
-  --card-bg: #ffffff;
-  --border-color: #e5e7eb;
 }
 
 * {

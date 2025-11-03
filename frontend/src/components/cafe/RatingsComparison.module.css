@@ -4,8 +4,8 @@
 
 .sectionTitle {
   font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -20,31 +20,24 @@
 
 .ratingCard {
   padding: 16px;
-  border-radius: 12px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .ratingCard:hover {
-  transform: translateY(-2px);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
 }
 
 .googleCard {
-  background: #FEF3C7;
-  border: 2px solid #FCD34D;
-}
-
-.googleCard:hover {
-  box-shadow: 0 4px 12px rgba(251, 188, 4, 0.2);
+  background: var(--neo-warning-light);
 }
 
 .wfcCard {
-  background: #EDE9FE;
-  border: 2px solid #C4B5FD;
-}
-
-.wfcCard:hover {
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+  background: var(--neo-primary-light);
 }
 
 .cardHeader {
@@ -57,38 +50,43 @@
 
 .cardTitle {
   font-size: 13px;
-  font-weight: 600;
-  color: #4B5563;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .ratingValue {
   font-size: 32px;
-  font-weight: 700;
-  color: #1F2937;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .ratingCount {
   font-size: 12px;
-  color: #6B7280;
+  color: var(--neo-gray-700);
+  font-weight: var(--neo-font-bold);
 }
 
 .ratingNote {
   font-size: 12px;
-  color: #9CA3AF;
-  font-style: italic;
+  color: var(--neo-gray-600);
+  font-weight: 500;
 }
 
 .ctaMessage {
   text-align: center;
   font-size: 13px;
-  color: #6B7280;
+  color: var(--neo-black);
   margin-top: 12px;
   padding: 12px;
-  background: #F9FAFB;
-  border-radius: 8px;
-  border-left: 3px solid #8B5CF6;
+  background: var(--neo-primary-light);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-weight: var(--neo-font-bold);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 /* Mobile optimization */

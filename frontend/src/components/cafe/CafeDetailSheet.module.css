@@ -9,31 +9,42 @@
 
 .cafeName {
   font-size: 24px;
-  font-weight: 700;
-  color: var(--gray-900);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
   margin: 0;
   flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .favoriteButton {
   width: 44px;
   height: 44px;
-  border: none;
-  background: transparent;
-  color: var(--gray-400);
+  border: var(--neo-border-width) solid var(--neo-black);
+  background: var(--neo-white);
+  color: var(--neo-gray-400);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast), color var(--neo-transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--neo-border-radius);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .favoriteButton.active {
-  color: var(--danger, #ef4444);
+  color: var(--neo-danger);
+  background: var(--neo-danger-light);
 }
 
 .favoriteButton:hover {
-  opacity: 0.8;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.favoriteButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .cafeMeta {
@@ -47,13 +58,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--gray-600);
+  color: var(--neo-gray-600);
   font-size: 14px;
+  font-weight: 600;
 }
 
 .distance {
-  color: var(--primary, #6366f1);
-  font-weight: 500;
+  color: var(--neo-primary);
+  font-weight: var(--neo-font-bold);
 }
 
 .cafeStats {
@@ -62,8 +74,10 @@
   gap: 12px;
   margin-bottom: 16px;
   padding: 16px;
-  background: var(--gray-50, #f9fafb);
-  border-radius: 12px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .statItem {
@@ -71,54 +85,69 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: var(--gray-600);
+  color: var(--neo-gray-600);
+  padding: 8px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  background: var(--neo-gray-50);
 }
 
 .statValue {
   font-size: 18px;
-  font-weight: 700;
-  color: var(--gray-900);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
 }
 
 .statLabel {
   font-size: 11px;
   text-align: center;
-  color: var(--gray-600);
+  color: var(--neo-gray-600);
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .logVisitButton {
   width: 100%;
   padding: 16px;
-  background: var(--primary, #6366f1);
-  color: white;
-  border: none;
-  border-radius: 12px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--neo-font-bold);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast);
   margin-bottom: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
 }
 
 .logVisitButton:hover {
-  background: var(--primary-dark, #4f46e5);
+  background: var(--neo-primary-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
 }
 
 .logVisitButton:active {
-  transform: scale(0.98);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .reviewsSection {
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid var(--gray-200, #e5e7eb);
+  border-top: var(--neo-border-width) solid var(--neo-black);
 }
 
 .sectionTitle {
   font-size: 18px;
-  font-weight: 700;
-  color: var(--gray-900);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
   margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .reviewsList {
@@ -136,9 +165,11 @@
 
 .googleRating {
   padding: 20px;
-  background: var(--gray-50, #f9fafb);
-  border-radius: 12px;
+  background: var(--neo-accent-light);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   text-align: center;
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .googleRatingHeader {
@@ -151,20 +182,22 @@
 
 .googleRatingValue {
   font-size: 24px;
-  font-weight: 700;
-  color: var(--gray-900);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
 }
 
 .googleRatingCount {
   font-size: 14px;
-  color: var(--gray-600);
+  color: var(--neo-gray-700);
+  font-weight: var(--neo-font-bold);
 }
 
 .googleRatingNote {
   font-size: 14px;
-  color: var(--gray-600);
+  color: var(--neo-gray-600);
   margin: 0;
   line-height: 1.5;
+  font-weight: 500;
 }
 
 @media (max-width: 640px) {

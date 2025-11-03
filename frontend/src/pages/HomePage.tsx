@@ -41,26 +41,31 @@ const HomePage: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: var(--neo-primary);
           padding: 20px;
         }
 
         .hero {
           text-align: center;
-          color: white;
+          color: var(--neo-white);
           max-width: 600px;
         }
 
         .hero h1 {
           font-size: 56px;
-          font-weight: 800;
+          font-weight: var(--neo-font-black);
           margin: 0 0 16px 0;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          text-shadow: 4px 4px 0 var(--neo-black);
         }
 
         .hero p {
           font-size: 20px;
           margin: 0 0 40px 0;
-          opacity: 0.9;
+          font-weight: var(--neo-font-bold);
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
 
         .cta-buttons {
@@ -72,33 +77,48 @@ const HomePage: React.FC = () => {
         .btn-primary,
         .btn-secondary {
           padding: 16px 32px;
-          border: none;
-          border-radius: 12px;
+          border: var(--neo-border-width) solid var(--neo-black);
+          border-radius: var(--neo-border-radius);
           font-size: 16px;
-          font-weight: 600;
+          font-weight: var(--neo-font-bold);
           cursor: pointer;
-          transition: all 0.2s;
+          transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .btn-primary {
-          background: white;
-          color: #667eea;
+          background: var(--neo-white);
+          color: var(--neo-black);
+          box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
         }
 
         .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+          transform: translate(-2px, -2px);
+          box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
+        }
+
+        .btn-primary:active {
+          transform: translate(2px, 2px);
+          box-shadow: 2px 2px 0 var(--neo-black);
         }
 
         .btn-secondary {
           background: transparent;
-          color: white;
-          border: 2px solid white;
+          color: var(--neo-white);
+          box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
         }
 
         .btn-secondary:hover {
-          background: white;
-          color: #667eea;
+          background: var(--neo-white);
+          color: var(--neo-black);
+          transform: translate(-2px, -2px);
+          box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
+        }
+
+        .btn-secondary:active {
+          transform: translate(2px, 2px);
+          box-shadow: 2px 2px 0 var(--neo-black);
         }
 
         @media (max-width: 640px) {

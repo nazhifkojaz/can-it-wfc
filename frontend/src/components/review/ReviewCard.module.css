@@ -1,38 +1,50 @@
-/* ReviewCard Styles */
+/* ReviewCard - Neobrutalism Style */
 
 .reviewCard {
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  padding: var(--neo-space-lg);
+  margin-bottom: var(--neo-space-md);
+  box-shadow: var(--neo-shadow-offset) var(--neo-shadow-offset) 0 var(--neo-black);
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+}
+
+.reviewCard:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset) + 2px) calc(var(--neo-shadow-offset) + 2px) 0 var(--neo-black);
 }
 
 .reviewHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: var(--neo-space-md);
+  gap: 8px;
 }
 
 .userInfo {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--neo-space-md);
   flex: 1;
+  min-width: 0; /* Allow flex item to shrink below content size */
 }
 
+/* User Avatar - Neobrutalism Square */
 .userAvatar {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #E5E7EB;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  background: var(--neo-gray-100);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6B7280;
+  color: var(--neo-black);
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .userAvatar img {
@@ -46,10 +58,12 @@
 }
 
 .userName {
-  font-weight: 600;
-  color: #111827;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   margin: 0 0 4px 0;
   font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .metaInfo {
@@ -57,11 +71,13 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #6B7280;
+  color: var(--neo-gray-600);
+  font-weight: 500;
 }
 
 .metaDivider {
-  color: #D1D5DB;
+  color: var(--neo-black);
+  font-weight: var(--neo-font-bold);
 }
 
 .reviewTime {
@@ -69,33 +85,41 @@
 }
 
 .visitTime {
-  color: #8B5CF6;
-  font-weight: 500;
+  color: var(--neo-primary);
+  font-weight: var(--neo-font-bold);
 }
 
 /* Header Actions (Star Rating + Delete Button) */
 .headerActions {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
   flex-shrink: 0;
+  min-width: fit-content;
 }
 
-/* Star Rating Display */
+/* Star Rating Display - Bold Stars */
 .starRating {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
+  padding: 4px 8px;
+  background: var(--neo-accent-light);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .starRating .ratingValue {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: var(--neo-font-extrabold);
   margin-left: 4px;
+  color: var(--neo-black);
 }
 
-/* Delete Button */
+/* Delete Button - Neobrutalism */
 .deleteButton {
   display: flex;
   align-items: center;
@@ -103,54 +127,58 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #DC2626;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  background: var(--neo-white);
+  color: var(--neo-danger);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .deleteButton:hover:not(.disabled) {
-  background: #FEE2E2;
-  color: #B91C1C;
+  background: var(--neo-danger);
+  color: var(--neo-white);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .deleteButton:active:not(.disabled) {
-  transform: scale(0.95);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
 }
 
 .deleteButton.disabled {
-  color: #D1D5DB;
+  color: var(--neo-gray-400);
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .deleteButton.disabled:hover {
-  background: #F3F4F6;
-  color: #9CA3AF;
+  background: var(--neo-white);
+  transform: none;
 }
 
-/* Review Comment */
+/* Review Comment - Neobrutalism Box */
 .reviewText {
   font-size: 14px;
-  color: #374151;
+  color: var(--neo-black);
   line-height: 1.6;
-  margin: 0 0 12px 0;
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  border-left: 3px solid #8B5CF6;
+  margin: 0 0 var(--neo-space-md) 0;
+  background: var(--neo-primary-light);
+  padding: var(--neo-space-md);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-weight: 500;
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
-/* Inline Ratings with Icons */
+/* Inline Ratings with Icons - Neobrutalism Badges */
 .wfcRatingsInline {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 8px;
-  padding: 12px;
-  background: white;
-  border-radius: 8px;
+  gap: var(--neo-space-sm);
+  margin-bottom: var(--neo-space-sm);
 }
 
 .inlineRating {
@@ -158,21 +186,43 @@
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #4B5563;
-  font-weight: 600;
+  color: var(--neo-black);
+  font-weight: var(--neo-font-bold);
+  padding: 4px 8px;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .inlineRating svg {
-  color: #8B5CF6;
+  color: var(--neo-primary);
   flex-shrink: 0;
 }
 
+/* Helpful Count - Badge */
 .helpfulCount {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--gray-600, #6b7280);
+  color: var(--neo-black);
+  font-weight: var(--neo-font-bold);
+  padding: 4px 10px;
+  background: var(--neo-success-light);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  width: fit-content;
+}
+
+/* Responsive: Desktop layout for header actions */
+@media (min-width: 480px) {
+  .headerActions {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--neo-space-sm);
+  }
 }
 
 @media (min-width: 640px) {

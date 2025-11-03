@@ -4,8 +4,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: var(--neo-gray-50);
+  color: var(--neo-black);
 }
 
 .App {
@@ -20,10 +20,10 @@ body {
 
 /* Navbar */
 .navbar {
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--neo-white);
+  border-bottom: var(--neo-border-width) solid var(--neo-black);
   padding: 1rem 0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 0 var(--neo-black);
 }
 
 .navbar-container {
@@ -37,12 +37,12 @@ body {
 
 .navbar-brand {
   text-decoration: none;
-  color: var(--text-color);
+  color: var(--neo-black);
 }
 
 .navbar-brand h1 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: var(--neo-font-bold);
 }
 
 .navbar-menu {
@@ -53,13 +53,13 @@ body {
 
 .nav-link {
   text-decoration: none;
-  color: var(--text-color);
+  color: var(--neo-black);
   font-weight: 500;
   transition: color 0.2s;
 }
 
 .nav-link:hover {
-  color: var(--primary-color);
+  color: var(--neo-primary);
 }
 
 .navbar-user {
@@ -69,7 +69,7 @@ body {
 }
 
 .user-display {
-  color: var(--text-light);
+  color: var(--neo-gray-600);
   font-weight: 500;
 }
 
@@ -79,23 +79,32 @@ body {
 .btn-login,
 .btn-logout {
   padding: 0.5rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  border-radius: var(--neo-border-radius);
+  font-weight: var(--neo-font-bold);
   cursor: pointer;
-  transition: all 0.2s;
-  border: none;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  border: var(--neo-border-width) solid var(--neo-black);
   text-decoration: none;
   display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .btn-primary {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--neo-primary);
+  color: var(--neo-white);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
+  background-color: var(--neo-primary-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-black);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .btn-primary:disabled {
@@ -104,36 +113,58 @@ body {
 }
 
 .btn-secondary {
-  background-color: transparent;
-  color: var(--primary-color);
-  border: 2px solid var(--primary-color);
+  background-color: var(--neo-white);
+  color: var(--neo-primary);
+  border: var(--neo-border-width) solid var(--neo-black);
 }
 
 .btn-secondary:hover {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--neo-primary);
+  color: var(--neo-white);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-black);
+}
+
+.btn-secondary:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .btn-large {
   padding: 0.75rem 2rem;
   font-size: 1.125rem;
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.btn-large:hover {
+  box-shadow: 6px 6px 0 var(--neo-black);
 }
 
 .btn-login {
   background-color: transparent;
-  color: var(--primary-color);
+  color: var(--neo-primary);
   padding: 0.5rem 1rem;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .btn-logout,
 .btn-register {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--neo-primary);
+  color: var(--neo-white);
 }
 
 .btn-logout:hover,
 .btn-register:hover {
-  background-color: var(--primary-hover);
+  background-color: var(--neo-primary-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-black);
+}
+
+.btn-logout:active,
+.btn-register:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 /* Home Page */
@@ -151,12 +182,12 @@ body {
 .hero h1 {
   font-size: 3rem;
   margin-bottom: 1rem;
-  color: var(--text-color);
+  color: var(--neo-black);
 }
 
 .hero p {
   font-size: 1.25rem;
-  color: var(--text-light);
+  color: var(--neo-gray-600);
   margin-bottom: 2rem;
 }
 
@@ -183,17 +214,18 @@ body {
 }
 
 .feature-card {
-  background: var(--card-bg);
+  background: var(--neo-white);
   padding: 2rem;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  border-radius: var(--neo-border-radius);
+  border: var(--neo-border-width) solid var(--neo-black);
+  box-shadow: 4px 4px 0 var(--neo-black);
   text-align: center;
-  transition: transform 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
 }
 
 .feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
 }
 
 .feature-icon {
@@ -206,15 +238,17 @@ body {
 }
 
 .feature-card p {
-  color: var(--text-light);
+  color: var(--neo-gray-600);
 }
 
 .cta {
   text-align: center;
   padding: 4rem 2rem;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  border-radius: 1rem;
-  color: white;
+  background: var(--neo-primary);
+  border: var(--neo-border-width-thick) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 8px 8px 0 var(--neo-black);
+  color: var(--neo-white);
   margin-top: 4rem;
 }
 
@@ -238,10 +272,11 @@ body {
 }
 
 .auth-card {
-  background: var(--card-bg);
+  background: var(--neo-white);
   padding: 2.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-radius: var(--neo-border-radius);
+  border: var(--neo-border-width) solid var(--neo-black);
+  box-shadow: 6px 6px 0 var(--neo-black);
   max-width: 400px;
   width: 100%;
 }
@@ -259,22 +294,23 @@ body {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: var(--text-color);
+  color: var(--neo-black);
 }
 
 .form-group input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 1rem;
-  transition: border-color 0.2s;
+  background: var(--neo-white);
+  transition: box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .auth-card .btn-primary {
@@ -286,11 +322,11 @@ body {
 .auth-footer {
   text-align: center;
   margin-top: 1.5rem;
-  color: var(--text-light);
+  color: var(--neo-gray-600);
 }
 
 .auth-footer a {
-  color: var(--primary-color);
+  color: var(--neo-primary);
   text-decoration: none;
   font-weight: 600;
 }
@@ -301,26 +337,35 @@ body {
 
 /* Messages */
 .error-message {
-  background-color: #fee2e2;
-  color: var(--error-color);
+  background-color: var(--neo-danger-light);
+  color: var(--neo-danger);
   padding: 1rem;
-  border-radius: 0.5rem;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-left: 6px solid var(--neo-danger);
+  border-radius: var(--neo-border-radius);
   margin-bottom: 1rem;
+  font-weight: var(--neo-font-bold);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .success-message {
-  background-color: #d1fae5;
-  color: var(--success-color);
+  background-color: var(--neo-success-light);
+  color: var(--neo-success);
   padding: 2rem;
-  border-radius: 0.5rem;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-left: 6px solid var(--neo-success);
+  border-radius: var(--neo-border-radius);
   text-align: center;
+  font-weight: var(--neo-font-bold);
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .field-error {
-  color: var(--error-color);
+  color: var(--neo-danger);
   font-size: 0.875rem;
   margin-top: 0.25rem;
   display: block;
+  font-weight: var(--neo-font-bold);
 }
 
 /* Loading */
@@ -330,7 +375,8 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
-  color: var(--text-light);
+  color: var(--neo-gray-600);
+  font-weight: var(--neo-font-bold);
 }
 
 /* Page Container */

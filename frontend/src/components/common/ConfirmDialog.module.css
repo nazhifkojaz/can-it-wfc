@@ -1,113 +1,162 @@
+/* ConfirmDialog - Neobrutalism Style */
+
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.5rem;
+  padding: var(--neo-space-2xl);
   text-align: center;
 }
 
+/* Icon Container with Neobrutalism */
 .iconContainer {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 80px;
   height: 80px;
-  border-radius: 50%;
-  margin-bottom: 1rem;
+  border: var(--neo-border-width-thick) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  margin-bottom: var(--neo-space-xl);
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
+  transform: rotate(-2deg); /* Slightly asymmetric for brutalist feel */
 }
 
 .iconContainer.danger {
-  background-color: #FEE2E2;
-  color: #DC2626;
+  background-color: var(--neo-danger);
+  color: var(--neo-white);
 }
 
 .iconContainer.warning {
-  background-color: #FEF3C7;
-  color: #F59E0B;
+  background-color: var(--neo-warning);
+  color: var(--neo-black);
 }
 
 .iconContainer.info {
-  background-color: #DBEAFE;
-  color: #3B82F6;
+  background-color: var(--neo-info);
+  color: var(--neo-white);
 }
 
+/* Title - Bold & Uppercase */
 .title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-  color: #111827;
+  font-size: 1.75rem;
+  font-weight: var(--neo-font-extrabold);
+  margin: 0 0 var(--neo-space-md) 0;
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
+/* Message */
 .message {
   font-size: 1rem;
-  line-height: 1.5;
-  color: #6B7280;
-  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+  color: var(--neo-gray-700);
+  margin: 0 0 var(--neo-space-2xl) 0;
   max-width: 400px;
+  font-weight: 500;
 }
 
+/* Action Buttons Container */
 .actions {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--neo-space-md);
   width: 100%;
-  max-width: 300px;
+  max-width: 350px;
 }
 
+/* Base Button Styles */
 .cancelButton,
 .confirmButton {
   flex: 1;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-weight: 500;
+  padding: var(--neo-space-md) var(--neo-space-lg);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 0.875rem;
+  font-weight: var(--neo-font-bold);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
 }
 
+/* Cancel Button */
 .cancelButton {
-  background-color: #F3F4F6;
-  color: #374151;
+  background-color: var(--neo-white);
+  color: var(--neo-black);
 }
 
 .cancelButton:hover:not(:disabled) {
-  background-color: #E5E7EB;
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
+}
+
+.cancelButton:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .cancelButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
+/* Confirm Button */
 .confirmButton {
-  color: white;
+  color: var(--neo-white);
+  font-weight: var(--neo-font-extrabold);
 }
 
 .confirmButton.danger {
-  background-color: #DC2626;
+  background-color: var(--neo-danger);
 }
 
 .confirmButton.danger:hover:not(:disabled) {
-  background-color: #B91C1C;
+  background-color: var(--neo-danger-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
+}
+
+.confirmButton.danger:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .confirmButton.warning {
-  background-color: #F59E0B;
+  background-color: var(--neo-warning);
+  color: var(--neo-black);
 }
 
 .confirmButton.warning:hover:not(:disabled) {
-  background-color: #D97706;
+  background-color: var(--neo-warning-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
+}
+
+.confirmButton.warning:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .confirmButton.info {
-  background-color: #3B82F6;
+  background-color: var(--neo-info);
 }
 
 .confirmButton.info:hover:not(:disabled) {
-  background-color: #2563EB;
+  background-color: var(--neo-info-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
+}
+
+.confirmButton.info:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .confirmButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }

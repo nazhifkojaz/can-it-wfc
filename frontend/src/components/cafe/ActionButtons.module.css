@@ -11,51 +11,56 @@
   justify-content: center;
   gap: 8px;
   padding: 14px 20px;
-  border: none;
-  border-radius: 12px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--neo-font-bold);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast);
   flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .directionsButton {
-  background: #3B82F6;
-  color: white;
+  background: var(--neo-info);
+  color: var(--neo-white);
   flex: 2.5;
 }
 
 .directionsButton:hover:not(:disabled) {
-  background: #2563EB;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  background: var(--neo-info-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
 }
 
 .directionsButton:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .directionsButton:disabled {
-  background: #9CA3AF;
+  background: var(--neo-gray-400);
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 .logVisitButton {
-  background: #8B5CF6;
-  color: white;
+  background: var(--neo-primary);
+  color: var(--neo-white);
   flex: 2.5;
 }
 
 .logVisitButton:hover {
-  background: #7C3AED;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  background: var(--neo-primary-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
 }
 
 .logVisitButton:active {
-  transform: translateY(0);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 /* Mobile optimization */

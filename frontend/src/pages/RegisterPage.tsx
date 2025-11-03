@@ -129,17 +129,18 @@ const RegisterPage: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: var(--neo-primary);
           padding: 20px;
         }
 
         .register-card {
-          background: white;
-          border-radius: 20px;
+          background: var(--neo-white);
+          border: var(--neo-border-width-thick) solid var(--neo-black);
+          border-radius: var(--neo-border-radius);
           padding: 40px;
           width: 100%;
           max-width: 420px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          box-shadow: var(--neo-shadow-offset-lg) var(--neo-shadow-offset-lg) 0 var(--neo-black);
         }
 
         .logo {
@@ -149,15 +150,20 @@ const RegisterPage: React.FC = () => {
 
         .logo h1 {
           font-size: 32px;
-          font-weight: 800;
-          color: var(--primary);
+          font-weight: var(--neo-font-black);
+          color: var(--neo-black);
           margin: 0 0 8px 0;
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
 
         .logo p {
           font-size: 14px;
-          color: var(--gray-600);
+          color: var(--neo-gray-600);
           margin: 0;
+          font-weight: var(--neo-font-bold);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .form-group {
@@ -167,74 +173,86 @@ const RegisterPage: React.FC = () => {
         .form-group label {
           display: block;
           font-size: 14px;
-          font-weight: 600;
-          color: var(--gray-700);
+          font-weight: var(--neo-font-bold);
+          color: var(--neo-black);
           margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .form-group input {
           width: 100%;
           padding: 14px 16px;
-          border: 2px solid var(--gray-200);
-          border-radius: 10px;
+          border: var(--neo-border-width) solid var(--neo-black);
+          border-radius: var(--neo-border-radius);
           font-size: 16px;
           transition: all 0.2s;
           font-family: inherit;
+          background: var(--neo-white);
+          box-shadow: 3px 3px 0 var(--neo-black);
         }
 
         .form-group input:focus {
           outline: none;
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+          border-color: var(--neo-primary);
+          box-shadow: 4px 4px 0 var(--neo-black);
+          transform: translate(-1px, -1px);
         }
 
         .form-group input::placeholder {
-          color: var(--gray-400);
+          color: var(--neo-gray-400);
         }
 
         .hint {
           display: block;
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--neo-gray-600);
           margin-top: 6px;
+          font-weight: 500;
         }
 
         .error-message {
           padding: 12px 16px;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          border-radius: 10px;
-          color: var(--danger);
+          background: var(--neo-danger-light);
+          border: var(--neo-border-width-thin) solid var(--neo-black);
+          border-radius: var(--neo-border-radius);
+          color: var(--neo-white);
           font-size: 14px;
+          font-weight: var(--neo-font-bold);
           margin-bottom: 20px;
+          box-shadow: 3px 3px 0 var(--neo-black);
         }
 
         .submit-button {
           width: 100%;
           padding: 16px;
-          background: var(--primary);
-          color: white;
-          border: none;
-          border-radius: 10px;
+          background: var(--neo-primary);
+          color: var(--neo-white);
+          border: var(--neo-border-width) solid var(--neo-black);
+          border-radius: var(--neo-border-radius);
           font-size: 16px;
-          font-weight: 600;
+          font-weight: var(--neo-font-bold);
           cursor: pointer;
-          transition: all 0.2s;
+          transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
           font-family: inherit;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
         }
 
         .submit-button:hover:not(:disabled) {
-          background: var(--primary-dark);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+          background: var(--neo-primary-dark);
+          transform: translate(-2px, -2px);
+          box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
         }
 
         .submit-button:active:not(:disabled) {
-          transform: translateY(0);
+          transform: translate(2px, 2px);
+          box-shadow: 2px 2px 0 var(--neo-black);
         }
 
         .submit-button:disabled {
-          opacity: 0.6;
+          opacity: 0.5;
           cursor: not-allowed;
           transform: none;
         }
@@ -243,18 +261,22 @@ const RegisterPage: React.FC = () => {
           text-align: center;
           margin-top: 24px;
           font-size: 14px;
-          color: var(--gray-600);
+          color: var(--neo-black);
+          font-weight: 500;
         }
 
         .footer-link a {
-          color: var(--primary);
-          font-weight: 600;
+          color: var(--neo-primary);
+          font-weight: var(--neo-font-bold);
           text-decoration: none;
           transition: color 0.2s;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .footer-link a:hover {
-          color: var(--primary-dark);
+          color: var(--neo-primary-dark);
+          text-decoration: underline;
         }
 
         @media (max-width: 480px) {

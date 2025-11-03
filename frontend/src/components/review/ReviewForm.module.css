@@ -1,4 +1,4 @@
-/* ReviewForm Styles */
+/* ReviewForm Styles - Neobrutalism */
 
 .formHeader {
   margin-bottom: 16px;
@@ -6,8 +6,9 @@
 
 .formSubtitle {
   font-size: 14px;
-  color: var(--gray-600, #6b7280);
+  color: var(--neo-gray-600);
   margin: 4px 0 0 0;
+  font-weight: 500;
 }
 
 .formBody {
@@ -24,15 +25,18 @@
 
 .sectionTitle {
   font-size: 18px;
-  font-weight: 700;
-  color: var(--gray-900, #111827);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .sectionDescription {
   font-size: 14px;
-  color: var(--gray-600, #6b7280);
+  color: var(--neo-gray-600);
   margin: 0;
+  font-weight: 500;
 }
 
 .ratingCategories {
@@ -43,9 +47,11 @@
 }
 
 .ratingCategory {
-  background: var(--gray-50, #f9fafb);
-  border-radius: 12px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   padding: 16px;
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .categoryHeader {
@@ -55,15 +61,17 @@
 }
 
 .categoryIcon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: white;
+  background: var(--neo-primary-light);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary, #6366f1);
+  color: var(--neo-primary);
   flex-shrink: 0;
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .categoryInfo {
@@ -72,15 +80,18 @@
 
 .categoryLabel {
   font-size: 16px;
-  font-weight: 600;
-  color: var(--gray-900, #111827);
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .categoryDescription {
   font-size: 13px;
-  color: var(--gray-600, #6b7280);
+  color: var(--neo-gray-600);
   margin: 0;
+  font-weight: 500;
 }
 
 .starRating {
@@ -92,22 +103,27 @@
 .star {
   width: 44px;
   height: 44px;
-  border: none;
-  background: transparent;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  background: var(--neo-white);
   font-size: 28px;
-  color: var(--gray-300, #d1d5db);
+  color: var(--neo-gray-300);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
   padding: 0;
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .star.active {
-  color: #fbbf24;
-  transform: scale(1.1);
+  color: var(--neo-warning);
+  background: var(--neo-warning-light);
+  transform: scale(1.05);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .star:hover {
-  transform: scale(1.15);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .timeCheckboxes {
@@ -122,22 +138,25 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: var(--gray-50, #f9fafb);
-  border: 2px solid var(--gray-200, #e5e7eb);
-  border-radius: 12px;
+  background: var(--neo-gray-50);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .timeCheckbox:hover {
-  border-color: var(--primary, #6366f1);
-  background: white;
+  background: var(--neo-white);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .timeCheckbox input[type="checkbox"] {
   width: 20px;
   height: 20px;
   cursor: pointer;
+  accent-color: var(--neo-primary);
 }
 
 .checkboxLabel {
@@ -145,9 +164,11 @@
   align-items: center;
   gap: 12px;
   font-size: 15px;
-  font-weight: 500;
-  color: var(--gray-900, #111827);
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .timeIcon {
@@ -161,54 +182,63 @@
 .reviewTextarea {
   width: 100%;
   padding: 16px;
-  border: 2px solid var(--gray-200, #e5e7eb);
-  border-radius: 12px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 15px;
   font-family: inherit;
   resize: vertical;
-  transition: border-color 0.2s;
+  transition: box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .reviewTextarea:focus {
   outline: none;
-  border-color: var(--primary, #6366f1);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .characterCount {
   text-align: right;
   font-size: 12px;
-  color: var(--gray-500, #6b7280);
+  color: var(--neo-gray-600);
   margin: 8px 0 0 0;
+  font-weight: var(--neo-font-bold);
 }
 
 .errorMessage {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
+  background: var(--neo-danger-light);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   padding: 12px;
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .errorMessage p {
-  color: var(--danger, #ef4444);
+  color: var(--neo-danger);
   font-size: 14px;
   margin: 0;
+  font-weight: var(--neo-font-bold);
 }
 
 .submitButton {
   width: 100%;
   padding: 16px;
-  background: var(--primary, #6366f1);
-  color: white;
-  border: none;
-  border-radius: 12px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--neo-font-bold);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .submitButton:hover:not(:disabled) {
-  background: var(--primary-dark, #4f46e5);
+  background: var(--neo-primary-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
 }
 
 .submitButton:disabled {
@@ -217,7 +247,8 @@
 }
 
 .submitButton:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 @media (min-width: 768px) {

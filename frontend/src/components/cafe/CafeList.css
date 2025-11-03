@@ -25,24 +25,32 @@
 .sort-button {
   flex: 1;
   padding: 8px 16px;
-  background: var(--gray-100);
-  border: 2px solid transparent;
-  border-radius: 8px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 14px;
-  font-weight: 500;
-  color: var(--gray-700);
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .sort-button.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+  background: var(--neo-primary);
+  color: var(--neo-white);
 }
 
 .sort-button:hover:not(.active) {
-  background: var(--gray-200);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.sort-button:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
 }
 
 .list-content {
@@ -53,25 +61,26 @@
 
 .cafe-card {
   width: 100%;
-  background: white;
-  border: none;
-  border-radius: 16px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   padding: 16px;
   margin-bottom: 12px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: var(--neo-shadow-offset-sm) var(--neo-shadow-offset-sm) 0 var(--neo-black);
   position: relative;
 }
 
 .cafe-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--neo-shadow-offset-sm) + 2px) calc(var(--neo-shadow-offset-sm) + 2px) 0 var(--neo-black);
 }
 
 .cafe-card:active {
-  transform: translateY(0);
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .card-badges {
@@ -83,42 +92,28 @@
 .status-badge {
   display: inline-block;
   padding: 4px 10px;
-  border-radius: 12px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: var(--neo-font-bold);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .status-badge.green {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--neo-success-light);
+  color: var(--neo-success-dark);
 }
 
 .status-badge.blue {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--neo-info-light);
+  color: var(--neo-info-dark);
 }
 
 .status-badge.gray {
-  background: var(--gray-200);
-  color: var(--gray-600);
-}
-
-/* Legacy badge styles (keep for compatibility) */
-.status-badge.visited {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.reviewed {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.status-badge.new {
-  background: var(--gray-200);
-  color: var(--gray-600);
+  background: var(--neo-gray-200);
+  color: var(--neo-gray-700);
 }
 
 .card-content {
@@ -127,9 +122,11 @@
 
 .cafe-name {
   font-size: 18px;
-  font-weight: 600;
-  color: var(--gray-900);
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .cafe-address {

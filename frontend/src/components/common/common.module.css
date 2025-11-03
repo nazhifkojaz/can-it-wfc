@@ -167,7 +167,7 @@
 }
 
 /* ================================
-   Modal Component
+   Modal Component - Neobrutalism Style
    ================================ */
 .modalOverlay {
   position: fixed;
@@ -175,7 +175,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--background-overlay, rgba(0, 0, 0, 0.5));
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,15 +185,16 @@
 }
 
 .modalContent {
-  background: var(--white, #ffffff);
-  border-radius: var(--border-radius-xl, 16px);
-  box-shadow: var(--shadow-2xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+  background: var(--neo-white);
+  border: var(--neo-border-width-thick) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: var(--neo-shadow-offset-lg) var(--neo-shadow-offset-lg) 0 var(--neo-black);
   width: 100%;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: slideUp var(--transition-base, 0.2s) ease-out;
+  animation: brutalSlideUp var(--transition-base, 0.2s) ease-out;
 }
 
 .modalHeader {
@@ -212,21 +213,27 @@
 }
 
 .modalCloseButton {
-  background: none;
-  border: none;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
   padding: var(--spacing-sm, 8px);
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--neo-black);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--border-radius-md, 8px);
-  transition: all var(--transition-fast, 0.15s);
+  border-radius: var(--neo-border-radius);
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .modalCloseButton:hover {
-  background-color: var(--gray-100, #f3f4f6);
-  color: var(--text-primary, #111827);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.modalCloseButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
 }
 
 .modalBody {
@@ -244,9 +251,9 @@
   }
 }
 
-@keyframes slideUp {
+@keyframes brutalSlideUp {
   from {
-    transform: translateY(20px);
+    transform: translateY(30px);
     opacity: 0;
   }
   to {
@@ -267,7 +274,7 @@
 }
 
 /* ================================
-   Sheet Component
+   Sheet Component - Neobrutalism
    ================================ */
 .sheetOverlay {
   position: fixed;
@@ -275,7 +282,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.7);
   z-index: var(--z-sheet, 90);
   animation: fadeIn var(--transition-base, 0.2s) ease-out;
 }
@@ -285,10 +292,12 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--white, #ffffff);
-  border-top-left-radius: var(--border-radius-2xl, 24px);
-  border-top-right-radius: var(--border-radius-2xl, 24px);
-  box-shadow: var(--shadow-2xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+  background: var(--neo-white);
+  border: var(--neo-border-width-thick) solid var(--neo-black);
+  border-bottom: none;
+  border-top-left-radius: var(--neo-border-radius);
+  border-top-right-radius: var(--neo-border-radius);
+  box-shadow: 0 -8px 0 var(--neo-black);
   display: flex;
   flex-direction: column;
   z-index: var(--z-sheet, 90);
@@ -302,18 +311,19 @@
   align-items: center;
   justify-content: center;
   cursor: grab;
+  border-bottom: var(--neo-border-width-thin) solid var(--neo-black);
 }
 
 .sheetHandle {
-  width: 40px;
-  height: 4px;
-  background-color: var(--gray-300, #d1d5db);
-  border-radius: var(--border-radius-full, 9999px);
+  width: 48px;
+  height: 6px;
+  background-color: var(--neo-black);
+  border-radius: 2px;
 }
 
 .sheetHeader {
   padding: var(--spacing-md, 12px) var(--spacing-lg, 24px);
-  border-bottom: 1px solid var(--border-light, #e5e7eb);
+  border-bottom: var(--neo-border-width-thin) solid var(--neo-black);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -321,27 +331,35 @@
 
 .sheetTitle {
   font-size: var(--font-size-xl, 20px);
-  font-weight: var(--font-weight-semibold, 600);
-  color: var(--text-primary, #111827);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .sheetCloseButton {
-  background: none;
-  border: none;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
   padding: var(--spacing-sm, 8px);
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--neo-black);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--border-radius-md, 8px);
-  transition: all var(--transition-fast, 0.15s);
+  border-radius: var(--neo-border-radius);
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .sheetCloseButton:hover {
-  background-color: var(--gray-100, #f3f4f6);
-  color: var(--text-primary, #111827);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.sheetCloseButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
 }
 
 .sheetBody {
@@ -360,7 +378,7 @@
 }
 
 /* ================================
-   FloatingActionButton Component
+   FloatingActionButton Component - Neobrutalism
    ================================ */
 .fab {
   position: fixed;
@@ -369,36 +387,37 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--primary, #10b981);
-  color: white;
-  border: none;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thick) solid var(--neo-black);
+  box-shadow: 5px 5px 0 var(--neo-black);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
   z-index: var(--z-fab, 80);
   animation: fabAppear 0.3s ease-out;
 }
 
 .fab:hover {
-  background: var(--primary-dark, #059669);
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+  background: var(--neo-primary-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--neo-black);
 }
 
 .fab:active {
-  transform: scale(0.95);
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 @keyframes fabAppear {
   from {
-    transform: scale(0) rotate(-180deg);
+    transform: translate(20px, 20px);
     opacity: 0;
   }
   to {
-    transform: scale(1) rotate(0deg);
+    transform: translate(0, 0);
     opacity: 1;
   }
 }
