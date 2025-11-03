@@ -607,7 +607,8 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
 
         review = None
         if include_review and review_data.get('wfc_rating'):
-            review_data['visit_time'] = validated_data.get('visit_time')
+            # Copy visit_time from Visit to Review for backward compatibility
+            review_data['visit_time'] = visit.visit_time
 
             wfc_rating = review_data['wfc_rating']
             review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))

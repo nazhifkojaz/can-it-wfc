@@ -20,19 +20,20 @@ from django.utils.decorators import method_decorator
 class VisitListCreateView(generics.ListCreateAPIView):
     """
     List user's visits or create a new visit.
-    
+
     GET /api/visits/
+    GET /api/visits/?cafe={id}&visit_date={YYYY-MM-DD}  # Filter by cafe and/or date
     POST /api/visits/
     """
     serializer_class = VisitSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['cafe']
+    filterset_fields = ['cafe', 'visit_date']  # Added visit_date for duplicate checking
     ordering_fields = ['visit_date', 'created_at']
     ordering = ['-visit_date']
-    
+
     def get_queryset(self):
-        return Visit.objects.filter(user=self.request.user)
+        return Visit.objects.filter(user=self.request.user).select_related('cafe', 'review')
 
 
 class VisitDetailView(generics.RetrieveUpdateDestroyAPIView):

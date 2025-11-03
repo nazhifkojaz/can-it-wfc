@@ -179,6 +179,7 @@ class Review(models.Model):
     )
     
     # Visit time (1=morning, 2=afternoon, 3=evening)
+    # DEPRECATED: Now stored in Visit model, kept here for backward compatibility
     VISIT_TIME_CHOICES = [
         (1, 'Morning (Open - 1pm)'),
         (2, 'Afternoon (1pm - 6pm)'),
@@ -187,7 +188,9 @@ class Review(models.Model):
     visit_time = models.IntegerField(
         choices=VISIT_TIME_CHOICES,
         validators=[MinValueValidator(1), MaxValueValidator(3)],
-        help_text="Time of visit"
+        null=True,
+        blank=True,
+        help_text="Time of visit (deprecated - now stored in Visit model)"
     )
     
     # Text review (Twitter-style, 160 chars)
