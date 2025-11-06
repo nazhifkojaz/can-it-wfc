@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { authApi } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ interface GoogleLoginButtonProps {
   mode?: 'signin' | 'signup';
 }
 
-const GoogleLoginButtonInner: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin' }) => {
+const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin' }) => {
   const { login, updateUser } = useAuth();
   const navigate = useNavigate();
   const resultModal = useResultModal();
@@ -127,24 +127,6 @@ const GoogleLoginButtonInner: React.FC<GoogleLoginButtonProps> = ({ mode = 'sign
         autoCloseDelay={resultModal.autoCloseDelay}
       />
     </>
-  );
-};
-
-const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = (props) => {
-  if (!GOOGLE_CLIENT_ID) {
-    return (
-      <div style={{ padding: '12px', background: '#FEF3C7', border: '2px solid #000', borderRadius: '4px', marginBottom: '20px' }}>
-        <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>
-          ⚠️ Google Sign-In not configured. Add VITE_GOOGLE_OAUTH_CLIENT_ID to .env
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <GoogleLoginButtonInner {...props} />
-    </GoogleOAuthProvider>
   );
 };
 
