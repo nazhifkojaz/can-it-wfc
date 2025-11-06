@@ -12,10 +12,11 @@ import FavoritesPage from './pages/FavoritesPage';
 import ProfilePage from './pages/ProfilePage';
 
 function App() {
-  const basename = import.meta.env.BASE_URL || '/';
+  const rawBase = import.meta.env.BASE_URL || '/';
+  const basename = rawBase.endsWith('/') && rawBase !== '/' ? rawBase.slice(0, -1) : rawBase;
   return (
     <ErrorBoundary>
-      <Router basename={basename}>
+      <Router basename={basename || '/'}>
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={<HomePage />} />

@@ -19,6 +19,7 @@ import {
 } from '../types';
 import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
+import { buildAppPath } from '../utils/url';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -70,7 +71,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed, logout user
         tokenStorage.clearTokens();
-        window.location.href = '/login';
+        window.location.href = buildAppPath('/login');
         return Promise.reject(refreshError);
       }
     }

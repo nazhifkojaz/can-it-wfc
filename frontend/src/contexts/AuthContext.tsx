@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserLogin, UserRegistration } from '../types';
 import { authApi, userApi } from '../api/client';
+import { buildAppPath } from '../utils/url';
 
 interface AuthContextType {
   user: User | null;
@@ -113,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     // Redirect to login page
-    window.location.href = '/login';
+    window.location.href = buildAppPath('/login');
   };
 
   const updateUser = (updatedUser: User) => {
@@ -177,7 +178,7 @@ export const withAuth = <P extends object>(
     }
 
     if (!user) {
-      window.location.href = '/login';
+      window.location.href = buildAppPath('/login');
       return null;
     }
 
