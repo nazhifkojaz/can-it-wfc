@@ -113,8 +113,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setError(null);
     
-    // Redirect to login page
-    window.location.href = buildAppPath('/login');
+    // Redirect to home page
+    window.location.href = buildAppPath('/');
   };
 
   const updateUser = (updatedUser: User) => {
@@ -178,7 +178,7 @@ export const withAuth = <P extends object>(
     }
 
     if (!user) {
-      window.location.href = buildAppPath('/login');
+      window.location.href = buildAppPath('/');
       return null;
     }
 

@@ -71,7 +71,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed, logout user
         tokenStorage.clearTokens();
-        window.location.href = buildAppPath('/login');
+        window.location.href = buildAppPath('/');
         return Promise.reject(refreshError);
       }
     }
