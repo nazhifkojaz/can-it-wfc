@@ -32,6 +32,9 @@ dependencies = [
     # Production
     "gunicorn>=21.2.0",
     "whitenoise>=6.6.0",
+    "django-allauth>=65.13.0",
+    "dj-rest-auth>=7.0.1",
+    "google-auth>=2.42.1",
 ]
 
 [project.optional-dependencies]

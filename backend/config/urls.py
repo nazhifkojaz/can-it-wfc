@@ -13,18 +13,21 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    # Admin panel
-    path('admin/', admin.site.urls),
-    
+    # Admin panel (obscure path for security - not documented in API)
+    path('mimin-wfc-nih/', admin.site.urls),
+
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
-    # JWT Authentication - ADD THESE LINES!
+    # JWT Authentication
     path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
+
+    # Django Allauth (for social authentication)
+    path('accounts/', include('allauth.urls')),  # Required by allauth
+
     # API endpoints
     path('api/auth/', include('apps.accounts.urls')),
     path('api/cafes/', include('apps.cafes.urls')),

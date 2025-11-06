@@ -14,7 +14,15 @@ env = environ.Env(
 environ.Env.read_env(BASE_DIR / '.env')
 
 # Security
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-CHANGE-THIS-IN-PRODUCTION')
+SECRET_KEY = env('SECRET_KEY')
+
+# Validate SECRET_KEY
+if not SECRET_KEY or SECRET_KEY.startswith('django-insecure'):
+    raise ValueError(
+        "SECRET_KEY must be set in environment variables and must be secure. "
+        "Generate one using: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
+    )
+
 DEBUG = env('DEBUG')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
@@ -26,15 +34,26 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # Required by allauth
     # 'django.contrib.gis',  # PostGIS support - disabled for now, will enable later
-    
+
     # Third-party apps
     'rest_framework',
+    'rest_framework.authtoken',  # Required by dj-rest-auth
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'drf_spectacular',
-    
+
+    # Django Allauth
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+
     # Local apps
     'apps.accounts',
     'apps.cafes',
@@ -51,6 +70,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # Required by django-allauth
     'core.middleware.SecurityHeadersMiddleware',  # Custom security headers
 ]
 
@@ -261,3 +281,43 @@ LOGGING = {
 MAX_REVIEWS_PER_DAY = 10
 MIN_ACCOUNT_AGE_HOURS = 0
 DUPLICATE_CAFE_DISTANCE_METERS = 50  # Distance threshold for duplicate detection
+
+# Django Sites Framework (required by allauth)
+SITE_ID = 1
+
+# Django Allauth Configuration
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = 'optional'  # Can be 'none', 'optional', 'mandatory'
+ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Use email for authentication
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
+ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+SOCIALACCOUNT_AUTO_SIGNUP = True  # Automatically create account on social login
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'  # Skip email verification for social accounts
+
+# dj-rest-auth configuration
+REST_USE_JWT = True
+JWT_AUTH_COOKIE = 'can-it-wfc-auth'
+JWT_AUTH_REFRESH_COOKIE = 'can-it-wfc-refresh'
+JWT_AUTH_HTTPONLY = env.bool('JWT_AUTH_HTTPONLY', default=not DEBUG)  # True in production (DEBUG=False)
+
+# Google OAuth Settings
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'APP': {
+            'client_id': env('GOOGLE_OAUTH_CLIENT_ID', default=''),
+            'secret': env('GOOGLE_OAUTH_CLIENT_SECRET', default=''),
+            'key': ''
+        }
+    }
+}
+
+# Google OAuth Callback URL
+GOOGLE_OAUTH_CALLBACK_URL = env('GOOGLE_OAUTH_CALLBACK_URL', default='http://localhost:3000/auth/google/callback')

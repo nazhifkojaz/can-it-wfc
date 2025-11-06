@@ -87,10 +87,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating user profile."""
-    
+
     class Meta:
         model = User
-        fields = ['bio', 'avatar_url', 'is_anonymous_display']
+        fields = ['username', 'bio', 'avatar_url', 'is_anonymous_display']
 
 
 class ChangePasswordSerializer(serializers.Serializer):

@@ -122,6 +122,38 @@ export const authApi = {
     const response = await api.get<User>('/auth/me/');
     return response.data;
   },
+
+  // Google OAuth login
+  googleLogin: async (accessToken: string): Promise<{ user: User; access: string; refresh: string }> => {
+    const response = await api.post('/auth/google/', { access_token: accessToken });
+    const { user, access_token, refresh_token } = response.data;
+
+    // Store tokens
+    tokenStorage.setAccessToken(access_token);
+    tokenStorage.setRefreshToken(refresh_token);
+
+    return { user, access: access_token, refresh: refresh_token };
+  },
+
+  // Update profile (for username, bio, etc.)
+  updateProfile: async (data: UserUpdate): Promise<User> => {
+    const response = await api.patch<User>('/auth/me/', data);
+    return response.data;
+  },
+
+  // Change password
+  changePassword: async (data: {
+    old_password: string;
+    new_password: string;
+  }): Promise<void> => {
+    await api.post('/auth/change-password/', data);
+  },
+
+  // Get public profile by username
+  getUserByUsername: async (username: string): Promise<User> => {
+    const response = await api.get<User>(`/auth/users/${username}/`);
+    return response.data;
+  },
 };
 
 // ===========================
@@ -383,10 +415,11 @@ export const reviewApi = {
   },
 
   // Flag review
-  flagReview: async (reviewId: number, reason: string) => {
+  flagReview: async (reviewId: number, reason: string, description?: string) => {
     const response = await api.post('/reviews/flags/', {
-      review: reviewId,
-      reason
+      review_id: reviewId,
+      reason,
+      comment: description || ''
     });
     return response.data;
   },

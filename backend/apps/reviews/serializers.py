@@ -206,6 +206,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
     cafe = CafeListSerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
     is_helpful = serializers.SerializerMethodField()
+    user_has_flagged = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -221,6 +222,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
             'comment',
             'helpful_count',
             'is_helpful',
+            'user_has_flagged',
             'created_at'
         ]
 
@@ -231,6 +233,16 @@ class ReviewListSerializer(serializers.ModelSerializer):
             return ReviewHelpful.objects.filter(
                 review=obj,
                 user=request.user
+            ).exists()
+        return False
+
+    def get_user_has_flagged(self, obj):
+        """Check if current user has flagged this review."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return ReviewFlag.objects.filter(
+                review=obj,
+                flagged_by=request.user
             ).exists()
         return False
 
