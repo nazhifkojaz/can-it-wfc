@@ -7,7 +7,7 @@ export default defineConfig({
   // Base URL for GitHub Pages deployment
   // For user/org pages (username.github.io), use '/'
   // For project pages (username.github.io/repo-name), use '/repo-name/'
-  base: process.env.VITE_BASE_URL || '/can-it-wfc',
+  base: (process.env.VITE_BASE_URL || '/can-it-wfc/'),
   server: {
     port: 3000,
     open: true,
