@@ -1,20 +1,37 @@
 import React, { useState } from 'react';
-import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2 } from 'lucide-react';
+import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2, Flag } from 'lucide-react';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
 import { ConfirmDialog, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
+import FlagReviewModal from './FlagReviewModal';
 import styles from './ReviewCard.module.css';
 
 interface ReviewCardProps {
   review: Review;
   currentUserId?: number;
   onDelete?: (reviewId: number) => Promise<void>;
+  onToggleHelpful?: (reviewId: number) => Promise<void>;
+  onFlagReview?: (reviewId: number, reason: string, description?: string) => Promise<void>;
+  onUsernameClick?: (username: string) => void;
 }
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete }) => {
+const ReviewCard: React.FC<ReviewCardProps> = ({
+  review,
+  currentUserId,
+  onDelete,
+  onToggleHelpful,
+  onFlagReview,
+  onUsernameClick
+}) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [isHelpful, setIsHelpful] = useState(review.is_helpful);
+  const [helpfulCount, setHelpfulCount] = useState(review.helpful_count);
+  const [isTogglingHelpful, setIsTogglingHelpful] = useState(false);
+  const [hasFlagged, setHasFlagged] = useState(review.user_has_flagged);
+  const [avatarError, setAvatarError] = useState(false);
   const resultModal = useResultModal();
 
   const displayName = review.user?.display_name || review.user?.username || 'Anonymous';
@@ -23,6 +40,12 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
 
   // Check if this is the current user's review
   const isOwnReview = currentUserId && review.user?.id === currentUserId;
+
+  const handleUsernameClick = () => {
+    if (review.user?.username && onUsernameClick) {
+      onUsernameClick(review.user.username);
+    }
+  };
 
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
@@ -45,7 +68,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      console.error('Failed to delete review:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to delete review:', error);
+      }
       setShowDeleteConfirm(false);
 
       resultModal.showResultModal({
@@ -58,20 +83,100 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
     }
   };
 
+  const handleToggleHelpful = async () => {
+    if (!onToggleHelpful || !currentUserId || isTogglingHelpful) return;
+
+    // Optimistic update
+    const previousIsHelpful = isHelpful;
+    const previousCount = helpfulCount;
+
+    setIsHelpful(!isHelpful);
+    setHelpfulCount(isHelpful ? helpfulCount - 1 : helpfulCount + 1);
+
+    try {
+      setIsTogglingHelpful(true);
+      await onToggleHelpful(review.id);
+    } catch (error: any) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to toggle helpful:', error);
+      }
+
+      // Revert on error
+      setIsHelpful(previousIsHelpful);
+      setHelpfulCount(previousCount);
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Failed to Update',
+        message: 'Could not update your vote. Please try again.',
+      });
+    } finally {
+      setIsTogglingHelpful(false);
+    }
+  };
+
+  const handleFlagSubmit = async (reason: string, description?: string) => {
+    if (!onFlagReview) return;
+
+    try {
+      await onFlagReview(review.id, reason, description);
+
+      // Mark as flagged locally
+      setHasFlagged(true);
+
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Report Submitted',
+        message: 'Thank you for reporting this review. Our team will review it shortly.',
+        autoClose: true,
+        autoCloseDelay: 3000,
+      });
+    } catch (error: any) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to flag review:', error);
+      }
+
+      const errorMessage = error.response?.data?.detail ||
+                          error.response?.data?.non_field_errors?.[0] ||
+                          'Failed to submit report. Please try again.';
+
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Report Failed',
+        message: errorMessage,
+      });
+
+      throw error; // Re-throw so modal knows to not close
+    }
+  };
+
   return (
     <div className={styles.reviewCard}>
       {/* User info */}
       <div className={styles.reviewHeader}>
         <div className={styles.userInfo}>
           <div className={styles.userAvatar}>
-            {review.user?.avatar_url ? (
-              <img src={review.user.avatar_url} alt={displayName} />
+            {review.user?.avatar_url && !avatarError ? (
+              <img
+                src={review.user.avatar_url}
+                alt={displayName}
+                onError={() => setAvatarError(true)}
+                referrerPolicy="no-referrer"
+              />
             ) : (
               <User size={20} />
             )}
           </div>
           <div className={styles.userDetails}>
-            <p className={styles.userName}>{displayName}</p>
+            <p
+              className={styles.userName}
+              onClick={handleUsernameClick}
+              role="button"
+              tabIndex={0}
+              onKeyPress={(e) => e.key === 'Enter' && handleUsernameClick()}
+            >
+              {displayName}
+            </p>
             <div className={styles.metaInfo}>
               <Clock size={12} />
               <span className={styles.reviewTime}>
@@ -148,11 +253,51 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
         )}
       </div>
 
-      {/* Helpful count */}
-      {review.helpful_count && review.helpful_count > 0 && (
+      {/* Action buttons */}
+      {currentUserId && !isOwnReview && (
+        <div className={styles.actionButtons}>
+          {/* Helpful button */}
+          {onToggleHelpful && (
+            <button
+              onClick={handleToggleHelpful}
+              className={`${styles.actionButton} ${isHelpful ? styles.actionButtonActive : ''}`}
+              disabled={isTogglingHelpful}
+              aria-label={isHelpful ? 'Remove helpful vote' : 'Mark as helpful'}
+            >
+              <ThumbsUp size={16} fill={isHelpful ? 'currentColor' : 'none'} />
+              <span>
+                Helpful {helpfulCount > 0 && `(${helpfulCount})`}
+              </span>
+            </button>
+          )}
+
+          {/* Flag button - only show if user hasn't flagged yet */}
+          {onFlagReview && !hasFlagged && (
+            <button
+              onClick={() => setShowFlagModal(true)}
+              className={styles.actionButton}
+              aria-label="Report review"
+            >
+              <Flag size={16} />
+              <span>Report</span>
+            </button>
+          )}
+
+          {/* Show "Reported" badge if user has flagged */}
+          {hasFlagged && (
+            <div className={styles.reportedBadge}>
+              <Flag size={14} />
+              <span>Reported</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show helpful count for own reviews or logged-out users */}
+      {(!currentUserId || isOwnReview) && helpfulCount > 0 && (
         <div className={styles.helpfulCount}>
           <ThumbsUp size={14} />
-          <span>{review.helpful_count} found helpful</span>
+          <span>{helpfulCount} found helpful</span>
         </div>
       )}
 
@@ -182,6 +327,14 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, currentUserId, onDelete
         secondaryButton={resultModal.secondaryButton}
         autoClose={resultModal.autoClose}
         autoCloseDelay={resultModal.autoCloseDelay}
+      />
+
+      {/* Flag review modal */}
+      <FlagReviewModal
+        isOpen={showFlagModal}
+        onClose={() => setShowFlagModal(false)}
+        onSubmit={handleFlagSubmit}
+        reviewUsername={displayName}
       />
     </div>
   );

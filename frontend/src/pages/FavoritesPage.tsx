@@ -36,7 +36,9 @@ const FavoritesPage: React.FC = () => {
     try {
       await toggleFavorite(cafeId);
     } catch (error: any) {
-      console.error('Error removing favorite:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error removing favorite:', error);
+      }
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',

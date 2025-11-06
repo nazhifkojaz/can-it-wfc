@@ -34,6 +34,7 @@ export interface AuthTokens {
 }
 
 export interface UserUpdate {
+  username?: string;
   bio?: string;
   avatar_url?: string;
   is_anonymous_display?: boolean;
@@ -218,6 +219,7 @@ export interface Review {
   // Helpful votes
   helpful_count: number;
   is_helpful: boolean; // Whether current user marked as helpful
+  user_has_flagged: boolean; // Whether current user has flagged this review
 
   // Timestamps
   created_at: string;

@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (credentials: UserLogin) => Promise<void>;
+  login: (credentials: UserLogin | { user: User; access: string; refresh: string }) => Promise<void>;
   register: (data: UserRegistration) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -42,7 +42,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       setError(null);
     } catch (err) {
-      console.error('Auth check failed:', err);
+      if (import.meta.env.DEV) {
+        console.error('Auth check failed:', err);
+      }
       // Token is invalid, clear it
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -52,17 +54,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (credentials: UserLogin) => {
+  const login = async (credentials: UserLogin | { user: User; access: string; refresh: string }) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Login and get tokens
-      await authApi.login(credentials);
-      
-      // Get user data
-      const userData = await authApi.getCurrentUser();
-      setUser(userData);
+      // Check if this is a Google login (with user data already provided)
+      if ('user' in credentials) {
+        // Google OAuth login - tokens already stored by authApi.googleLogin
+        setUser(credentials.user);
+      } else {
+        // Regular login
+        await authApi.login(credentials);
+
+        // Get user data
+        const userData = await authApi.getCurrentUser();
+        setUser(userData);
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Login failed';
       setError(errorMessage);
@@ -117,7 +125,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await userApi.getProfile();
       setUser(userData);
     } catch (err) {
-      console.error('Failed to refresh user:', err);
+      if (import.meta.env.DEV) {
+        console.error('Failed to refresh user:', err);
+      }
     }
   };
 

@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  const { login } = useAuth();
+  const isGoogleLogin = useRef(false);
+
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  // NOTE: Commented out to allow Google OAuth username modal to show
+  // Google OAuth button handles its own navigation flow
+  // useEffect(() => {
+  //   if (user) {
+  //     navigate('/map');
+  //   }
+  // }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +43,12 @@ const LoginPage: React.FC = () => {
         <div className="logo">
           <h1>Can-It-WFC</h1>
           <p>Work from cafe reviews</p>
+        </div>
+
+        <GoogleLoginButton mode="signin" />
+
+        <div className="divider">
+          <span>OR</span>
         </div>
 
         <form onSubmit={handleSubmit}>

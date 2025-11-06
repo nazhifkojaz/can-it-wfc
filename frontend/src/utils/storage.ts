@@ -21,7 +21,9 @@ export const getStorageItem = <T = string>(key: string): T | null => {
       return item as T;
     }
   } catch (error) {
-    console.error(`Error getting item from localStorage: ${key}`, error);
+    if (import.meta.env.DEV) {
+      console.error(`Error getting item from localStorage: ${key}`, error);
+    }
     return null;
   }
 };
@@ -34,7 +36,9 @@ export const setStorageItem = <T>(key: string, value: T): void => {
     const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
     localStorage.setItem(key, stringValue);
   } catch (error) {
-    console.error(`Error setting item in localStorage: ${key}`, error);
+    if (import.meta.env.DEV) {
+      console.error(`Error setting item in localStorage: ${key}`, error);
+    }
   }
 };
 
@@ -45,7 +49,9 @@ export const removeStorageItem = (key: string): void => {
   try {
     localStorage.removeItem(key);
   } catch (error) {
-    console.error(`Error removing item from localStorage: ${key}`, error);
+    if (import.meta.env.DEV) {
+      console.error(`Error removing item from localStorage: ${key}`, error);
+    }
   }
 };
 
@@ -56,7 +62,9 @@ export const clearStorage = (): void => {
   try {
     localStorage.clear();
   } catch (error) {
-    console.error('Error clearing localStorage', error);
+    if (import.meta.env.DEV) {
+      console.error('Error clearing localStorage', error);
+    }
   }
 };
 

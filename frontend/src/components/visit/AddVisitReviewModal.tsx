@@ -75,7 +75,9 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             setExistingVisit(null);
           }
         } catch (error) {
-          console.error('Error checking duplicate visit:', error);
+          if (import.meta.env.DEV) {
+            console.error('Error checking duplicate visit:', error);
+          }
           setShowDuplicateInfo(false);
         } finally {
           setCheckingDuplicate(false);
@@ -226,7 +228,9 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         }
       });
     } catch (error: any) {
-      console.error('Error logging visit:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error logging visit:', error);
+      }
 
       let errorTitle = 'Failed to Log Visit';
       let errorMessage = error.response?.data?.message || error.message || 'Failed to log visit. Please try again.';

@@ -119,7 +119,9 @@ const VisitsPage: React.FC = () => {
       setIsViewMode(false);
       setShowReviewForm(true);
     } catch (error) {
-      console.error('Error loading review:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error loading review:', error);
+      }
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Load Review',
@@ -148,7 +150,9 @@ const VisitsPage: React.FC = () => {
       setIsViewMode(true);
       setShowReviewForm(true);
     } catch (error) {
-      console.error('Error loading review:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error loading review:', error);
+      }
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Load Review',
@@ -196,7 +200,9 @@ const VisitsPage: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      console.error('Error updating visit:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error updating visit:', error);
+      }
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to update visit';
 
       resultModal.showResultModal({
@@ -234,7 +240,9 @@ const VisitsPage: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      console.error('Error deleting visit:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error deleting visit:', error);
+      }
       const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to delete visit';
 
       resultModal.showResultModal({

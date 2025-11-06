@@ -131,7 +131,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         });
       }
     } catch (err: any) {
-      console.error('Error submitting review:', err);
+      if (import.meta.env.DEV) {
+        console.error('Error submitting review:', err);
+      }
       setError(err.message || 'Failed to submit review');
     } finally {
       setLoading(false);

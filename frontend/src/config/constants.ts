@@ -4,7 +4,13 @@
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  BASE_URL: import.meta.env.VITE_API_URL || (() => {
+    if (import.meta.env.PROD) {
+      throw new Error('VITE_API_URL environment variable is required in production');
+    }
+    // Development fallback
+    return 'http://localhost:8000/api';
+  })(),
   TIMEOUT: 60000, // 60 seconds (increased for Google Places API integration)
 } as const;
 

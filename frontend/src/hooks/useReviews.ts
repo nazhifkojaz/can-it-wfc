@@ -127,6 +127,23 @@ export const useReviews = (cafeId?: number) => {
     },
   });
 
+  const toggleHelpfulMutation = useMutation({
+    mutationFn: reviewApi.markHelpful,
+    onSuccess: () => {
+      // Refresh reviews to get updated helpful count and is_helpful status
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviewsList(cafeId) });
+    },
+  });
+
+  const flagReviewMutation = useMutation({
+    mutationFn: ({ reviewId, reason, description }: { reviewId: number; reason: string; description?: string }) =>
+      reviewApi.flagReview(reviewId, reason, description),
+    onSuccess: () => {
+      // Refresh reviews in case the review gets auto-hidden (3+ flags)
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviewsList(cafeId) });
+    },
+  });
+
   return {
     reviews,
     loading,
@@ -139,6 +156,9 @@ export const useReviews = (cafeId?: number) => {
     updateReview: (id: number, data: ReviewUpdate) =>
       updateReviewMutation.mutateAsync({ id, data }),
     deleteReview: deleteReviewMutation.mutateAsync,
+    toggleHelpful: toggleHelpfulMutation.mutateAsync,
+    flagReview: (reviewId: number, reason: string, description?: string) =>
+      flagReviewMutation.mutateAsync({ reviewId, reason, description }),
   };
 };
 

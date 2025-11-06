@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapPin, Heart, Star } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
@@ -6,6 +6,7 @@ import { Sheet, Loading, EmptyState, ResultModal } from '../common';
 import { useReviews, useFavorites, useGeolocation, useResultModal } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
+import UserProfileModal from '../profile/UserProfileModal';
 import RatingsComparison from './RatingsComparison';
 import DetailedRatings from './DetailedRatings';
 import QuickInfo from './QuickInfo';
@@ -33,10 +34,14 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     hasNextPage,
     isFetchingNextPage,
     deleteReview,
+    toggleHelpful,
+    flagReview,
   } = useReviews(cafe.is_registered ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { location } = useGeolocation({ watch: false });
   const resultModal = useResultModal();
+
+  const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -70,7 +75,9 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     try {
       await toggleFavorite(cafe.id);
     } catch (error: any) {
-      console.error('Error toggling favorite:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error toggling favorite:', error);
+      }
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Toggle Favorite',
@@ -199,6 +206,9 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
                 review={review}
                 currentUserId={user?.id}
                 onDelete={deleteReview}
+                onToggleHelpful={toggleHelpful}
+                onFlagReview={flagReview}
+                onUsernameClick={(username) => setSelectedUsername(username)}
               />
             ))}
             {hasNextPage && (
@@ -227,6 +237,15 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         autoClose={resultModal.autoClose}
         autoCloseDelay={resultModal.autoCloseDelay}
       />
+
+      {/* User Profile Modal */}
+      {selectedUsername && (
+        <UserProfileModal
+          isOpen={!!selectedUsername}
+          onClose={() => setSelectedUsername(null)}
+          username={selectedUsername}
+        />
+      )}
     </Sheet>
   );
 };

@@ -155,7 +155,9 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
         });
       }
     } catch (error: any) {
-      console.error('Error logging visit:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error logging visit:', error);
+      }
 
       let errorTitle = 'Failed to Log Visit';
       let errorMessage = error.response?.data?.message || error.message || 'Failed to log visit. Please try again.';

@@ -15,15 +15,26 @@ import {
 import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/layout/MobileLayout';
 import { useAuth } from '../contexts/AuthContext';
+import { useResultModal } from '../hooks';
+import { ResultModal } from '../components/common';
+import ChangePasswordModal from '../components/profile/ChangePasswordModal';
+import AvatarUpload from '../components/profile/AvatarUpload';
+import { authApi } from '../api/client';
 import { formatDistanceToNow } from 'date-fns';
 import './ProfilePage.css';
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const resultModal = useResultModal();
   const [isEditing, setIsEditing] = useState(false);
   const [bio, setBio] = useState(user?.bio || '');
   const [isAnonymous, setIsAnonymous] = useState(user?.is_anonymous_display || false);
+  const [loading, setLoading] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState(user?.username || '');
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   if (!user) {
     return (
@@ -39,18 +50,122 @@ const ProfilePage: React.FC = () => {
 
   const handleSaveProfile = async () => {
     try {
-      // TODO: Implement API call to update profile
-      // await userApi.update({ bio, is_anonymous_display: isAnonymous });
+      setLoading(true);
+      const updatedUser = await authApi.updateProfile({ bio });
+      // Merge with existing user to preserve all fields (like date_joined)
+      updateUser({ ...user, ...updatedUser });
       setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating profile:', error);
+
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Profile Updated',
+        message: 'Your bio has been updated successfully!',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
+    } catch (error: any) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Update Failed',
+        message: error.response?.data?.bio?.[0] ||
+                 error.response?.data?.detail ||
+                 'Failed to update profile',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUsernameUpdate = async () => {
+    // Validation
+    if (newUsername.length < 3) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Invalid Username',
+        message: 'Username must be at least 3 characters',
+      });
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Invalid Username',
+        message: 'Username can only contain letters, numbers, and underscores',
+      });
+      return;
+    }
+
+    if (newUsername === user?.username) {
+      setEditingUsername(false);
+      return;
+    }
+
+    try {
+      setSavingUsername(true);
+      const updatedUser = await authApi.updateProfile({ username: newUsername });
+      // Merge with existing user to preserve all fields (like date_joined)
+      updateUser({ ...user, ...updatedUser });
+      setEditingUsername(false);
+
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Username Updated',
+        message: 'Your username has been updated successfully!',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
+    } catch (error: any) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Update Failed',
+        message: error.response?.data?.username?.[0] ||
+                 error.response?.data?.detail ||
+                 'Username may already be taken',
+      });
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
+  const handleAnonymousToggle = async (checked: boolean) => {
+    // Optimistic update
+    setIsAnonymous(checked);
+
+    try {
+      const updatedUser = await authApi.updateProfile({
+        is_anonymous_display: checked
+      });
+      // Merge with existing user to preserve all fields (like date_joined)
+      updateUser({ ...user, ...updatedUser });
+    } catch (error: any) {
+      // Revert on error
+      setIsAnonymous(!checked);
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update privacy settings. Please try again.',
+      });
     }
   };
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      logout();
-    }
+    resultModal.showResultModal({
+      type: 'warning',
+      title: 'Log Out',
+      message: 'Are you sure you want to log out?',
+      primaryButton: {
+        label: 'Log Out',
+        onClick: () => {
+          logout();
+          resultModal.closeResultModal();
+        },
+      },
+      secondaryButton: {
+        label: 'Cancel',
+        onClick: () => resultModal.closeResultModal(),
+      },
+    });
   };
 
   return (
@@ -72,20 +187,57 @@ const ProfilePage: React.FC = () => {
 
         {/* Profile Header */}
         <div className="profile-header">
-          <div className="avatar-section">
-            <div className="avatar">
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt={user.username} />
-              ) : (
-                <User size={40} />
-              )}
-            </div>
-            <button className="edit-avatar-button">
-              <Edit size={16} />
-            </button>
-          </div>
+          <AvatarUpload
+            currentAvatarUrl={user.avatar_url}
+            username={user.username}
+            onUploadSuccess={(newUrl) => {
+              updateUser({ ...user, avatar_url: newUrl });
+            }}
+          />
 
-          <h1 className="username">{user.username}</h1>
+          {editingUsername ? (
+            <div className="username-edit-form">
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                placeholder="username"
+                className="username-input"
+                maxLength={30}
+              />
+              <div className="username-edit-actions">
+                <button
+                  className="button-secondary-small"
+                  onClick={() => {
+                    setNewUsername(user?.username || '');
+                    setEditingUsername(false);
+                  }}
+                  disabled={savingUsername}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button-primary-small"
+                  onClick={handleUsernameUpdate}
+                  disabled={savingUsername}
+                >
+                  {savingUsername ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="username-display">
+              <h1 className="username">{user.username}</h1>
+              <button
+                className="edit-username-button"
+                onClick={() => setEditingUsername(true)}
+                aria-label="Edit username"
+              >
+                <Edit size={16} />
+              </button>
+            </div>
+          )}
+
           <p className="email">
             <Mail size={14} />
             {user.email}
@@ -149,14 +301,16 @@ const ProfilePage: React.FC = () => {
                     setBio(user.bio || '');
                     setIsEditing(false);
                   }}
+                  disabled={loading}
                 >
                   Cancel
                 </button>
                 <button
                   className="button-primary"
                   onClick={handleSaveProfile}
+                  disabled={loading}
                 >
-                  Save
+                  {loading ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>
@@ -189,14 +343,17 @@ const ProfilePage: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={isAnonymous}
-                  onChange={(e) => setIsAnonymous(e.target.checked)}
+                  onChange={(e) => handleAnonymousToggle(e.target.checked)}
                 />
                 <span className="toggle-slider"></span>
               </label>
             </div>
 
             {/* Change Password */}
-            <button className="setting-item clickable">
+            <button
+              className="setting-item clickable"
+              onClick={() => setShowChangePassword(true)}
+            >
               <div className="setting-info">
                 <div className="setting-icon">
                   <Edit size={20} />
@@ -219,6 +376,29 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ChangePasswordModal */}
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        onSuccess={() => {
+          // Password changed successfully - modal handles the success message
+        }}
+      />
+
+      {/* ResultModal for logout confirmation and other actions */}
+      <ResultModal
+        isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
+      />
     </MobileLayout>
   );
 };
