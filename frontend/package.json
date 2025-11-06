@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@react-oauth/google": "^0.12.2",
     "@react-spring/web": "^10.0.3",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-query-devtools": "^5.90.2",
@@ -51,6 +52,6 @@
     "@vitest/ui": "^2.1.0",
     "typescript": "^5.9.3",
     "vite": "^6.0.0",
-    "vitest": "^2.1.0"
+    "vitest": "^4.0.7"
   }
 }

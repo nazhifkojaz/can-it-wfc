@@ -1,0 +1,122 @@
+/* AvatarUpload Neobrutalism Styles */
+
+.avatarUpload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatarWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: var(--neo-border-width-thick) solid var(--neo-black);
+  background: var(--neo-gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 4px 4px 0 var(--neo-black);
+  color: var(--neo-gray-500);
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uploading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.uploadButton {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.uploadButton:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  background: var(--neo-primary-dark);
+}
+
+.uploadButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.removeButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--neo-danger);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.removeButton:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  background: var(--neo-danger-light);
+}
+
+.removeButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.fileInput {
+  display: none;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--neo-gray-600);
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+}
