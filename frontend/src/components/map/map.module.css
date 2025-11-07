@@ -75,14 +75,32 @@
 }
 
 /* ================================
-   RecenterButton Component - Neobrutalism
+   Map Container
    ================================ */
-.recenterButton {
-  position: absolute;
-  bottom: 100px;
-  right: 16px;
-  z-index: 1000;
+.mapContainer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
 
+.leafletContainer {
+  font-family: inherit;
+}
+
+/* ================================
+   Map Controls Group - Neobrutalism
+   ================================ */
+.mapControlsGroup {
+  position: absolute;
+  bottom: calc(var(--bottom-nav-height, 64px) + 8px);
+  left: 16px;
+  z-index: 440;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mapControlButton {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -95,30 +113,30 @@
   border-radius: 50%;
   padding: 0;
 
-  color: var(--neo-primary);
+  color: var(--neo-black);
 
   box-shadow: 4px 4px 0 var(--neo-black);
   cursor: pointer;
   transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
 }
 
-.recenterButton:hover {
+.mapControlButton:hover {
   box-shadow: 5px 5px 0 var(--neo-black);
   transform: translate(-1px, -1px);
 }
 
-.recenterButton:active {
+.mapControlButton:active {
   transform: translate(1px, 1px);
   box-shadow: 3px 3px 0 var(--neo-black);
 }
 
-@media (max-width: 768px) {
-  .recenterButton {
-    bottom: 80px;
-    right: 12px;
-    width: 40px;
-    height: 40px;
-  }
+.mapControlButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.findMyLocationButton {
+  /* Inherits from .mapControlButton, specific overrides if needed */
 }
 
 /* ================================
@@ -126,23 +144,75 @@
    ================================ */
 .mapLegend {
   position: absolute;
-  bottom: 80px;
-  right: 16px;
+  bottom: calc(var(--bottom-nav-height, 64px) + 8px); /* Adjusted from 16px to 8px */
+  right: 16px; /* Adjusted position */
   background: var(--neo-white);
   padding: 12px 16px;
   border: var(--neo-border-width) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
   box-shadow: 4px 4px 0 var(--neo-black);
-  z-index: 1000;
+  z-index: 440;
+}
+
+.legendContent {
+  /* Styles for the visible legend content */
+  display: flex;
+  flex-direction: column;
+}
+
+.legendHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .legendTitle {
-  margin: 0 0 8px 0;
+  margin: 0;
   font-size: 14px;
   font-weight: var(--neo-font-bold);
   color: var(--neo-black);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.legendCloseButton {
+  background: none;
+  border: none;
+  color: var(--neo-black);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legendToggleButton {
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+}
+
+.legendToggleButton:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--neo-black);
+}
+
+.legendToggleButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .legendItems {
@@ -178,4 +248,52 @@
 
 .markerGray {
   background: var(--neo-gray-400);
+}
+
+/* ================================
+   Map Loading and Error - Neobrutalism
+   ================================ */
+.mapLoading,
+.mapError {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--neo-white);
+  padding: 12px 24px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 14px;
+}
+
+.mapError {
+  background: var(--neo-danger-light);
+  color: var(--neo-white);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--neo-gray-300);
+  border-top-color: var(--neo-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.leaflet-marker-icon {
+  background: transparent;
 }

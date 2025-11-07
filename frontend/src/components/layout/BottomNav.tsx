@@ -1,52 +1,48 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { ClipboardList, Star, User } from 'lucide-react';
+import { usePanel } from '../../contexts/PanelContext';
 import './BottomNav.css';
 
 interface NavItem {
-  path: string;
+  panel: 'visits' | 'favorites' | 'profile';
   label: string;
   icon: React.ReactNode;
 }
 
 const BottomNav: React.FC = () => {
-  const location = useLocation();
+  const { activePanel, showPanel } = usePanel();
 
   const navItems: NavItem[] = [
     {
-      path: '/visits',
+      panel: 'visits',
       label: 'Visits',
       icon: <ClipboardList size={24} />,
     },
     {
-      path: '/favorites',
+      panel: 'favorites',
       label: 'Favorites',
       icon: <Star size={24} />,
     },
     {
-      path: '/profile',
+      panel: 'profile',
       label: 'Profile',
       icon: <User size={24} />,
     },
   ];
 
-  const isActive = (path: string) => {
-    return location.pathname === path || location.pathname.startsWith(path);
-  };
-
   return (
     <nav className="bottom-nav">
       {navItems.map((item) => {
-        const active = isActive(item.path);
+        const active = activePanel === item.panel;
         return (
-          <Link
-            key={item.path}
-            to={item.path}
+          <button
+            key={item.panel}
+            onClick={() => showPanel(item.panel)}
             className={`nav-item ${active ? 'active' : ''}`}
           >
             <div className="nav-icon">{item.icon}</div>
             <span className="nav-label">{item.label}</span>
-          </Link>
+          </button>
         );
       })}
     </nav>

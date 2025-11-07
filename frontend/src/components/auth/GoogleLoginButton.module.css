@@ -3,27 +3,23 @@
 .googleButton {
   width: 100%;
   margin-bottom: 20px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  background: var(--neo-white);
+  display: inline-block;
+  overflow: hidden;
 }
 
-/* Override Google button default styles to match neobrutalism */
-.googleButton :global(div[role="button"]) {
-  width: 100% !important;
-  border: var(--neo-border-width) solid var(--neo-black) !important;
-  border-radius: var(--neo-border-radius) !important;
-  box-shadow: 3px 3px 0 var(--neo-black) !important;
-  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast) !important;
-  font-weight: var(--neo-font-bold) !important;
-  background: var(--neo-white) !important;
+.googleButton:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-black);
 }
 
-.googleButton :global(div[role="button"]):hover {
-  transform: translate(-2px, -2px) !important;
-  box-shadow: 5px 5px 0 var(--neo-black) !important;
-}
-
-.googleButton :global(div[role="button"]):active {
-  transform: translate(1px, 1px) !important;
-  box-shadow: 2px 2px 0 var(--neo-black) !important;
+.googleButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .error {

@@ -1,14 +1,18 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { LatLngExpression } from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import CafeMarker from './CafeMarker';
 import UserLocationMarker from './UserLocationMarker';
 import MapLegend from './MapLegend';
 import MapEvents from './MapEvents';
 import SearchAreaButton from './SearchAreaButton';
 import RecenterButton from './RecenterButton';
+import FindMyLocationButton from './FindMyLocationButton';
+import ZoomInButton from './ZoomInButton';
+import ZoomOutButton from './ZoomOutButton';
 import { Cafe } from '../../types';
+import styles from './map.module.css';
+import 'leaflet/dist/leaflet.css';
 
 interface MapViewProps {
   cafes: Cafe[];
@@ -21,16 +25,14 @@ interface MapViewProps {
 }
 
 // Component to fly to a location when explicitly requested
-function MapFlyer({ center, shouldFly }: { center: LatLngExpression; shouldFly: boolean }) {
+function MapFlyer({ center, trigger }: { center: LatLngExpression; trigger: number }) {
   const map = useMap();
 
   useEffect(() => {
-    if (shouldFly) {
-      map.flyTo(center, map.getZoom(), {
-        duration: 1.5,
-      });
+    if (trigger > 0) {
+      map.flyTo(center, map.getZoom(), { duration: 1.2 });
     }
-  }, [shouldFly, center, map]);
+  }, [trigger, center, map]);
 
   return null;
 }
@@ -46,24 +48,17 @@ const MapView: React.FC<MapViewProps> = ({
 }) => {
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
-  const [shouldFlyToCenter, setShouldFlyToCenter] = useState(false);
+  const [flyTarget, setFlyTarget] = useState<LatLngExpression>([-6.2088, 106.8456]);
+  const [flyTrigger, setFlyTrigger] = useState(0);
 
   // Use ref for debounce timer
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Default center (Jakarta, Indonesia)
-  const defaultCenter: LatLngExpression = [-6.2088, 106.8456];
-  const mapCenter = searchCenter
-    ? [searchCenter.lat, searchCenter.lng] as LatLngExpression
-    : defaultCenter;
-
   // Trigger fly animation when search center changes
   useEffect(() => {
     if (searchCenter) {
-      setShouldFlyToCenter(true);
-      // Reset fly flag after animation
-      const timer = setTimeout(() => setShouldFlyToCenter(false), 2000);
-      return () => clearTimeout(timer);
+      setFlyTarget([searchCenter.lat, searchCenter.lng]);
+      setFlyTrigger(prev => prev + 1);
     }
   }, [searchCenter?.lat, searchCenter?.lng]);
 
@@ -127,18 +122,39 @@ const MapView: React.FC<MapViewProps> = ({
   const handleRecenter = useCallback(() => {
     if (userLocation) {
       setShowSearchButton(false);
+      setFlyTarget([userLocation.lat, userLocation.lng]);
+      setFlyTrigger(prev => prev + 1);
       onSearchArea(userLocation);
     }
   }, [userLocation, onSearchArea]);
 
+  // Handle find my location
+  const handleFindMyLocation = useCallback(() => {
+    if (userLocation) {
+      setFlyTarget([userLocation.lat, userLocation.lng]);
+      setFlyTrigger(prev => prev + 1);
+      onSearchArea(userLocation);
+    }
+  }, [userLocation, onSearchArea]);
+
+  const MapResizer = () => {
+    const map = useMap();
+    useEffect(() => {
+      map.invalidateSize();
+    }, [map]);
+    return null;
+  };
+
   return (
-    <div className="map-container">
+    <div className={styles.mapContainer}>
       <MapContainer
-        center={mapCenter}
+        center={flyTarget}
         zoom={14}
         style={{ height: '100%', width: '100%' }}
-        zoomControl={true}
+        className={styles.leafletContainer}
+        zoomControl={false} // Disable default zoom control
       >
+        <MapResizer />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -148,7 +164,7 @@ const MapView: React.FC<MapViewProps> = ({
         <MapEvents onMoveEnd={handleMapMoveEnd} />
 
         {/* Fly to center when search is triggered */}
-        <MapFlyer center={mapCenter} shouldFly={shouldFlyToCenter} />
+        <MapFlyer center={flyTarget} trigger={flyTrigger} />
 
         {/* User location marker */}
         {userLocation && (
@@ -163,6 +179,16 @@ const MapView: React.FC<MapViewProps> = ({
             onClick={() => onCafeClick(cafe)}
           />
         ))}
+
+        {/* Custom Map Controls Group (Bottom Left) */}
+        <div className={styles.mapControlsGroup}>
+          <FindMyLocationButton
+            onClick={handleFindMyLocation}
+            disabled={!userLocation}
+          />
+          <ZoomInButton /> {/* Custom Zoom In Button */}
+          <ZoomOutButton /> {/* Custom Zoom Out Button */}
+        </div>
       </MapContainer>
 
       {/* Search this area button */}
@@ -180,76 +206,18 @@ const MapView: React.FC<MapViewProps> = ({
 
       {/* Loading indicator */}
       {loading && (
-        <div className="map-loading">
-          <div className="spinner"></div>
+        <div className={styles.mapLoading}>
+          <div className={styles.spinner}></div>
           <p>Loading nearby cafes...</p>
         </div>
       )}
 
       {/* Error message */}
       {error && (
-        <div className="map-error">
+        <div className={styles.mapError}>
           <p>{error}</p>
         </div>
       )}
-
-      <style>{`
-        .map-container {
-          width: 100%;
-          height: 100%;
-          position: relative;
-        }
-
-        .leaflet-container {
-          font-family: inherit;
-        }
-
-        .map-loading,
-        .map-error {
-          position: absolute;
-          top: 16px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: var(--neo-white, #fff);
-          padding: 12px 24px;
-          border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
-          border-radius: var(--neo-border-radius, 4px);
-          box-shadow: 4px 4px 0 var(--neo-black, #000);
-          z-index: 1000;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-weight: var(--neo-font-bold, 700);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          font-size: 14px;
-        }
-
-        .map-error {
-          background: var(--neo-danger-light, #EF4444);
-          color: var(--neo-white, #fff);
-        }
-
-        .spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid var(--neo-gray-300, #D1D5DB);
-          border-top-color: var(--neo-primary, #8B5CF6);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        /* Fix Leaflet marker icons not showing */
-        .leaflet-marker-icon {
-          background: transparent;
-        }
-      `}</style>
 
       <MapLegend />
     </div>

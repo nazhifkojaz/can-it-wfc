@@ -1,0 +1,9 @@
+.panel-manager {
+  position: absolute;
+  inset: 0;
+  background-color: var(--neo-white);
+  z-index: 1001;
+  overflow-y: auto;
+  padding-bottom: calc(var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
