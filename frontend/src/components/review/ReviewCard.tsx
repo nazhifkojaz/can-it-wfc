@@ -35,8 +35,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   const resultModal = useResultModal();
 
   const displayName = review.user?.display_name || review.user?.username || 'Anonymous';
-  const averageRating = review.average_rating || 0;
-  const ratingColor = getRatingColor(averageRating);
+  const overallRating = typeof review.wfc_rating === 'number' ? review.wfc_rating : (review.average_rating || 0);
+  const roundedStars = Math.round(overallRating);
+  const ratingColor = getRatingColor(overallRating);
 
   // Check if this is the current user's review
   const isOwnReview = currentUserId && review.user?.id === currentUserId;
@@ -199,12 +200,14 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
               <Star
                 key={i}
                 size={16}
-                fill={i < Math.round(averageRating) ? '#FBBC04' : 'none'}
-                color={i < Math.round(averageRating) ? '#FBBC04' : '#D1D5DB'}
+                fill={i < roundedStars ? '#FBBC04' : 'none'}
+                color={i < roundedStars ? '#FBBC04' : '#D1D5DB'}
+                stroke="#111"
+                strokeWidth={1}
               />
             ))}
             <span className={styles.ratingValue} style={{ color: ratingColor }}>
-              {formatRating(averageRating)}
+              {formatRating(overallRating)}
             </span>
           </div>
 
