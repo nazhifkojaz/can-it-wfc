@@ -17,22 +17,28 @@
     <script>
       (function () {
         var l = window.location;
-        if (l.search) {
-          var params = new URLSearchParams(l.search);
-          var p = params.get('p');
-          if (p) {
-            var q = params.get('q');
-            var h = params.get('h');
-            var newPath = p;
-            if (q) {
-              newPath += '?' + q.replace(/~and~/g, '&');
-            }
-            if (h) {
-              newPath += '#' + h;
-            }
-            window.history.replaceState(null, null, newPath);
-          }
+        if (!l.search) return;
+
+        var params = new URLSearchParams(l.search);
+        var p = params.get('p');
+        if (!p) return;
+
+        var q = params.get('q');
+        var h = params.get('h');
+
+        var base = l.pathname
+          .replace(/\/index\.html$/, '')
+          .replace(/\/$/, '');
+
+        var newPath = base + (p.startsWith('/') ? p : '/' + p);
+        if (q) {
+          newPath += '?' + q.replace(/~and~/g, '&');
         }
+        if (h) {
+          newPath += '#' + h;
+        }
+
+        window.history.replaceState(null, null, newPath);
       })();
     </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
