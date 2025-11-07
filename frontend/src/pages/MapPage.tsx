@@ -8,6 +8,8 @@ import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
 import { Loading, ResultModal } from '../components/common';
 import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
 import { Cafe } from '../types';
+import PanelManager from '../components/panels/PanelManager';
+import { usePanel } from '../contexts/PanelContext';
 import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
@@ -20,6 +22,7 @@ const MapPage: React.FC = () => {
 
   const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   const resultModal = useResultModal();
+  const { activePanel } = usePanel();
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
 
@@ -184,6 +187,7 @@ const MapPage: React.FC = () => {
           autoCloseDelay={resultModal.autoCloseDelay}
         />
       </div>
+      {activePanel && <PanelManager />}
     </MobileLayout>
   );
 };
