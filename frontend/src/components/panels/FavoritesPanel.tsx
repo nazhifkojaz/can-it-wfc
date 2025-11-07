@@ -8,7 +8,7 @@ import { useFavorites, useResultModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
 import { formatPriceRange, formatRating } from '../../utils';
 import { Cafe } from '../../types';
-import '../../pages/FavoritesPage.css';
+import './FavoritesPanel.css';
 
 const FavoritesPanel: React.FC = () => {
   const { hidePanel } = usePanel(); // Use hidePanel from context

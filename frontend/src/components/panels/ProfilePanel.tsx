@@ -20,7 +20,7 @@ import ChangePasswordModal from '../profile/ChangePasswordModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import { authApi } from '../../api/client';
 import { formatDistanceToNow } from 'date-fns';
-import '../../pages/ProfilePage.css';
+import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
   const { hidePanel } = usePanel(); // Use hidePanel from context

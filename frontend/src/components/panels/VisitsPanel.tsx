@@ -10,7 +10,7 @@ import { formatDate, formatRating } from '../../utils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS, AMOUNT_SPENT_RANGES } from '../../config/constants';
 import { Visit, Review } from '../../types';
 import { differenceInDays, format } from 'date-fns';
-import '../../pages/VisitsPage.css';
+import './VisitsPanel.css';
 
 const VisitsPanel: React.FC = () => {
   const { hidePanel } = usePanel(); // Use hidePanel from context

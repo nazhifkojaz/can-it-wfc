@@ -1,11 +1,9 @@
 .panel-manager {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--background-color, #ffffff);
-  z-index: 1001; /* Increased z-index */
+  inset: 0;
+  background-color: var(--neo-white);
+  z-index: 1001;
   overflow-y: auto;
-  padding-bottom: var(--bottom-nav-height, 64px);
+  padding-bottom: calc(var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
