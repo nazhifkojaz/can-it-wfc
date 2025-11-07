@@ -25,16 +25,14 @@ interface MapViewProps {
 }
 
 // Component to fly to a location when explicitly requested
-function MapFlyer({ center, shouldFly }: { center: LatLngExpression; shouldFly: boolean }) {
+function MapFlyer({ center, trigger }: { center: LatLngExpression; trigger: number }) {
   const map = useMap();
 
   useEffect(() => {
-    if (shouldFly) {
-      map.flyTo(center, map.getZoom(), {
-        duration: 1.5,
-      });
+    if (trigger > 0) {
+      map.flyTo(center, map.getZoom(), { duration: 1.2 });
     }
-  }, [shouldFly, center, map]);
+  }, [trigger, center, map]);
 
   return null;
 }
@@ -50,24 +48,17 @@ const MapView: React.FC<MapViewProps> = ({
 }) => {
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
-  const [shouldFlyToCenter, setShouldFlyToCenter] = useState(false);
+  const [flyTarget, setFlyTarget] = useState<LatLngExpression>([-6.2088, 106.8456]);
+  const [flyTrigger, setFlyTrigger] = useState(0);
 
   // Use ref for debounce timer
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Default center (Jakarta, Indonesia)
-  const defaultCenter: LatLngExpression = [-6.2088, 106.8456];
-  const mapCenter = searchCenter
-    ? [searchCenter.lat, searchCenter.lng] as LatLngExpression
-    : defaultCenter;
-
   // Trigger fly animation when search center changes
   useEffect(() => {
     if (searchCenter) {
-      setShouldFlyToCenter(true);
-      // Reset fly flag after animation
-      const timer = setTimeout(() => setShouldFlyToCenter(false), 2000);
-      return () => clearTimeout(timer);
+      setFlyTarget([searchCenter.lat, searchCenter.lng]);
+      setFlyTrigger(prev => prev + 1);
     }
   }, [searchCenter?.lat, searchCenter?.lng]);
 
@@ -131,6 +122,8 @@ const MapView: React.FC<MapViewProps> = ({
   const handleRecenter = useCallback(() => {
     if (userLocation) {
       setShowSearchButton(false);
+      setFlyTarget([userLocation.lat, userLocation.lng]);
+      setFlyTrigger(prev => prev + 1);
       onSearchArea(userLocation);
     }
   }, [userLocation, onSearchArea]);
@@ -138,6 +131,8 @@ const MapView: React.FC<MapViewProps> = ({
   // Handle find my location
   const handleFindMyLocation = useCallback(() => {
     if (userLocation) {
+      setFlyTarget([userLocation.lat, userLocation.lng]);
+      setFlyTrigger(prev => prev + 1);
       onSearchArea(userLocation);
     }
   }, [userLocation, onSearchArea]);
@@ -153,7 +148,7 @@ const MapView: React.FC<MapViewProps> = ({
   return (
     <div className={styles.mapContainer}>
       <MapContainer
-        center={mapCenter}
+        center={flyTarget}
         zoom={14}
         style={{ height: '100%', width: '100%' }}
         className={styles.leafletContainer}
@@ -169,7 +164,7 @@ const MapView: React.FC<MapViewProps> = ({
         <MapEvents onMoveEnd={handleMapMoveEnd} />
 
         {/* Fly to center when search is triggered */}
-        <MapFlyer center={mapCenter} shouldFly={shouldFlyToCenter} />
+        <MapFlyer center={flyTarget} trigger={flyTrigger} />
 
         {/* User location marker */}
         {userLocation && (
