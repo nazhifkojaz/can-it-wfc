@@ -88,8 +88,8 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
     try {
       const visitData: VisitCreate = {
         visit_date: visitDate,
-        check_in_latitude: location.lat,
-        check_in_longitude: location.lng,
+        check_in_latitude: location.lat.toFixed(8),
+        check_in_longitude: location.lng.toFixed(8),
       };
 
       if (selectedCafe.is_registered) {
@@ -113,8 +113,8 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
         visitData.google_place_id = selectedCafe.google_place_id;
         visitData.cafe_name = selectedCafe.name;
         visitData.cafe_address = selectedCafe.address;
-        visitData.cafe_latitude = parseFloat(lat.toFixed(8));
-        visitData.cafe_longitude = parseFloat(lng.toFixed(8));
+        visitData.cafe_latitude = lat.toFixed(8);
+        visitData.cafe_longitude = lng.toFixed(8);
       }
 
       const newVisit = await createVisit(visitData);

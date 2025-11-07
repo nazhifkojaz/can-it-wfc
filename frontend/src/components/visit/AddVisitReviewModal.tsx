@@ -143,8 +143,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         visit_date: visitDate,
         amount_spent: amountSpent,
         visit_time: visitTime,
-        check_in_latitude: location.lat,
-        check_in_longitude: location.lng,
+        check_in_latitude: location.lat.toFixed(8),
+        check_in_longitude: location.lng.toFixed(8),
         include_review: includeReview,
       };
 
@@ -168,8 +168,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         visitReviewData.google_place_id = selectedCafe.google_place_id;
         visitReviewData.cafe_name = selectedCafe.name;
         visitReviewData.cafe_address = selectedCafe.address;
-        visitReviewData.cafe_latitude = parseFloat(lat.toFixed(8));
-        visitReviewData.cafe_longitude = parseFloat(lng.toFixed(8));
+        visitReviewData.cafe_latitude = lat.toFixed(8);
+        visitReviewData.cafe_longitude = lng.toFixed(8);
       }
 
       if (includeReview) {

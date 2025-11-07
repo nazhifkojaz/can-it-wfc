@@ -138,8 +138,8 @@ export interface VisitCreate {
   google_place_id?: string;
   cafe_name?: string;
   cafe_address?: string;
-  cafe_latitude?: number;  // Changed to number to match backend DecimalField
-  cafe_longitude?: number; // Changed to number to match backend DecimalField
+  cafe_latitude?: string;
+  cafe_longitude?: string;
 
   // Common fields
   visit_date: string; // ISO date string
@@ -147,8 +147,8 @@ export interface VisitCreate {
   visit_time?: number | null;    // New field
 
   // REQUIRED: Check-in location for visit verification (within 1km of cafe)
-  check_in_latitude: number;
-  check_in_longitude: number;
+  check_in_latitude: string;
+  check_in_longitude: string;
 }
 
 // Combined Visit + Review Creation (new simplified flow)
@@ -160,15 +160,15 @@ export interface CombinedVisitReviewCreate {
   google_place_id?: string;
   cafe_name?: string;
   cafe_address?: string;
-  cafe_latitude?: number;
-  cafe_longitude?: number;
+  cafe_latitude?: string;
+  cafe_longitude?: string;
 
   // Common fields
   visit_date: string;
   amount_spent?: number | null;
   visit_time?: number | null;
-  check_in_latitude?: number;
-  check_in_longitude?: number;
+  check_in_latitude?: string;
+  check_in_longitude?: string;
   include_review: boolean;
   wfc_rating?: number;
   wifi_quality?: number;
