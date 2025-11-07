@@ -16,7 +16,7 @@
 
 /* Add padding when bottom nav is shown */
 .withBottomNav {
-  padding-bottom: var(--bottom-nav-height, 64px);
+  padding-bottom: calc(var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom));
 }
 
 /* Desktop: Remove padding so content extends behind transparent navbar */

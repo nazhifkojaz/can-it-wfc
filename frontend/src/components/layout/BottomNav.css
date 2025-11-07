@@ -40,7 +40,7 @@
 }
 
 .nav-item.active {
-  color: var(--neo-white);
+  color: var(--neo-black);
   background: var(--neo-primary);
   font-weight: var(--neo-font-black);
 }

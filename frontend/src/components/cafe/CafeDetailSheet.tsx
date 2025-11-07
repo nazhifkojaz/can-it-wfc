@@ -111,7 +111,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       onClose={onClose}
       showHandle
       showCloseButton
-      snapPoints={[75]}
+      snapPoints={[100]}
     >
       {/* Cafe Header */}
       <div className={styles.cafeHeader}>
