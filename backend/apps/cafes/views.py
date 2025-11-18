@@ -13,6 +13,7 @@ from .serializers import (
     FavoriteSerializer
 )
 from core.permissions import IsOwnerOrReadOnly
+from django.conf import settings
 from .services import GooglePlacesService
 
 
@@ -93,7 +94,7 @@ class NearbyCafesView(APIView):
         latitude = serializer.validated_data['latitude']
         longitude = serializer.validated_data['longitude']
         radius_km = serializer.validated_data.get('radius_km', 1)
-        limit = serializer.validated_data.get('limit', 50)
+        limit = serializer.validated_data.get('limit', 100)
         
         # Find nearby cafes (using optimized method)
         cafes = Cafe.nearby_optimized(
@@ -191,7 +192,7 @@ class MergedNearbyCafesView(APIView):
         latitude = serializer.validated_data['latitude']
         longitude = serializer.validated_data['longitude']
         radius_km = float(serializer.validated_data.get('radius_km', 1))
-        limit = serializer.validated_data.get('limit', 100)
+        limit = serializer.validated_data.get('limit', 200)
 
         # Get user's actual location for distance calculation (if provided)
         user_latitude = serializer.validated_data.get('user_latitude')
@@ -256,9 +257,35 @@ class MergedNearbyCafesView(APIView):
         db_cafe_locations = [(db_cafe.latitude, db_cafe.longitude) for db_cafe in db_cafes] if db_cafes else []
 
         unregistered_places = []
+        ALLOWED_KEYWORDS = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
+            'coffee',
+            'coffee shop',
+            'roastery',
+            'roaster',
+            'kopi',
+            'koffie'
+        ])
+        ALLOWED_TYPES = getattr(settings, 'GOOGLE_PLACES_ALLOWED_TYPES', {
+            'cafe',
+            'coffee_shop',
+            'bakery',
+            'restaurant',
+            'food'
+        })
+
         for place in google_places:
             # Skip if already in database by google_place_id
             if place['google_place_id'] in db_google_ids:
+                continue
+
+            # Filter by name keywords
+            name_lower = (place.get('name') or '').lower()
+            if ALLOWED_KEYWORDS and not any(keyword in name_lower for keyword in ALLOWED_KEYWORDS):
+                continue
+
+            # Filter by place types
+            place_types = set(place.get('types') or [])
+            if ALLOWED_TYPES and place_types and place_types.isdisjoint(ALLOWED_TYPES):
                 continue
 
             # Skip if too close to existing cafe (only if we have database cafes)
@@ -274,7 +301,7 @@ class MergedNearbyCafesView(APIView):
                         db_lat,
                         db_lng
                     )
-                    if distance < 0.05:  # Within 50 meters
+                    if distance < 0.001:  # Within 10 meters
                         is_duplicate = True
                         break
 

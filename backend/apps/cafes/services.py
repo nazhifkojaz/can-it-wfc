@@ -16,7 +16,7 @@ class GooglePlacesService:
         latitude: float,
         longitude: float,
         radius_meters: int = 1000,
-        keyword: str = "cafe"
+        keyword: str = ""
     ) -> List[Dict]:
         """
         Search for coffee shops near a location using Google Places API.
@@ -40,7 +40,7 @@ class GooglePlacesService:
         # Get configuration
         max_results = getattr(settings, 'GOOGLE_PLACES_MAX_RESULTS', 60)
         enable_pagination = getattr(settings, 'GOOGLE_PLACES_ENABLE_PAGINATION', True)
-        timeout = getattr(settings, 'GOOGLE_PLACES_TIMEOUT', 10)
+        timeout = getattr(settings, 'GOOGLE_PLACES_TIMEOUT', 30)
 
         url = f"{GooglePlacesService.BASE_URL}/nearbysearch/json"
 
