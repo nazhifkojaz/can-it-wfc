@@ -30,7 +30,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   // Duplicate visit detection
   const [showDuplicateInfo, setShowDuplicateInfo] = useState(false);
   const [existingVisit, setExistingVisit] = useState<Visit | null>(null);
-  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   // Result modal
   const resultModal = useResultModal();
@@ -62,7 +61,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   useEffect(() => {
     const checkDuplicate = async () => {
       if (isOpen && selectedCafe?.is_registered) {
-        setCheckingDuplicate(true);
         try {
           const today = new Date().toISOString().split('T')[0];
           const response = await visitApi.getVisits({ cafe: selectedCafe.id, visit_date: today });
@@ -79,8 +77,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             console.error('Error checking duplicate visit:', error);
           }
           setShowDuplicateInfo(false);
-        } finally {
-          setCheckingDuplicate(false);
         }
       } else {
         setShowDuplicateInfo(false);
@@ -315,7 +311,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
                 <span>${existingVisit.amount_spent.toFixed(2)}</span>
               </div>
             )}
-            {existingVisit.review ? (
+            {existingVisit.has_review ? (
               <div className={styles.visitDetail}>
                 <Star size={16} />
                 <span>Review submitted</span>

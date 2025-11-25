@@ -190,7 +190,7 @@ const FlagCafeModal: React.FC<FlagCafeModalProps> = ({
             >
               {isSubmitting ? (
                 <>
-                  <Loading size="small" />
+                  <Loading size="sm" />
                   <span>Submitting...</span>
                 </>
               ) : (
