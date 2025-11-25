@@ -256,7 +256,34 @@ class MergedNearbyCafesView(APIView):
         db_google_ids = {cafe.google_place_id for cafe in db_cafes if cafe.google_place_id}
 
         # Pre-compute db cafe locations for distance checking (only if needed)
-        db_cafe_locations = [(db_cafe.latitude, db_cafe.longitude) for db_cafe in db_cafes] if db_cafes else []
+        # Optimization: Create a spatial index using bounding boxes to quickly filter candidates
+        db_cafe_locations = [(float(db_cafe.latitude), float(db_cafe.longitude)) for db_cafe in db_cafes] if db_cafes else []
+
+        # Helper function to get cafes within bounding box (quick pre-filter)
+        def get_cafes_in_bounding_box(center_lat, center_lng, threshold_km=0.001):
+            """
+            Get cafes within a bounding box around a point.
+            This is a fast pre-filter before expensive distance calculations.
+            """
+            if not db_cafe_locations:
+                return []
+
+            # Calculate bounding box (1 degree lat ≈ 111 km, lon varies by latitude)
+            from math import cos, radians
+            lat_delta = threshold_km / 111.0
+            lng_delta = threshold_km / (111.0 * abs(cos(radians(center_lat))))
+
+            min_lat = center_lat - lat_delta
+            max_lat = center_lat + lat_delta
+            min_lng = center_lng - lng_delta
+            max_lng = center_lng + lng_delta
+
+            # Filter cafes within bounding box
+            candidates = []
+            for lat, lng in db_cafe_locations:
+                if min_lat <= lat <= max_lat and min_lng <= lng <= max_lng:
+                    candidates.append((lat, lng))
+            return candidates
 
         unregistered_places = []
         ALLOWED_KEYWORDS = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
@@ -291,12 +318,17 @@ class MergedNearbyCafesView(APIView):
                 continue
 
             # Skip if too close to existing cafe (only if we have database cafes)
+            # Optimization: Use bounding box to pre-filter candidates before distance check
             is_duplicate = False
             if db_cafe_locations:
                 place_lat = float(place['latitude'])
                 place_lng = float(place['longitude'])
 
-                for db_lat, db_lng in db_cafe_locations:
+                # Get only cafes within bounding box (fast pre-filter)
+                nearby_candidates = get_cafes_in_bounding_box(place_lat, place_lng, threshold_km=0.001)
+
+                # Now only check distance for cafes within bounding box
+                for db_lat, db_lng in nearby_candidates:
                     distance = Cafe.calculate_distance(
                         place_lat,
                         place_lng,
@@ -384,24 +416,26 @@ class CafeSearchView(APIView):
         from django.db import models
         from django.core.cache import cache
         from django.conf import settings
+        from .serializers import CafeSearchQuerySerializer
 
-        query = request.query_params.get('q', '').strip()
-
-        # Validate minimum length
-        if len(query) < 3:
+        # Validate query parameters
+        query_serializer = CafeSearchQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
             return Response({
                 'db_results': [],
                 'google_results': [],
-                'query': query,
-                'error': 'Query must be at least 3 characters',
+                'errors': query_serializer.errors,
                 'used_google_api': False,
                 'total_results': 0
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        latitude = request.query_params.get('lat')
-        longitude = request.query_params.get('lon')
-        use_google = request.query_params.get('use_google', 'auto')
-        limit = int(request.query_params.get('limit', 10))
+        # Extract validated data
+        validated_params = query_serializer.validated_data
+        query = validated_params['q'].strip()
+        latitude = validated_params.get('lat')
+        longitude = validated_params.get('lon')
+        use_google = validated_params['use_google']
+        limit = validated_params['limit']
 
         # Get Google search mode from settings (for future scaling)
         google_search_mode = getattr(settings, 'GOOGLE_SEARCH_MODE', 'relaxed')
@@ -416,8 +450,9 @@ class CafeSearchView(APIView):
         )
 
         # Add distance sorting if location provided
-        if latitude and longitude:
+        if latitude is not None and longitude is not None:
             # First filter by search query, then get nearby
+            # Convert Decimal to float for distance calculations
             nearby_cafes = Cafe.nearby_optimized(
                 latitude=float(latitude),
                 longitude=float(longitude),

@@ -261,25 +261,36 @@ class Cafe(models.Model):
         return duplicates
     
     def update_stats(self):
-        """Update cafe stats."""
+        """
+        Update cafe stats efficiently using aggregation.
+        Optimized to use only 2 queries instead of 4-6.
+        """
         from apps.reviews.models import Review, Visit
-        
-        self.total_visits = Visit.objects.filter(cafe=self).count()
-        self.unique_visitors = Visit.objects.filter(cafe=self).values('user').distinct().count()
-        
-        reviews = Review.objects.filter(cafe=self, is_hidden=False)
-        self.total_reviews = reviews.count()
-        
-        if self.total_reviews > 0:
-            avg_rating = reviews.aggregate(models.Avg('wfc_rating'))['wfc_rating__avg']
-            self.average_wfc_rating = round(avg_rating, 2) if avg_rating else None
-        else:
-            self.average_wfc_rating = None
-        
+        from django.db.models import Count, Avg
+
+        # Single aggregated query for visits (1 query instead of 2)
+        visit_stats = Visit.objects.filter(cafe=self).aggregate(
+            total_visits=Count('id'),
+            unique_visitors=Count('user', distinct=True)
+        )
+        self.total_visits = visit_stats['total_visits'] or 0
+        self.unique_visitors = visit_stats['unique_visitors'] or 0
+
+        # Single aggregated query for reviews (1 query instead of 2-3)
+        review_stats = Review.objects.filter(cafe=self, is_hidden=False).aggregate(
+            total_reviews=Count('id'),
+            avg_rating=Avg('wfc_rating')
+        )
+        self.total_reviews = review_stats['total_reviews'] or 0
+        self.average_wfc_rating = (
+            round(review_stats['avg_rating'], 2)
+            if review_stats['avg_rating'] else None
+        )
+
         self.save(update_fields=[
-            'total_visits', 
-            'unique_visitors', 
-            'total_reviews', 
+            'total_visits',
+            'unique_visitors',
+            'total_reviews',
             'average_wfc_rating'
         ])
 
