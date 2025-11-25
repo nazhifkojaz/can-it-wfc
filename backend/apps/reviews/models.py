@@ -252,6 +252,8 @@ class Review(models.Model):
             models.Index(fields=['user', '-created_at']),
             models.Index(fields=['-wfc_rating']),
             models.Index(fields=['is_hidden']),
+            # Composite index for common filter: cafe + is_hidden
+            models.Index(fields=['cafe', 'is_hidden'], name='review_cafe_hidden_idx'),
         ]
     
     def __str__(self):
