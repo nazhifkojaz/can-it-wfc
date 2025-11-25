@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
@@ -12,6 +12,8 @@ import RatingsComparison from './RatingsComparison';
 import DetailedRatings from './DetailedRatings';
 import QuickInfo from './QuickInfo';
 import ActionButtons from './ActionButtons';
+import FacilitiesStats from './FacilitiesStats';
+import { cafeApi } from '../../api/client';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -22,12 +24,15 @@ interface CafeDetailSheetProps {
 }
 
 const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
-  cafe,
+  cafe: initialCafe,
   isOpen,
   onClose,
   onLogVisit,
 }) => {
   const { user } = useAuth();
+  const [cafe, setCafe] = useState<Cafe>(initialCafe);
+  const [refreshingCafe, setRefreshingCafe] = useState(false);
+
   const {
     reviews,
     loading: loadingReviews,
@@ -49,6 +54,33 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     threshold: 0,
     rootMargin: '100px',
   });
+
+  // Refresh cafe data when sheet opens (if cafe is registered)
+  useEffect(() => {
+    const refreshCafeData = async () => {
+      if (isOpen && initialCafe.is_registered && !refreshingCafe) {
+        setRefreshingCafe(true);
+        try {
+          const freshCafe = await cafeApi.getById(initialCafe.id);
+          setCafe(freshCafe);
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('Error refreshing cafe data:', error);
+          }
+          // Silently fail - use existing data
+        } finally {
+          setRefreshingCafe(false);
+        }
+      }
+    };
+
+    refreshCafeData();
+  }, [isOpen, initialCafe.is_registered, initialCafe.id]);
+
+  // Update local cafe state when initialCafe changes
+  useEffect(() => {
+    setCafe(initialCafe);
+  }, [initialCafe]);
 
   React.useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
@@ -203,6 +235,11 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       {/* WFC Detailed Ratings (only if has reviews) */}
       {cafe.is_registered && cafe.average_ratings && (
         <DetailedRatings ratings={cafe.average_ratings} />
+      )}
+
+      {/* Facilities Statistics (only if has reviews) */}
+      {cafe.is_registered && cafe.facility_stats && (
+        <FacilitiesStats stats={cafe.facility_stats} />
       )}
 
       {/* Quick Info */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wifi, Zap, Volume2, Armchair } from 'lucide-react';
+import { Wifi, Zap, Volume2, Armchair, Cigarette, Home } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
 import { Modal, ResultModal } from '../common';
 import { useReviews, useResultModal } from '../../hooks';
@@ -48,6 +48,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     comment: existingReview?.comment || '',
   });
 
+  const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(
+    existingReview?.has_smoking_area ?? null
+  );
+  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(
+    existingReview?.has_prayer_room ?? null
+  );
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,6 +93,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           coffee_quality: formData.coffee_quality || formData.wfc_rating,
           menu_options: formData.menu_options || formData.wfc_rating,
           bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
+          has_smoking_area: hasSmokingArea,
+          has_prayer_room: hasPrayerRoom,
           wfc_rating: formData.wfc_rating,
           visit_time: formData.visit_time,
           comment: formData.comment,
@@ -113,6 +122,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           coffee_quality: formData.coffee_quality || formData.wfc_rating,
           menu_options: formData.menu_options || formData.wfc_rating,
           bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
+          has_smoking_area: hasSmokingArea,
+          has_prayer_room: hasPrayerRoom,
         };
         await createReview(reviewData);
 
@@ -238,6 +249,82 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </p>
           <div className={styles.ratingCategory}>
             {renderStarRating('wfc_rating', formData.wfc_rating as number)}
+          </div>
+        </div>
+
+        {/* Additional Facilities */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Additional Facilities</h3>
+          <p className={styles.sectionDescription}>
+            Does the cafe have these amenities?
+          </p>
+
+          <div className={styles.toggleGroup}>
+            <div className={styles.toggleField}>
+              <label className={styles.toggleLabel}>
+                <Cigarette size={18} />
+                Has Smoking Area?
+              </label>
+              <div className={styles.toggleButtons}>
+                <button
+                  type="button"
+                  className={`${styles.toggleButton} ${hasSmokingArea === true ? styles.toggleActive : ''}`}
+                  onClick={() => !isViewMode && setHasSmokingArea(true)}
+                  disabled={isViewMode}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.toggleButton} ${hasSmokingArea === false ? styles.toggleActive : ''}`}
+                  onClick={() => !isViewMode && setHasSmokingArea(false)}
+                  disabled={isViewMode}
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.toggleButton} ${hasSmokingArea === null ? styles.toggleActive : ''}`}
+                  onClick={() => !isViewMode && setHasSmokingArea(null)}
+                  disabled={isViewMode}
+                >
+                  Don't Know
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.toggleField}>
+              <label className={styles.toggleLabel}>
+                <Home size={18} />
+                Has Prayer Room?
+              </label>
+              <div className={styles.toggleButtons}>
+                <button
+                  type="button"
+                  className={`${styles.toggleButton} ${hasPrayerRoom === true ? styles.toggleActive : ''}`}
+                  onClick={() => !isViewMode && setHasPrayerRoom(true)}
+                  disabled={isViewMode}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.toggleButton} ${hasPrayerRoom === false ? styles.toggleActive : ''}`}
+                  onClick={() => !isViewMode && setHasPrayerRoom(false)}
+                  disabled={isViewMode}
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.toggleButton} ${hasPrayerRoom === null ? styles.toggleActive : ''}`}
+                  onClick={() => !isViewMode && setHasPrayerRoom(null)}
+                  disabled={isViewMode}
+                >
+                  Don't Know
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

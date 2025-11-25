@@ -7,7 +7,8 @@ import { useVisits, useResultModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
 import { reviewApi } from '../../api/client';
 import { formatDate, formatRating } from '../../utils';
-import { REVIEW_CONFIG, VISIT_TIME_LABELS, AMOUNT_SPENT_RANGES } from '../../config/constants';
+import { formatCurrency, CURRENCIES } from '../../utils/currency';
+import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review } from '../../types';
 import { differenceInDays, format } from 'date-fns';
 import './VisitsPanel.css';
@@ -34,7 +35,8 @@ const VisitsPanel: React.FC = () => {
   // Edit visit state
   const [showEditVisit, setShowEditVisit] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
-  const [editAmountSpent, setEditAmountSpent] = useState<number | null>(null);
+  const [editAmountSpent, setEditAmountSpent] = useState<string>('');
+  const [editCurrency, setEditCurrency] = useState<string>('USD');
   const [editVisitTime, setEditVisitTime] = useState<number | null>(null);
 
   // Delete confirmation state
@@ -78,12 +80,10 @@ const VisitsPanel: React.FC = () => {
     return Math.max(0, differenceInDays(deadline, new Date()));
   };
 
-  const getAmountSpentLabel = (value: number | null | undefined): string => {
-    if (value === null || value === undefined) return 'Not specified';
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(numValue)) return 'Not specified';
-    const range = AMOUNT_SPENT_RANGES.find(r => r.value === numValue);
-    return range ? range.label : `$${numValue.toFixed(2)}`;
+  const getAmountSpentLabel = (visit: Visit): string => {
+    if (!visit.amount_spent) return 'Not specified';
+    const currency = visit.currency || 'USD';
+    return formatCurrency(visit.amount_spent, currency);
   };
 
   const getVisitTimeLabel = (value: number | null | undefined): string => {
@@ -173,7 +173,8 @@ const VisitsPanel: React.FC = () => {
 
   const handleEditVisit = (visit: Visit) => {
     setEditingVisit(visit);
-    setEditAmountSpent(visit.amount_spent || null);
+    setEditAmountSpent(visit.amount_spent ? visit.amount_spent.toString() : '');
+    setEditCurrency(visit.currency || 'USD');
     setEditVisitTime(visit.visit_time || null);
     setShowEditVisit(true);
   };
@@ -183,7 +184,8 @@ const VisitsPanel: React.FC = () => {
 
     try {
       await updateVisit(editingVisit.id, {
-        amount_spent: editAmountSpent,
+        amount_spent: editAmountSpent ? parseFloat(editAmountSpent) : null,
+        currency: editAmountSpent ? editCurrency : null,
         visit_time: editVisitTime,
       });
 
@@ -376,8 +378,7 @@ const VisitsPanel: React.FC = () => {
                     <div className="visit-details">
                       {visit.amount_spent && (
                         <span className="detail-badge">
-                          <DollarSign size={14} />
-                          {getAmountSpentLabel(visit.amount_spent)}
+                          {getAmountSpentLabel(visit)}
                         </span>
                       )}
                       {visit.visit_time && (
@@ -522,20 +523,32 @@ const VisitsPanel: React.FC = () => {
               <div className="form-group">
                 <label htmlFor="edit-amount-spent">
                   <DollarSign size={16} />
-                  Amount Spent
+                  Amount Spent (Optional)
                 </label>
-                <select
-                  id="edit-amount-spent"
-                  value={editAmountSpent || ''}
-                  onChange={(e) => setEditAmountSpent(e.target.value ? parseFloat(e.target.value) : null)}
-                >
-                  <option value="">Not specified</option>
-                  {AMOUNT_SPENT_RANGES.map((range) => (
-                    <option key={range.value} value={range.value}>
-                      {range.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="currency-input-group">
+                  <input
+                    id="edit-amount-spent"
+                    type="number"
+                    value={editAmountSpent}
+                    onChange={(e) => setEditAmountSpent(e.target.value)}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="currency-input"
+                  />
+                  <select
+                    id="edit-currency"
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value)}
+                    className="currency-select"
+                  >
+                    {CURRENCIES.map((curr) => (
+                      <option key={curr.code} value={curr.code}>
+                        {curr.symbol} {curr.code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="form-group">
