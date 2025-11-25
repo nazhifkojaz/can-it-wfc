@@ -1,0 +1,261 @@
+.container {
+  width: 100%;
+  max-width: 500px;
+  background: var(--neo-white, #fff);
+  border: var(--neo-border-width-thick, 4px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 8px);
+  box-shadow: 8px 8px 0 var(--neo-black, #000);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: var(--neo-danger-light, #FEE2E2);
+  border-bottom: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+}
+
+.headerIcon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neo-danger, #DC2626);
+  color: var(--neo-white, #fff);
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 8px);
+  box-shadow: 3px 3px 0 var(--neo-black, #000);
+}
+
+.headerContent {
+  flex: 1;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: var(--neo-font-extrabold, 800);
+  color: var(--neo-black, #000);
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--neo-gray-600, #4B5563);
+  margin: 0;
+  font-weight: 500;
+}
+
+.closeButton {
+  flex-shrink: 0;
+  padding: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.cafeInfo {
+  padding: 16px 20px;
+  background: var(--neo-gray-100, #F3F4F6);
+  border-bottom: var(--neo-border-width-thin, 2px) solid var(--neo-black, #000);
+}
+
+.cafeName {
+  font-size: 15px;
+  font-weight: var(--neo-font-bold, 700);
+  color: var(--neo-black, #000);
+  margin: 0;
+}
+
+.form {
+  padding: 20px;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: var(--neo-font-bold, 700);
+  color: var(--neo-black, #000);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.required {
+  color: var(--neo-danger, #DC2626);
+}
+
+.optional {
+  font-size: 12px;
+  font-weight: var(--neo-font-normal, 400);
+  color: var(--neo-gray-500, #6B7280);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.reasonGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.reasonCard {
+  padding: 12px;
+  background: var(--neo-white, #fff);
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 8px);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  box-shadow: 3px 3px 0 var(--neo-black, #000);
+}
+
+.reasonCard:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-black, #000);
+}
+
+.reasonCard:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black, #000);
+}
+
+.reasonCardSelected {
+  background: var(--neo-danger-light, #FEE2E2);
+  border-color: var(--neo-danger, #DC2626);
+}
+
+.reasonLabel {
+  font-size: 14px;
+  font-weight: var(--neo-font-bold, 700);
+  color: var(--neo-black, #000);
+  margin-bottom: 4px;
+}
+
+.reasonDescription {
+  font-size: 12px;
+  color: var(--neo-gray-600, #4B5563);
+  line-height: 1.4;
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  background: var(--neo-white, #fff);
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 8px);
+  resize: vertical;
+  min-height: 100px;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--neo-primary, #8B5CF6);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.charCount {
+  text-align: right;
+  font-size: 11px;
+  color: var(--neo-gray-500, #6B7280);
+  margin-top: 4px;
+}
+
+.error {
+  padding: 12px;
+  background: var(--neo-danger-light, #FEE2E2);
+  border: var(--neo-border-width-thin, 2px) solid var(--neo-danger, #DC2626);
+  border-radius: var(--neo-border-radius, 4px);
+  margin-bottom: 16px;
+}
+
+.error p {
+  font-size: 13px;
+  color: var(--neo-danger, #DC2626);
+  font-weight: 500;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cancelButton,
+.submitButton {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: var(--neo-font-bold, 700);
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 8px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  box-shadow: 3px 3px 0 var(--neo-black, #000);
+}
+
+.cancelButton {
+  background: var(--neo-white, #fff);
+  color: var(--neo-black, #000);
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--neo-gray-100, #F3F4F6);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black, #000);
+}
+
+.submitButton {
+  background: var(--neo-danger, #DC2626);
+  color: var(--neo-white, #fff);
+}
+
+.submitButton:hover:not(:disabled) {
+  background: var(--neo-danger-dark, #B91C1C);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black, #000);
+}
+
+.cancelButton:active:not(:disabled),
+.submitButton:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black, #000);
+}
+
+.cancelButton:disabled,
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Heart, Star } from 'lucide-react';
+import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState, ResultModal } from '../common';
@@ -7,6 +7,7 @@ import { useReviews, useFavorites, useGeolocation, useResultModal } from '../../
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
 import UserProfileModal from '../profile/UserProfileModal';
+import FlagCafeModal from './FlagCafeModal';
 import RatingsComparison from './RatingsComparison';
 import DetailedRatings from './DetailedRatings';
 import QuickInfo from './QuickInfo';
@@ -42,6 +43,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   const resultModal = useResultModal();
 
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
+  const [showFlagModal, setShowFlagModal] = useState(false);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -105,6 +107,47 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     window.open(mapsUrl, '_blank');
   };
 
+  const handleFlagClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Only allow flagging registered cafes
+    if (!cafe.is_registered) {
+      resultModal.showResultModal({
+        type: 'warning',
+        title: 'Cafe Not Registered',
+        message: 'This cafe is not registered yet. You can only report issues with registered cafes.',
+        details: (
+          <div style={{ marginTop: '12px', fontSize: '14px', color: 'var(--neo-gray-600)' }}>
+            <p>💡 Tip: Log a visit to register this cafe first!</p>
+          </div>
+        ),
+      });
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!user) {
+      resultModal.showResultModal({
+        type: 'warning',
+        title: 'Login Required',
+        message: 'You need to be logged in to report issues with cafes.',
+      });
+      return;
+    }
+
+    setShowFlagModal(true);
+  };
+
+  const handleFlagSuccess = () => {
+    resultModal.showResultModal({
+      type: 'success',
+      title: 'Report Submitted',
+      message: 'Thank you for helping us keep the platform accurate!',
+      autoClose: true,
+      autoCloseDelay: 3000,
+    });
+  };
+
   return (
     <Sheet
       isOpen={isOpen}
@@ -116,13 +159,23 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       {/* Cafe Header */}
       <div className={styles.cafeHeader}>
         <h2 className={styles.cafeName}>{cafe.name}</h2>
-        <button
-          className={`${styles.favoriteButton} ${isFavorite(cafe.id) ? styles.active : ''}`}
-          onClick={handleToggleFavorite}
-          aria-label={isFavorite(cafe.id) ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <Heart size={24} fill={isFavorite(cafe.id) ? 'currentColor' : 'none'} />
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            className={styles.flagButton}
+            onClick={handleFlagClick}
+            aria-label="Report issue with this cafe"
+            title="Report issue"
+          >
+            <Flag size={20} />
+          </button>
+          <button
+            className={`${styles.favoriteButton} ${isFavorite(cafe.id) ? styles.active : ''}`}
+            onClick={handleToggleFavorite}
+            aria-label={isFavorite(cafe.id) ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart size={24} fill={isFavorite(cafe.id) ? 'currentColor' : 'none'} />
+          </button>
+        </div>
       </div>
 
       {/* Address & Distance */}
@@ -244,6 +297,17 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           isOpen={!!selectedUsername}
           onClose={() => setSelectedUsername(null)}
           username={selectedUsername}
+        />
+      )}
+
+      {/* Flag Cafe Modal */}
+      {cafe.is_registered && (
+        <FlagCafeModal
+          isOpen={showFlagModal}
+          onClose={() => setShowFlagModal(false)}
+          cafeId={cafe.id}
+          cafeName={cafe.name}
+          onSuccess={handleFlagSuccess}
         />
       )}
     </Sheet>
