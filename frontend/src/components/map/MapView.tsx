@@ -10,9 +10,21 @@ import RecenterButton from './RecenterButton';
 import FindMyLocationButton from './FindMyLocationButton';
 import ZoomInButton from './ZoomInButton';
 import ZoomOutButton from './ZoomOutButton';
+import SearchButton from './SearchButton';
 import { Cafe } from '../../types';
 import styles from './map.module.css';
 import 'leaflet/dist/leaflet.css';
+
+interface TempSearchMarker {
+  name: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+  google_place_id?: string;
+  distance?: string;
+  rating?: number;
+  result_type?: 'cafe' | 'location';
+}
 
 interface MapViewProps {
   cafes: Cafe[];
@@ -22,6 +34,9 @@ interface MapViewProps {
   onCafeClick: (cafe: Cafe) => void;
   onSearchArea: (center: { lat: number; lng: number }) => void;
   userLocation: { lat: number; lng: number } | null;
+  jumpToLocation?: { lat: number; lng: number } | null;
+  tempSearchMarker?: TempSearchMarker | null;
+  onSearchClick?: () => void;
 }
 
 // Component to fly to a location when explicitly requested
@@ -44,7 +59,10 @@ const MapView: React.FC<MapViewProps> = ({
   searchCenter,
   onCafeClick,
   onSearchArea,
-  userLocation
+  userLocation,
+  jumpToLocation,
+  tempSearchMarker,
+  onSearchClick
 }) => {
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
@@ -61,6 +79,14 @@ const MapView: React.FC<MapViewProps> = ({
       setFlyTrigger(prev => prev + 1);
     }
   }, [searchCenter?.lat, searchCenter?.lng]);
+
+  // Trigger fly animation when jump location is set (from search)
+  useEffect(() => {
+    if (jumpToLocation) {
+      setFlyTarget([jumpToLocation.lat, jumpToLocation.lng]);
+      setFlyTrigger(prev => prev + 1);
+    }
+  }, [jumpToLocation]);
 
   // Memoize calculateDistance to avoid recreating it
   const calculateDistance = useMemo(() => {
@@ -180,8 +206,44 @@ const MapView: React.FC<MapViewProps> = ({
           />
         ))}
 
+        {/* Temporary Search Marker (for new cafes from Google) */}
+        {tempSearchMarker && (() => {
+          // Convert SearchResult to Cafe object for CafeMarker
+          const tempCafe: Cafe = {
+            id: -1, // Temporary ID for unregistered cafe
+            name: tempSearchMarker.name,
+            address: tempSearchMarker.address,
+            latitude: tempSearchMarker.latitude,
+            longitude: tempSearchMarker.longitude,
+            google_place_id: tempSearchMarker.google_place_id,
+            google_rating: tempSearchMarker.rating,
+            distance: tempSearchMarker.distance,
+            price_range: undefined,
+            total_visits: 0,
+            unique_visitors: 0,
+            total_reviews: 0,
+            average_wfc_rating: undefined,
+            is_closed: false,
+            is_verified: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_registered: false,
+            source: 'google_places',
+          };
+
+          return (
+            <CafeMarker
+              key={`temp-${tempSearchMarker.google_place_id}`}
+              cafe={tempCafe}
+              // onClick={onTempMarkerAddVisit || (() => {})}
+              onClick={() => onCafeClick(tempCafe)}
+            />
+          );
+        })()}
+
         {/* Custom Map Controls Group (Bottom Left) */}
         <div className={styles.mapControlsGroup}>
+          <SearchButton onClick={() => onSearchClick?.()} />
           <FindMyLocationButton
             onClick={handleFindMyLocation}
             disabled={!userLocation}
