@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle } from 'lucide-react';
+import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home } from 'lucide-react';
 import { Cafe, CombinedVisitReviewCreate, Visit } from '../../types';
 import { Modal, ResultModal } from '../common';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance, formatVisitTime } from '../../utils';
-import { VISIT_TIME_OPTIONS, AMOUNT_SPENT_RANGES } from '../../config/constants';
+import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
+import { VISIT_TIME_OPTIONS } from '../../config/constants';
 import { visitApi } from '../../api/client';
 import styles from './AddVisitReviewModal.module.css';
 
@@ -23,14 +24,14 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 }) => {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | undefined>(preselectedCafe);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
-  const [amountSpent, setAmountSpent] = useState<number | null>(null);
+  const [amountSpent, setAmountSpent] = useState<string>('');
+  const [currency, setCurrency] = useState<string>('USD');
   const [visitTime, setVisitTime] = useState<number | null>(null);
   const [includeReview, setIncludeReview] = useState(false);
 
   // Duplicate visit detection
   const [showDuplicateInfo, setShowDuplicateInfo] = useState(false);
   const [existingVisit, setExistingVisit] = useState<Visit | null>(null);
-  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   // Result modal
   const resultModal = useResultModal();
@@ -41,6 +42,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const [powerOutlets, setPowerOutlets] = useState<number>(3);
   const [seatingComfort, setSeatingComfort] = useState<number>(3);
   const [noiseLevel, setNoiseLevel] = useState<number>(3);
+  const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(null);
+  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(null);
   const [comment, setComment] = useState('');
 
   const { createWithReview, loading: submitting } = useVisits();
@@ -62,7 +65,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   useEffect(() => {
     const checkDuplicate = async () => {
       if (isOpen && selectedCafe?.is_registered) {
-        setCheckingDuplicate(true);
         try {
           const today = new Date().toISOString().split('T')[0];
           const response = await visitApi.getVisits({ cafe: selectedCafe.id, visit_date: today });
@@ -79,8 +81,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             console.error('Error checking duplicate visit:', error);
           }
           setShowDuplicateInfo(false);
-        } finally {
-          setCheckingDuplicate(false);
         }
       } else {
         setShowDuplicateInfo(false);
@@ -91,7 +91,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     if (isOpen) {
       setSelectedCafe(preselectedCafe);
       setVisitDate(new Date().toISOString().split('T')[0]);
-      setAmountSpent(null);
+      setAmountSpent('');
       setVisitTime(null);
       setIncludeReview(false);
       setWfcRating(3);
@@ -99,7 +99,19 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setPowerOutlets(3);
       setSeatingComfort(3);
       setNoiseLevel(3);
+      setHasSmokingArea(null);
+      setHasPrayerRoom(null);
       setComment('');
+
+      // Auto-detect currency based on cafe location
+      if (preselectedCafe) {
+        const detectedCurrency = detectCurrencyFromCoordinates(
+          parseFloat(preselectedCafe.latitude),
+          parseFloat(preselectedCafe.longitude)
+        );
+        setCurrency(detectedCurrency);
+      }
+
       refetch();
       checkDuplicate();
     }
@@ -141,7 +153,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     try {
       const visitReviewData: CombinedVisitReviewCreate = {
         visit_date: visitDate,
-        amount_spent: amountSpent,
+        amount_spent: amountSpent ? parseFloat(amountSpent) : null,
+        currency: amountSpent ? currency : null,
         visit_time: visitTime,
         check_in_latitude: location.lat.toFixed(8),
         check_in_longitude: location.lng.toFixed(8),
@@ -178,6 +191,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         visitReviewData.power_outlets_rating = powerOutlets;
         visitReviewData.seating_comfort = seatingComfort;
         visitReviewData.noise_level = noiseLevel;
+        visitReviewData.has_smoking_area = hasSmokingArea;
+        visitReviewData.has_prayer_room = hasPrayerRoom;
         if (comment.trim()) {
           visitReviewData.comment = comment.trim();
         }
@@ -201,7 +216,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             {amountSpent && (
               <div className={styles.summaryItem}>
                 <DollarSign size={16} />
-                <span>${amountSpent.toFixed(2)}</span>
+                <span>{formatCurrency(parseFloat(amountSpent), currency)}</span>
               </div>
             )}
             {visitTime && (
@@ -312,10 +327,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             {existingVisit.amount_spent && (
               <div className={styles.visitDetail}>
                 <DollarSign size={16} />
-                <span>${existingVisit.amount_spent.toFixed(2)}</span>
+                <span>{formatCurrency(existingVisit.amount_spent, existingVisit.currency || 'USD')}</span>
               </div>
             )}
-            {existingVisit.review ? (
+            {existingVisit.has_review ? (
               <div className={styles.visitDetail}>
                 <Star size={16} />
                 <span>Review submitted</span>
@@ -417,18 +432,30 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             <DollarSign size={18} />
             How much did you spend? (Optional)
           </label>
-          <select
-            id="amount-spent"
-            value={amountSpent || ''}
-            onChange={(e) => setAmountSpent(e.target.value ? parseFloat(e.target.value) : null)}
-          >
-            <option value="">Select amount...</option>
-            {AMOUNT_SPENT_RANGES.map((range) => (
-              <option key={range.value} value={range.value}>
-                {range.label}
-              </option>
-            ))}
-          </select>
+          <div className={styles.currencyInputGroup}>
+            <input
+              id="amount-spent"
+              type="number"
+              value={amountSpent}
+              onChange={(e) => setAmountSpent(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              className={styles.currencyInput}
+            />
+            <select
+              id="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className={styles.currencySelect}
+            >
+              {CURRENCIES.map((curr) => (
+                <option key={curr.code} value={curr.code}>
+                  {curr.symbol} {curr.code}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className={styles.formGroup}>
@@ -472,6 +499,68 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             {renderStarRating(powerOutlets, setPowerOutlets, 'Power Outlets', <Zap size={18} />)}
             {renderStarRating(seatingComfort, setSeatingComfort, 'Seat/Desk Comfort', <Armchair size={18} />)}
             {renderStarRating(noiseLevel, setNoiseLevel, 'Noise Level', <Volume2 size={18} />)}
+
+            <div className={styles.toggleGroup}>
+              <div className={styles.toggleField}>
+                <label className={styles.toggleLabel}>
+                  <Cigarette size={18} />
+                  Has Smoking Area?
+                </label>
+                <div className={styles.toggleButtons}>
+                  <button
+                    type="button"
+                    className={`${styles.toggleButton} ${hasSmokingArea === true ? styles.toggleActive : ''}`}
+                    onClick={() => setHasSmokingArea(true)}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.toggleButton} ${hasSmokingArea === false ? styles.toggleActive : ''}`}
+                    onClick={() => setHasSmokingArea(false)}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.toggleButton} ${hasSmokingArea === null ? styles.toggleActive : ''}`}
+                    onClick={() => setHasSmokingArea(null)}
+                  >
+                    Don't Know
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.toggleField}>
+                <label className={styles.toggleLabel}>
+                  <Home size={18} />
+                  Has Prayer Room?
+                </label>
+                <div className={styles.toggleButtons}>
+                  <button
+                    type="button"
+                    className={`${styles.toggleButton} ${hasPrayerRoom === true ? styles.toggleActive : ''}`}
+                    onClick={() => setHasPrayerRoom(true)}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.toggleButton} ${hasPrayerRoom === false ? styles.toggleActive : ''}`}
+                    onClick={() => setHasPrayerRoom(false)}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.toggleButton} ${hasPrayerRoom === null ? styles.toggleActive : ''}`}
+                    onClick={() => setHasPrayerRoom(null)}
+                  >
+                    Don't Know
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <div className={styles.formGroup}>
               <label htmlFor="comment">

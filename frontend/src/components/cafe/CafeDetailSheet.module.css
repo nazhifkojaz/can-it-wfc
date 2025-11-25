@@ -17,12 +17,18 @@
   letter-spacing: 1px;
 }
 
+.headerActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.flagButton,
 .favoriteButton {
   width: 44px;
   height: 44px;
   border: var(--neo-border-width) solid var(--neo-black);
   background: var(--neo-white);
-  color: var(--neo-gray-400);
   cursor: pointer;
   transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast), color var(--neo-transition-fast);
   display: flex;
@@ -30,6 +36,25 @@
   justify-content: center;
   border-radius: var(--neo-border-radius);
   box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.flagButton {
+  color: var(--neo-warning, #f59e0b);
+}
+
+.flagButton:hover {
+  background: var(--neo-warning-light, #fef3c7);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.flagButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.favoriteButton {
+  color: var(--neo-gray-400);
 }
 
 .favoriteButton.active {

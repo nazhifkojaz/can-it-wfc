@@ -435,7 +435,7 @@
   gap: 6px;
   padding: 6px 12px;
   background: var(--neo-primary-light);
-  color: var(--neo-primary-dark);
+  color: var(--neo-white);
   border: var(--neo-border-width-thin) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
   font-size: 13px;
@@ -492,13 +492,14 @@
 }
 
 .edit-visit-modal {
-  background: white;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 8px 8px 0 var(--neo-black);
 }
 
 .edit-visit-modal .modal-header {
@@ -506,41 +507,45 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid var(--neo-gray-200);
+  background: var(--neo-primary);
+  border-bottom: var(--neo-border-width) solid var(--neo-black);
 }
 
 .edit-visit-modal .modal-header h2 {
   font-size: 20px;
-  font-weight: 700;
-  color: var(--neo-gray-900);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-white);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .edit-visit-modal .close-button {
   background: var(--neo-white);
-  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border: var(--neo-border-width) solid var(--neo-black);
   font-size: 28px;
   color: var(--neo-black);
   cursor: pointer;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--neo-border-radius);
   transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
-  box-shadow: 2px 2px 0 var(--neo-black);
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .edit-visit-modal .close-button:hover {
+  background: var(--neo-danger-light);
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--neo-black);
+  box-shadow: 4px 4px 0 var(--neo-black);
 }
 
 .edit-visit-modal .close-button:active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--neo-black);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .edit-visit-modal .modal-body {
@@ -549,9 +554,11 @@
 
 .edit-cafe-name {
   font-size: 18px;
-  font-weight: 600;
-  color: var(--neo-gray-900);
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
   margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .edit-visit-date {
@@ -559,7 +566,8 @@
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: var(--neo-gray-600);
+  color: var(--neo-gray-700);
+  font-weight: var(--neo-font-bold);
   margin: 0 0 24px 0;
 }
 
@@ -572,45 +580,103 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 600;
-  color: var(--neo-gray-700);
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .edit-visit-modal .form-group select {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid var(--neo-gray-200);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
   font-size: 15px;
-  background: white;
-  transition: border-color 0.2s;
+  background: var(--neo-white);
+  transition: box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .edit-visit-modal .form-group select:focus {
   outline: none;
-  border-color: var(--neo-primary);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+/* Currency Input Group */
+.edit-visit-modal .currency-input-group {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.edit-visit-modal .currency-input {
+  flex: 2;
+  padding: 12px 16px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 15px;
+  background: var(--neo-white);
+  transition: box-shadow var(--neo-transition-fast);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+/* Hide number input spinner buttons */
+.edit-visit-modal .currency-input::-webkit-inner-spin-button,
+.edit-visit-modal .currency-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.edit-visit-modal .currency-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.edit-visit-modal .currency-input:focus {
+  outline: none;
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.edit-visit-modal .currency-select {
+  flex: 1;
+  padding: 12px 16px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 15px;
+  background: var(--neo-white);
+  transition: box-shadow var(--neo-transition-fast);
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.edit-visit-modal .currency-select:focus {
+  outline: none;
+  box-shadow: 3px 3px 0 var(--neo-black);
 }
 
 .deadline-info {
-  background: #fef3c7;
-  padding: 12px;
+  background: var(--neo-warning-light);
+  padding: 12px 16px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-left: 4px solid var(--neo-warning);
   border-radius: var(--neo-border-radius);
   margin-top: 20px;
+  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .deadline-info p {
   font-size: 13px;
-  color: #92400e;
+  color: var(--neo-black);
   margin: 0;
-  font-weight: 500;
+  font-weight: var(--neo-font-bold);
 }
 
 .edit-visit-modal .modal-actions {
   display: flex;
   gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--neo-gray-200);
+  padding: 20px;
+  border-top: var(--neo-border-width) solid var(--neo-black);
+  background: var(--neo-gray-50);
 }
 
 .edit-visit-modal .cancel-button {

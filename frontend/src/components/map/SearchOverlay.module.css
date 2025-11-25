@@ -1,0 +1,259 @@
+.overlay {
+  position: fixed;
+  top: 72px; /* Below map header */
+  left: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header {
+  background: white;
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 4px);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 4px 4px 0 var(--neo-black, #000);
+}
+
+.closeButton {
+  padding: 8px;
+  background: none;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.closeButton:hover {
+  background-color: #f3f4f6;
+}
+
+.searchInputWrapper {
+  flex: 1;
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 16px 8px 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 4px);
+  box-shadow: 4px 4px 0 var(--neo-black, #000);
+  max-height: calc(70vh - 60px);
+}
+
+.emptyState {
+  padding: 64px 32px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.emptyIcon {
+  margin: 0 auto 16px;
+  color: #d1d5db;
+}
+
+.loadingState {
+  padding: 64px 32px;
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingText {
+  margin-top: 16px;
+  color: #6b7280;
+}
+
+.resultsContainer {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sectionHeader {
+  padding: 8px 16px;
+  background-color: #f9fafb;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionHeaderBlue {
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+.sectionHeaderGreen {
+  background-color: #f0fdf4;
+  color: #15803d;
+}
+
+.liveIndicator {
+  font-size: 11px;
+  color: #2563eb;
+}
+
+.resultItem {
+  width: 100%;
+  padding: 12px 16px;
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  text-align: left;
+}
+
+.resultItem:hover {
+  background-color: #f9fafb;
+}
+
+.resultIcon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resultIconRegistered {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.resultIconNew {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.resultIconLocation {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.resultContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.resultHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.resultName {
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultBadge {
+  padding: 2px 8px;
+  background-color: #dbeafe;
+  color: #1e40af;
+  font-size: 11px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.resultAddress {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.resultMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.resultMetaItem {
+  font-size: 11px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.starIcon {
+  color: #fbbf24;
+  fill: #fbbf24;
+}

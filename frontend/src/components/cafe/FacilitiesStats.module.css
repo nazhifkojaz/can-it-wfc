@@ -1,0 +1,124 @@
+/* FacilitiesStats - Neobrutalism */
+
+.facilitiesStats {
+  padding: 20px;
+  background: var(--neo-gray-50);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  margin-bottom: 24px;
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
+  margin: 0 0 20px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.facilityItem {
+  margin-bottom: 20px;
+}
+
+.facilityItem:last-child {
+  margin-bottom: 0;
+}
+
+.facilityHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.facilityLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.facilityLabel svg {
+  color: var(--neo-primary);
+}
+
+.facilityTotal {
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-600);
+}
+
+.facilityBar {
+  display: flex;
+  height: 32px;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  overflow: hidden;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  margin-bottom: 8px;
+}
+
+.barSegment {
+  height: 100%;
+  transition: all var(--neo-transition-fast);
+  cursor: help;
+  position: relative;
+}
+
+.barSegment:hover {
+  filter: brightness(0.95);
+}
+
+.barYes {
+  background: var(--neo-success);
+}
+
+.barNo {
+  background: var(--neo-danger);
+}
+
+.barUnknown {
+  background: var(--neo-gray-400);
+}
+
+.facilityLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--neo-gray-700);
+  font-weight: var(--neo-font-bold);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--neo-black);
+  flex-shrink: 0;
+}
+
+.legendDotYes {
+  background: var(--neo-success);
+}
+
+.legendDotNo {
+  background: var(--neo-danger);
+}
+
+.legendDotUnknown {
+  background: var(--neo-gray-400);
+}

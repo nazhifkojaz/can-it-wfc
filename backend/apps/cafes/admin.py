@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Cafe, Favorite
+from django.utils import timezone
+from .models import Cafe, Favorite, CafeFlag
 
 
 @admin.register(Cafe)
@@ -140,9 +141,107 @@ class CafeAdmin(admin.ModelAdmin):
 @admin.register(Favorite)
 class FavoriteAdmin(admin.ModelAdmin):
     """Admin interface for user favorites."""
-    
+
     list_display = ['user', 'cafe', 'created_at']
     list_filter = ['created_at']
     search_fields = ['user__username', 'cafe__name']
     ordering = ['-created_at']
     readonly_fields = ['created_at']
+
+
+@admin.register(CafeFlag)
+class CafeFlagAdmin(admin.ModelAdmin):
+    """Admin interface for cafe flags (user reports)."""
+
+    list_display = [
+        'cafe',
+        'user',
+        'reason_display',
+        'status',
+        'created_at',
+        'resolved_at'
+    ]
+
+    list_filter = [
+        'status',
+        'reason',
+        'created_at',
+        'resolved_at'
+    ]
+
+    search_fields = [
+        'cafe__name',
+        'user__username',
+        'description',
+        'resolution_notes'
+    ]
+
+    ordering = ['-created_at']
+
+    readonly_fields = [
+        'user',
+        'cafe',
+        'created_at',
+        'updated_at'
+    ]
+
+    fieldsets = (
+        ('Flag Information', {
+            'fields': ('cafe', 'user', 'reason', 'description', 'created_at')
+        }),
+        ('Status', {
+            'fields': ('status', 'resolved_by', 'resolution_notes', 'resolved_at', 'updated_at')
+        }),
+    )
+
+    actions = [
+        'mark_as_resolved',
+        'mark_as_dismissed',
+        'mark_as_pending'
+    ]
+
+    def reason_display(self, obj):
+        """Display reason with colored badge."""
+        colors = {
+            'not_cafe': '#ef4444',  # red
+            'wrong_location': '#f59e0b',  # orange
+            'permanently_closed': '#6b7280',  # gray
+            'duplicate': '#8b5cf6',  # purple
+        }
+        color = colors.get(obj.reason, '#3b82f6')
+        return format_html(
+            '<span style="background: {}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">{}</span>',
+            color,
+            obj.get_reason_display()
+        )
+    reason_display.short_description = 'Reason'
+
+    def mark_as_resolved(self, request, queryset):
+        """Mark selected flags as resolved."""
+        count = queryset.update(
+            status='resolved',
+            resolved_by=request.user,
+            resolved_at=timezone.now()
+        )
+        self.message_user(request, f"Marked {count} flags as resolved.")
+    mark_as_resolved.short_description = "Mark as resolved"
+
+    def mark_as_dismissed(self, request, queryset):
+        """Mark selected flags as dismissed."""
+        count = queryset.update(
+            status='dismissed',
+            resolved_by=request.user,
+            resolved_at=timezone.now()
+        )
+        self.message_user(request, f"Dismissed {count} flags.")
+    mark_as_dismissed.short_description = "Mark as dismissed"
+
+    def mark_as_pending(self, request, queryset):
+        """Mark selected flags as pending."""
+        count = queryset.update(
+            status='pending',
+            resolved_by=None,
+            resolved_at=None
+        )
+        self.message_user(request, f"Marked {count} flags as pending.")
+    mark_as_pending.short_description = "Mark as pending"

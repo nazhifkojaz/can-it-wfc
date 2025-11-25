@@ -307,3 +307,83 @@ class Favorite(models.Model):
     
     def __str__(self):
         return f"{self.user.username} → {self.cafe.name}"
+
+
+class CafeFlag(models.Model):
+    """
+    User reports for cafe issues (misclassification, wrong location, etc.)
+    Requires authentication to prevent spam.
+    """
+    # Flag reasons
+    REASON_CHOICES = [
+        ('not_cafe', 'Not a cafe'),
+        ('wrong_location', 'Wrong location'),
+        ('permanently_closed', 'Permanently closed'),
+        ('duplicate', 'Duplicate entry'),
+    ]
+
+    # Flag status
+    STATUS_CHOICES = [
+        ('pending', 'Pending review'),
+        ('resolved', 'Resolved'),
+        ('dismissed', 'Dismissed'),
+    ]
+
+    cafe = models.ForeignKey(
+        Cafe,
+        on_delete=models.CASCADE,
+        related_name='flags'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='cafe_flags'
+    )
+    reason = models.CharField(
+        max_length=50,
+        choices=REASON_CHOICES,
+        help_text="Reason for flagging this cafe"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional additional details about the issue"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text="Current status of this flag"
+    )
+
+    # Admin resolution
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_cafe_flags',
+        help_text="Admin who resolved this flag"
+    )
+    resolution_notes = models.TextField(
+        blank=True,
+        help_text="Admin notes on how this was resolved"
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cafe_flags'
+        verbose_name = 'Cafe Flag'
+        verbose_name_plural = 'Cafe Flags'
+        # Prevent duplicate flags from same user for same reason
+        unique_together = ['user', 'cafe', 'reason']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['cafe', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} flagged {self.cafe.name} ({self.get_reason_display()})"

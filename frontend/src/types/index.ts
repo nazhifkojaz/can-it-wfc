@@ -52,6 +52,20 @@ export interface AverageRatings {
   wfc_rating: number;
 }
 
+export interface FacilityOption {
+  yes: number;
+  no: number;
+  unknown: number;
+  yes_percentage: number;
+  no_percentage: number;
+  unknown_percentage: number;
+}
+
+export interface FacilityStats {
+  smoking_area: FacilityOption;
+  prayer_room: FacilityOption;
+}
+
 export interface Cafe {
   id: number;  // Backend uses integer ID (AutoField), not UUID
   name: string;
@@ -83,6 +97,9 @@ export interface Cafe {
 
   // NEW: Average ratings breakdown (only for registered cafes with reviews)
   average_ratings?: AverageRatings | null;
+
+  // NEW: Facility statistics (smoking area, prayer room)
+  facility_stats?: FacilityStats | null;
 }
 
 export interface CafeCreate {
@@ -119,8 +136,9 @@ export interface Visit {
   cafe: Cafe;
   user: User;
   visit_date: string;
-  amount_spent?: number | null;  // New field
-  visit_time?: number | null;    // New field (1=Morning, 2=Afternoon, 3=Evening)
+  amount_spent?: number | null;
+  currency?: string | null;  // Currency code (e.g., USD, IDR, SGD)
+  visit_time?: number | null;  // (1=Morning, 2=Afternoon, 3=Evening)
   check_in_latitude?: string;
   check_in_longitude?: string;
   created_at: string;
@@ -143,8 +161,9 @@ export interface VisitCreate {
 
   // Common fields
   visit_date: string; // ISO date string
-  amount_spent?: number | null;  // New field
-  visit_time?: number | null;    // New field
+  amount_spent?: number | null;
+  currency?: string | null;  // Currency code
+  visit_time?: number | null;
 
   // REQUIRED: Check-in location for visit verification (within 1km of cafe)
   check_in_latitude: string;
@@ -166,6 +185,7 @@ export interface CombinedVisitReviewCreate {
   // Common fields
   visit_date: string;
   amount_spent?: number | null;
+  currency?: string | null;
   visit_time?: number | null;
   check_in_latitude?: string;
   check_in_longitude?: string;
@@ -175,6 +195,8 @@ export interface CombinedVisitReviewCreate {
   power_outlets_rating?: number;
   seating_comfort?: number;
   noise_level?: number;
+  has_smoking_area?: boolean | null;
+  has_prayer_room?: boolean | null;
   comment?: string;
 }
 
@@ -197,6 +219,10 @@ export interface Review {
   coffee_quality: number;
   menu_options: number;
   bathroom_quality?: number;
+
+  // Additional facilities (three-state: true/false/null)
+  has_smoking_area?: boolean | null;
+  has_prayer_room?: boolean | null;
 
   // Overall WFC rating
   wfc_rating: number;
@@ -239,6 +265,10 @@ export interface ReviewCreate {
   menu_options: number;
   bathroom_quality?: number;
 
+  // Additional facilities (three-state: true/false/null)
+  has_smoking_area?: boolean | null;
+  has_prayer_room?: boolean | null;
+
   // Overall WFC rating (required)
   wfc_rating: number;
 
@@ -271,6 +301,10 @@ export interface ReviewUpdate {
   coffee_quality?: number;
   menu_options?: number;
   bathroom_quality?: number;
+
+  // Additional facilities (three-state: true/false/null)
+  has_smoking_area?: boolean | null;
+  has_prayer_room?: boolean | null;
 
   // Overall WFC rating
   wfc_rating?: number;

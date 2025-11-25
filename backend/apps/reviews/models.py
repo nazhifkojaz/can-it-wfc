@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.utils import timezone
+from apps.core.currency_utils import CURRENCY_CHOICES
 
 
 class Visit(models.Model):
@@ -26,11 +27,21 @@ class Visit(models.Model):
 
     # Amount spent (new field)
     amount_spent = models.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Amount spent in USD"
+        help_text="Amount spent at the cafe"
+    )
+
+    # Currency (new field)
+    currency = models.CharField(
+        max_length=3,
+        choices=CURRENCY_CHOICES,
+        default='USD',
+        null=True,
+        blank=True,
+        help_text="Currency code (e.g., USD, IDR, SGD)"
     )
 
     # Visit time (new field)
@@ -171,7 +182,20 @@ class Review(models.Model):
         blank=True,
         help_text="Bathroom quality (1=very poor, 5=excellent)"
     )
-    
+
+    # Additional facilities (new fields - three-state: True/False/None)
+    has_smoking_area = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Does the cafe have a designated smoking area? (null=don't know)"
+    )
+
+    has_prayer_room = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Does the cafe have a prayer room/musala? (null=don't know)"
+    )
+
     # Overall WFC suitability (required)
     wfc_rating = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],

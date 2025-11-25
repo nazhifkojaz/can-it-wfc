@@ -6,6 +6,7 @@ import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
 import { Loading, ResultModal } from '../components/common';
+import { SearchOverlay } from '../components/map/SearchOverlay';
 import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
 import { Cafe } from '../types';
 import PanelManager from '../components/panels/PanelManager';
@@ -14,11 +15,29 @@ import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
 
+interface SearchResult {
+  id?: string;
+  google_place_id?: string;
+  name: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+  distance?: string;
+  rating?: number;
+  average_wfc_rating?: number;
+  source: 'database' | 'google';
+  is_registered: boolean;
+  result_type?: 'cafe' | 'location';
+}
+
 const MapPage: React.FC = () => {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
+  const [showSearchOverlay, setShowSearchOverlay] = useState(false);
+  const [tempSearchMarker, setTempSearchMarker] = useState<SearchResult | null>(null);
+  const [jumpToLocation, setJumpToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   const resultModal = useResultModal();
@@ -66,6 +85,7 @@ const MapPage: React.FC = () => {
     setShowAddVisitReview(false);
     setVisitCafe(undefined);
     setSelectedCafe(null);
+    setTempSearchMarker(null); // Clear temp marker after successful visit
 
     // Refetch cafes to update markers with new visit count and review/rating
     // React Query will automatically update related queries
@@ -82,6 +102,32 @@ const MapPage: React.FC = () => {
 
   const toggleViewMode = () => {
     setViewMode(prev => prev === 'map' ? 'list' : 'map');
+  };
+
+  const handleSearchSelect = (result: SearchResult) => {
+    const lat = parseFloat(result.latitude);
+    const lng = parseFloat(result.longitude);
+
+    // Jump map to selected location
+    setJumpToLocation({ lat, lng });
+
+    // If it's a location (not a cafe), just pan - no marker
+    if (result.result_type === 'location') {
+      return;
+    }
+
+    // For cafes:
+    if (result.is_registered && result.id) {
+      // Existing cafe - open detail sheet
+      // Find the cafe in our current cafes list
+      const cafe = cafes.find(c => c.id === parseInt(result.id || '0'));
+      if (cafe) {
+        setSelectedCafe(cafe);
+      }
+    } else {
+      // New cafe from Google - show temporary marker
+      setTempSearchMarker(result);
+    }
   };
 
   return (
@@ -136,6 +182,9 @@ const MapPage: React.FC = () => {
               onCafeClick={handleCafeClick}
               onSearchArea={handleSearchArea}
               userLocation={location}
+              jumpToLocation={jumpToLocation}
+              tempSearchMarker={tempSearchMarker}
+              onSearchClick={() => setShowSearchOverlay(true)}
             />
           </div>
         )}
@@ -185,6 +234,14 @@ const MapPage: React.FC = () => {
           secondaryButton={resultModal.secondaryButton}
           autoClose={resultModal.autoClose}
           autoCloseDelay={resultModal.autoCloseDelay}
+        />
+
+        {/* Search Overlay */}
+        <SearchOverlay
+          isOpen={showSearchOverlay}
+          onClose={() => setShowSearchOverlay(false)}
+          onSelectResult={handleSearchSelect}
+          userLocation={location ? { lat: location.lat, lon: location.lng } : undefined}
         />
       </div>
       {activePanel && <PanelManager />}
