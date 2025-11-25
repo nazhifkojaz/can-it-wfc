@@ -100,16 +100,23 @@ class CombinedVisitReviewCreateView(generics.CreateAPIView):
 class ReviewListView(generics.ListAPIView):
     """
     List all reviews (public).
-    
+
     GET /api/reviews/
     """
-    queryset = Review.objects.filter(is_hidden=False)
     serializer_class = ReviewListSerializer
     permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['cafe', 'user', 'wfc_rating', 'visit_time']
     ordering_fields = ['wfc_rating', 'created_at']
     ordering = ['-created_at']
+
+    def get_queryset(self):
+        """Optimize query with select_related to avoid N+1 queries"""
+        return Review.objects.filter(is_hidden=False).select_related(
+            'user',
+            'cafe',
+            'visit'
+        )
 
 
 @method_decorator(ratelimit(key='user', rate='10/h', method='POST'), name='post')

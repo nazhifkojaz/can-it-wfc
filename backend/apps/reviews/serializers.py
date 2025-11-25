@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
@@ -589,7 +590,12 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                 })
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
+        """
+        Create visit and optional review in a single atomic transaction.
+        If any step fails, all changes are rolled back to maintain data integrity.
+        """
         from apps.cafes.models import Cafe
         from apps.cafes.services import GooglePlacesService
 
