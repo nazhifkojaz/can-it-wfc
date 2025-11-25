@@ -128,17 +128,121 @@ class GooglePlacesService:
             return []
 
     @staticmethod
-    def get_place_details(place_id: str) -> Optional[Dict]:
-        """Get detailed information about a specific place."""
+    def autocomplete_search(
+        query: str,
+        latitude: float,
+        longitude: float,
+        radius_meters: int = 10000,
+        types: str = None
+    ) -> List[Dict]:
+        """
+        Search using Autocomplete API for real-time search suggestions.
+        Much cheaper than Text Search: $2.83/1k vs $32/1k.
+
+        Args:
+            query: Search query (cafe name, location, etc.)
+            latitude: Center latitude for biasing results
+            longitude: Center longitude for biasing results
+            radius_meters: Search radius in meters
+            types: Place types filter (e.g., 'cafe', 'establishment')
+
+        Returns:
+            List of place dictionaries with coordinates
+        """
+        api_key = settings.GOOGLE_PLACES_API_KEY
+
+        if not api_key:
+            logger.warning("Google Places API key not configured")
+            return []
+
+        url = f"{GooglePlacesService.BASE_URL}/autocomplete/json"
+
+        params = {
+            'input': query,
+            'location': f"{latitude},{longitude}",
+            'radius': radius_meters,
+            'key': api_key
+        }
+
+        if types:
+            params['types'] = types
+
+        try:
+            response = requests.get(url, params=params, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get('status') not in ['OK', 'ZERO_RESULTS']:
+                logger.warning(f"Google Places autocomplete error: {data.get('status')}")
+                return []
+
+            places = []
+            predictions = data.get('predictions', [])[:10]  # Limit to 10 predictions
+
+            # For each prediction, get place details to retrieve coordinates
+            # Place Details (Basic Data - geometry, name, address) is FREE!
+            # Only request free fields to keep costs down
+            for prediction in predictions:
+                place_id = prediction.get('place_id')
+                details = GooglePlacesService.get_place_details(
+                    place_id,
+                    fields='geometry,name,formatted_address,rating,photos'  # FREE fields
+                )
+
+                if details and details.get('geometry'):
+                    place_lat = details['geometry']['location']['lat']
+                    place_lng = details['geometry']['location']['lng']
+
+                    # Calculate distance
+                    from apps.cafes.models import Cafe
+                    distance_km = Cafe.calculate_distance(
+                        latitude, longitude,
+                        float(place_lat), float(place_lng)
+                    )
+
+                    places.append({
+                        'place_id': place_id,
+                        'name': prediction.get('structured_formatting', {}).get('main_text', prediction.get('description')),
+                        'vicinity': prediction.get('structured_formatting', {}).get('secondary_text', prediction.get('description')),
+                        'geometry': details.get('geometry'),
+                        'rating': details.get('rating'),
+                        'user_ratings_total': details.get('user_ratings_total', 0),
+                        'distance_km': distance_km,
+                        'types': prediction.get('types', []),
+                    })
+
+            logger.info(f"Autocomplete search for '{query}' returned {len(places)} results")
+            return places
+
+        except requests.RequestException as e:
+            logger.warning(f"Google Places autocomplete failed: {e}")
+            return []
+
+    @staticmethod
+    def get_place_details(place_id: str, fields: str = None) -> Optional[Dict]:
+        """
+        Get detailed information about a specific place.
+
+        Args:
+            place_id: Google Place ID
+            fields: Comma-separated list of fields to request
+                   Default includes Basic Data (FREE) + some paid fields
+                   For autocomplete, pass 'geometry,name,formatted_address,rating,photos'
+        """
         api_key = settings.GOOGLE_PLACES_API_KEY
 
         if not api_key:
             return None
 
         url = f"{GooglePlacesService.BASE_URL}/details/json"
+
+        # Default fields if not specified
+        if not fields:
+            fields = 'name,formatted_address,geometry,rating,price_level,opening_hours,formatted_phone_number,website'
+
         params = {
             'place_id': place_id,
-            'fields': 'name,formatted_address,geometry,rating,price_level,opening_hours,formatted_phone_number,website',
+            'fields': fields,
             'key': api_key
         }
 

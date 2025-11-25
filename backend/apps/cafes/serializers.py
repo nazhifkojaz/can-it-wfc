@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cafe, Favorite
+from .models import Cafe, Favorite, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
 
@@ -237,10 +237,66 @@ class NearbyQuerySerializer(serializers.Serializer):
 
 class FavoriteSerializer(serializers.ModelSerializer):
     """Serializer for user favorites."""
-    
+
     cafe = CafeListSerializer(read_only=True)
-    
+
     class Meta:
         model = Favorite
         fields = ['id', 'cafe', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class CafeFlagCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating cafe flags (user reports)."""
+
+    class Meta:
+        model = CafeFlag
+        fields = ['cafe', 'reason', 'description']
+
+    def validate(self, data):
+        """Check if user has already flagged this cafe for this reason."""
+        user = self.context['request'].user
+        cafe = data['cafe']
+        reason = data['reason']
+
+        # Check for duplicate flag
+        existing_flag = CafeFlag.objects.filter(
+            user=user,
+            cafe=cafe,
+            reason=reason
+        ).exists()
+
+        if existing_flag:
+            raise serializers.ValidationError(
+                "You have already flagged this cafe for this reason."
+            )
+
+        return data
+
+    def create(self, validated_data):
+        """Create flag with current user."""
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class CafeFlagSerializer(serializers.ModelSerializer):
+    """Serializer for listing cafe flags."""
+
+    cafe = CafeListSerializer(read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = CafeFlag
+        fields = [
+            'id',
+            'cafe',
+            'reason',
+            'reason_display',
+            'description',
+            'status',
+            'status_display',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = fields
