@@ -40,6 +40,7 @@ class VisitSerializer(serializers.ModelSerializer):
             'user',
             'visit_date',
             'amount_spent',
+            'currency',
             'visit_time',
             'check_in_latitude',
             'check_in_longitude',
@@ -189,8 +190,8 @@ class VisitSerializer(serializers.ModelSerializer):
                 ]
             })
 
-        # Only allow updating amount_spent and visit_time
-        allowed_fields = ['amount_spent', 'visit_time']
+        # Only allow updating amount_spent, currency, and visit_time
+        allowed_fields = ['amount_spent', 'currency', 'visit_time']
         for field in allowed_fields:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
@@ -272,6 +273,8 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'coffee_quality',
             'menu_options',
             'bathroom_quality',
+            'has_smoking_area',
+            'has_prayer_room',
             'wfc_rating',
             'visit_time',
             'visit_time_display',
@@ -311,6 +314,8 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             'coffee_quality',
             'menu_options',
             'bathroom_quality',
+            'has_smoking_area',
+            'has_prayer_room',
             'wfc_rating',
             'visit_time',
             'comment'
@@ -381,7 +386,7 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
 class ReviewUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating a review."""
-    
+
     class Meta:
         model = Review
         fields = [
@@ -393,6 +398,8 @@ class ReviewUpdateSerializer(serializers.ModelSerializer):
             'coffee_quality',
             'menu_options',
             'bathroom_quality',
+            'has_smoking_area',
+            'has_prayer_room',
             'wfc_rating',
             'visit_time',
             'comment'
@@ -457,8 +464,13 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
 
     visit_date = serializers.DateField()
     amount_spent = serializers.DecimalField(
-        max_digits=6,
+        max_digits=10,
         decimal_places=2,
+        required=False,
+        allow_null=True
+    )
+    currency = serializers.CharField(
+        max_length=3,
         required=False,
         allow_null=True
     )
@@ -508,6 +520,14 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
     noise_level = serializers.IntegerField(
         min_value=1,
         max_value=5,
+        required=False,
+        allow_null=True
+    )
+    has_smoking_area = serializers.BooleanField(
+        required=False,
+        allow_null=True
+    )
+    has_prayer_room = serializers.BooleanField(
         required=False,
         allow_null=True
     )
@@ -579,7 +599,8 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
 
         review_fields = [
             'wfc_rating', 'wifi_quality', 'power_outlets_rating',
-            'seating_comfort', 'noise_level', 'comment'
+            'seating_comfort', 'noise_level', 'has_smoking_area',
+            'has_prayer_room', 'comment'
         ]
         review_data = {}
         for field in review_fields:

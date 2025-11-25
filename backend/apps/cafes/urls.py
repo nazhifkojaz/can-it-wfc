@@ -15,7 +15,7 @@ urlpatterns = [
     # Cafes
     path('', CafeListCreateView.as_view(), name='cafe-list-create'),
     path('search/', CafeSearchView.as_view(), name='cafe-search'),
-    path('<uuid:pk>/', CafeDetailView.as_view(), name='cafe-detail'),
+    path('<int:pk>/', CafeDetailView.as_view(), name='cafe-detail'),
     path('nearby/', NearbyCafesView.as_view(), name='cafe-nearby'),
     path('nearby/all/', MergedNearbyCafesView.as_view(), name='cafe-nearby-all'),
 

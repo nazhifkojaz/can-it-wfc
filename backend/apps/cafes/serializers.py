@@ -15,6 +15,7 @@ class CafeListSerializer(serializers.ModelSerializer):
         help_text="Distance in kilometers (only in nearby queries)"
     )
     average_ratings = serializers.SerializerMethodField()
+    facility_stats = serializers.SerializerMethodField()
 
     class Meta:
         model = Cafe
@@ -35,7 +36,8 @@ class CafeListSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'distance',
-            'average_ratings'
+            'average_ratings',
+            'facility_stats'
         ]
 
     def get_average_ratings(self, obj):
@@ -75,6 +77,55 @@ class CafeListSerializer(serializers.ModelSerializer):
 
         return None
 
+    def get_facility_stats(self, obj):
+        """
+        Get facility statistics (smoking area, prayer room) from reviews.
+        Returns None if cafe has no reviews.
+        """
+        # Only calculate for registered cafes with reviews
+        if not obj.is_closed and obj.total_reviews > 0:
+            from apps.reviews.models import Review
+            from django.db.models import Count, Q
+
+            # Get non-hidden reviews for this cafe
+            reviews = Review.objects.filter(cafe=obj, is_hidden=False)
+
+            if not reviews.exists():
+                return None
+
+            total_reviews = reviews.count()
+
+            # Calculate smoking area stats
+            smoking_yes = reviews.filter(has_smoking_area=True).count()
+            smoking_no = reviews.filter(has_smoking_area=False).count()
+            smoking_unknown = reviews.filter(has_smoking_area__isnull=True).count()
+
+            # Calculate prayer room stats
+            prayer_yes = reviews.filter(has_prayer_room=True).count()
+            prayer_no = reviews.filter(has_prayer_room=False).count()
+            prayer_unknown = reviews.filter(has_prayer_room__isnull=True).count()
+
+            return {
+                'smoking_area': {
+                    'yes': smoking_yes,
+                    'no': smoking_no,
+                    'unknown': smoking_unknown,
+                    'yes_percentage': round((smoking_yes / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'no_percentage': round((smoking_no / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'unknown_percentage': round((smoking_unknown / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                },
+                'prayer_room': {
+                    'yes': prayer_yes,
+                    'no': prayer_no,
+                    'unknown': prayer_unknown,
+                    'yes_percentage': round((prayer_yes / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'no_percentage': round((prayer_no / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'unknown_percentage': round((prayer_unknown / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                }
+            }
+
+        return None
+
 
 class CafeDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for cafe detail view."""
@@ -88,6 +139,7 @@ class CafeDetailSerializer(serializers.ModelSerializer):
     )
     is_favorited = serializers.SerializerMethodField()
     average_ratings = serializers.SerializerMethodField()
+    facility_stats = serializers.SerializerMethodField()
 
     class Meta:
         model = Cafe
@@ -110,7 +162,8 @@ class CafeDetailSerializer(serializers.ModelSerializer):
             'updated_at',
             'distance',
             'is_favorited',
-            'average_ratings'
+            'average_ratings',
+            'facility_stats'
         ]
         read_only_fields = [
             'id',
@@ -166,10 +219,58 @@ class CafeDetailSerializer(serializers.ModelSerializer):
 
         return None
 
+    def get_facility_stats(self, obj):
+        """
+        Get facility statistics (smoking area, prayer room) from reviews.
+        Returns None if cafe has no reviews.
+        """
+        # Only calculate for registered cafes with reviews
+        if not obj.is_closed and obj.total_reviews > 0:
+            from apps.reviews.models import Review
+
+            # Get non-hidden reviews for this cafe
+            reviews = Review.objects.filter(cafe=obj, is_hidden=False)
+
+            if not reviews.exists():
+                return None
+
+            total_reviews = reviews.count()
+
+            # Calculate smoking area stats
+            smoking_yes = reviews.filter(has_smoking_area=True).count()
+            smoking_no = reviews.filter(has_smoking_area=False).count()
+            smoking_unknown = reviews.filter(has_smoking_area__isnull=True).count()
+
+            # Calculate prayer room stats
+            prayer_yes = reviews.filter(has_prayer_room=True).count()
+            prayer_no = reviews.filter(has_prayer_room=False).count()
+            prayer_unknown = reviews.filter(has_prayer_room__isnull=True).count()
+
+            return {
+                'smoking_area': {
+                    'yes': smoking_yes,
+                    'no': smoking_no,
+                    'unknown': smoking_unknown,
+                    'yes_percentage': round((smoking_yes / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'no_percentage': round((smoking_no / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'unknown_percentage': round((smoking_unknown / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                },
+                'prayer_room': {
+                    'yes': prayer_yes,
+                    'no': prayer_no,
+                    'unknown': prayer_unknown,
+                    'yes_percentage': round((prayer_yes / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'no_percentage': round((prayer_no / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                    'unknown_percentage': round((prayer_unknown / total_reviews) * 100, 1) if total_reviews > 0 else 0,
+                }
+            }
+
+        return None
+
 
 class CafeCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a new cafe."""
-    
+
     class Meta:
         model = Cafe
         fields = [
