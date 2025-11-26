@@ -143,6 +143,10 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         read_only=True
     )
     is_favorited = serializers.SerializerMethodField()
+    is_registered = serializers.SerializerMethodField()
+    source = serializers.SerializerMethodField()
+    google_rating = serializers.SerializerMethodField()
+    google_ratings_count = serializers.SerializerMethodField()
     average_ratings = serializers.SerializerMethodField()
     facility_stats = serializers.SerializerMethodField()
 
@@ -167,8 +171,12 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'updated_at',
             'distance',
             'is_favorited',
+            'is_registered',
+            'source',
             'average_ratings',
-            'facility_stats'
+            'facility_stats',
+            'google_rating',
+            'google_ratings_count',
         ]
         read_only_fields = [
             'id',
@@ -187,6 +195,22 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return Favorite.objects.filter(user=request.user, cafe=obj).exists()
         return False
+
+    def get_is_registered(self, obj):
+        """All cafes in DB are registered."""
+        return True
+
+    def get_source(self, obj):
+        """Source is always database for cafes retrieved from DB."""
+        return 'database'
+
+    def get_google_rating(self, obj):
+        """Google rating (if available)."""
+        return None  # TODO: Add google_rating field to model if needed
+
+    def get_google_ratings_count(self, obj):
+        """Google ratings count (if available)."""
+        return None  # TODO: Add google_ratings_count field to model if needed
 
 
 class CafeCreateSerializer(serializers.ModelSerializer):
@@ -337,16 +361,16 @@ class CafeSearchQuerySerializer(serializers.Serializer):
     )
     lat = serializers.DecimalField(
         required=False,
-        max_digits=9,
-        decimal_places=6,
+        max_digits=10,
+        decimal_places=8,
         min_value=-90,
         max_value=90,
         error_messages={'invalid': 'Invalid latitude value'}
     )
     lon = serializers.DecimalField(
         required=False,
-        max_digits=9,
-        decimal_places=6,
+        max_digits=11,
+        decimal_places=8,
         min_value=-180,
         max_value=180,
         error_messages={'invalid': 'Invalid longitude value'}
