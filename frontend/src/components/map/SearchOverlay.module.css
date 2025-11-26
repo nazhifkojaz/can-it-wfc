@@ -229,6 +229,11 @@
   text-transform: uppercase;
 }
 
+.resultBadgeRegistered {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
 .resultAddress {
   font-size: 13px;
   color: #6b7280;

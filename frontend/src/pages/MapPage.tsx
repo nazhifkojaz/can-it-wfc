@@ -16,8 +16,9 @@ import './MapPage.css';
 type ViewMode = 'map' | 'list';
 
 interface SearchResult {
-  id?: string;
-  google_place_id?: string;
+  google_place_id: string;
+  is_registered: boolean;
+  db_cafe_id?: number;
   name: string;
   address: string;
   latitude: string;
@@ -25,9 +26,10 @@ interface SearchResult {
   distance?: string;
   rating?: number;
   average_wfc_rating?: number;
-  source: 'database' | 'google';
-  is_registered: boolean;
-  result_type?: 'cafe' | 'location';
+  total_reviews?: number;
+  total_visits?: number;
+  source: 'google';
+  result_type: 'cafe' | 'location';
 }
 
 const MapPage: React.FC = () => {
@@ -116,14 +118,19 @@ const MapPage: React.FC = () => {
       return;
     }
 
-    // For cafes:
-    if (result.is_registered && result.id) {
-      // Existing cafe - open detail sheet
-      // Find the cafe in our current cafes list
-      const cafe = cafes.find(c => c.id === parseInt(result.id || '0'));
-      if (cafe) {
-        setSelectedCafe(cafe);
+    // For cafes - ALWAYS show marker, DON'T auto-open detail sheet
+    if (result.is_registered && result.db_cafe_id) {
+      // Registered cafe - check if it's already in nearby list
+      const existingCafe = cafes.find(c => c.id === result.db_cafe_id);
+
+      if (!existingCafe) {
+        // Cafe not in nearby list (far from current location)
+        // Create temp marker so user can click it to open detail sheet
+        // Keep SearchResult shape for consistency
+        setTempSearchMarker(result);
       }
+      // If cafe is in nearby list, marker already exists - just pan to it
+      // User can click the marker to open detail sheet
     } else {
       // New cafe from Google - show temporary marker
       setTempSearchMarker(result);

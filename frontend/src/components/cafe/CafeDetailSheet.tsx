@@ -42,7 +42,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     deleteReview,
     toggleHelpful,
     flagReview,
-  } = useReviews(cafe.is_registered ? cafe.id : undefined);
+  } = useReviews(cafe.is_registered && cafe.id > 0 ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
   const { location } = useGeolocation({ watch: false });
   const resultModal = useResultModal();
@@ -55,10 +55,14 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     rootMargin: '100px',
   });
 
-  // Refresh cafe data when sheet opens (if cafe is registered)
+  // Update local cafe state when initialCafe changes
   useEffect(() => {
+    // Set initial data immediately (for unregistered cafes or initial display)
+    setCafe(initialCafe);
+
+    // For registered cafes, fetch fresh data from API
     const refreshCafeData = async () => {
-      if (isOpen && initialCafe.is_registered && !refreshingCafe) {
+      if (isOpen && initialCafe.is_registered && initialCafe.id > 0) {
         setRefreshingCafe(true);
         try {
           const freshCafe = await cafeApi.getById(initialCafe.id);
@@ -67,7 +71,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           if (import.meta.env.DEV) {
             console.error('Error refreshing cafe data:', error);
           }
-          // Silently fail - use existing data
+          // Keep using initialCafe data on error
         } finally {
           setRefreshingCafe(false);
         }
@@ -75,12 +79,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     };
 
     refreshCafeData();
-  }, [isOpen, initialCafe.is_registered, initialCafe.id]);
-
-  // Update local cafe state when initialCafe changes
-  useEffect(() => {
-    setCafe(initialCafe);
-  }, [initialCafe]);
+  }, [isOpen, initialCafe]);
 
   React.useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
