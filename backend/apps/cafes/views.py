@@ -386,26 +386,34 @@ class MergedNearbyCafesView(APIView):
 
 class CafeSearchView(APIView):
     """
-    Search cafes by name/address in DB first, then Google Places.
+    Search cafes using Google Places Autocomplete API.
+    Checks each result against DB to mark registration status.
 
-    GET /api/cafes/search/?q=starbucks&lat=3.14&lon=101.68&use_google=auto
+    GET /api/cafes/search/?q=starbucks&lat=3.14&lon=101.68
 
     Query params:
     - q: search query (min 3 chars, required)
-    - lat: user latitude (optional, for distance calculation)
-    - lon: user longitude (optional, for distance calculation)
-    - use_google: 'true' | 'false' | 'auto' (default: 'auto')
-        - 'auto': use Google if DB results < 3 (alpha: relaxed mode)
-        - 'true': always use Google
-        - 'false': never use Google
-    - limit: max results per source (default: 10)
+    - lat: user latitude (required for distance calculation)
+    - lon: user longitude (required for distance calculation)
+    - limit: max results (default: 10)
 
     Response:
     {
-        "db_results": [...],      // Cafes from database
-        "google_results": [...],   // Cafes from Google Places
+        "results": [
+            {
+                "google_place_id": "...",
+                "is_registered": true,
+                "db_cafe_id": 10,
+                "name": "Cafe Name",
+                "address": "Address",
+                "latitude": "3.14",
+                "longitude": "101.68",
+                "distance": "1.23 km",
+                "rating": 4.5,
+                "result_type": "cafe" | "location"
+            }
+        ],
         "query": "starbucks",
-        "used_google_api": true,
         "total_results": 8
     }
     """
@@ -413,19 +421,18 @@ class CafeSearchView(APIView):
     throttle_classes = [NearbySearchThrottle, NearbySearchAnonThrottle]
 
     def get(self, request):
-        from django.db import models
         from django.core.cache import cache
-        from django.conf import settings
         from .serializers import CafeSearchQuerySerializer
+        import logging
+
+        logger = logging.getLogger(__name__)
 
         # Validate query parameters
         query_serializer = CafeSearchQuerySerializer(data=request.query_params)
         if not query_serializer.is_valid():
             return Response({
-                'db_results': [],
-                'google_results': [],
+                'results': [],
                 'errors': query_serializer.errors,
-                'used_google_api': False,
                 'total_results': 0
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -434,147 +441,93 @@ class CafeSearchView(APIView):
         query = validated_params['q'].strip()
         latitude = validated_params.get('lat')
         longitude = validated_params.get('lon')
-        use_google = validated_params['use_google']
         limit = validated_params['limit']
 
-        # Get Google search mode from settings (for future scaling)
-        google_search_mode = getattr(settings, 'GOOGLE_SEARCH_MODE', 'relaxed')
+        # Require location for search
+        if not latitude or not longitude:
+            return Response({
+                'results': [],
+                'error': 'Location (lat/lon) is required for search',
+                'total_results': 0
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Search database first (FREE)
-        db_query = Cafe.objects.filter(is_closed=False)
+        # Check cache first (10 min TTL)
+        cache_key = f'search_v3:{query}:{latitude}:{longitude}'
+        cached = cache.get(cache_key)
 
-        # Search in name and address
-        db_query = db_query.filter(
-            models.Q(name__icontains=query) |
-            models.Q(address__icontains=query)
-        )
+        if cached:
+            logger.info(f"Search cache hit for '{query}'")
+            return Response({
+                'results': cached[:limit],
+                'query': query,
+                'total_results': len(cached[:limit])
+            })
 
-        # Add distance sorting if location provided
-        if latitude is not None and longitude is not None:
-            # First filter by search query, then get nearby
-            # Convert Decimal to float for distance calculations
-            nearby_cafes = Cafe.nearby_optimized(
+        # Fetch from Google Autocomplete API
+        try:
+            autocomplete_results = GooglePlacesService.autocomplete_search(
+                query=query,
                 latitude=float(latitude),
                 longitude=float(longitude),
-                radius_km=50,  # Large radius for search
-                limit=500  # Get more candidates for filtering
+                radius_meters=10000  # 10km radius
             )
+        except Exception as e:
+            logger.warning(f"Google Places autocomplete error: {e}")
+            return Response({
+                'results': [],
+                'error': 'Search service temporarily unavailable',
+                'total_results': 0
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-            # Filter the nearby results by search query
-            db_results = [
-                cafe for cafe in nearby_cafes
-                if query.lower() in cafe.name.lower() or query.lower() in (cafe.address or '').lower()
-            ][:limit]
-        else:
-            # No location - just filter by query
-            db_results = list(db_query.order_by('-average_wfc_rating')[:limit])
+        # Process each result and check DB for registration status
+        unified_results = []
 
-        # Serialize database results
-        db_data = CafeListSerializer(
-            db_results,
-            many=True,
-            context={'request': request}
-        ).data
+        for place in autocomplete_results:
+            place_id = place.get('place_id')
+            place_types = place.get('types', [])
 
-        # Mark as registered cafes
-        for cafe in db_data:
-            cafe['source'] = 'database'
-            cafe['is_registered'] = True
-            cafe['result_type'] = 'cafe'
+            # Determine if it's a cafe or general location
+            is_cafe = any(t in place_types for t in ['cafe', 'restaurant', 'food', 'bakery'])
+            result_type = 'cafe' if is_cafe else 'location'
 
-        # 2. Decide if we need Google Places (based on mode)
-        if google_search_mode == 'relaxed':
-            # Alpha: Auto-trigger if DB < 3 results
-            should_use_google = use_google == 'true' or (use_google == 'auto' and len(db_data) < 3)
-        elif google_search_mode == 'balanced':
-            # Pre-launch: Auto-trigger if DB < 2 results
-            should_use_google = use_google == 'true' or (use_google == 'auto' and len(db_data) < 2)
-        elif google_search_mode == 'conservative':
-            # Post-launch: Require explicit user opt-in
-            should_use_google = use_google == 'true'
-        else:  # disabled
-            should_use_google = False
+            # Check if this place is registered in our DB
+            db_cafe = Cafe.objects.filter(
+                google_place_id=place_id,
+                is_closed=False
+            ).first()
 
-        google_data = []
-        location_data = []
-        if should_use_google and latitude and longitude:
-            # Check cache first (10 min TTL)
-            cache_key = f'search_v2:{query}:{latitude}:{longitude}'  # v2 to invalidate old cache
-            cached = cache.get(cache_key)
+            # Build result object
+            result = {
+                'google_place_id': place_id,
+                'is_registered': db_cafe is not None,
+                'name': place.get('name'),
+                'address': place.get('vicinity'),
+                'latitude': str(place['geometry']['location']['lat']),
+                'longitude': str(place['geometry']['location']['lng']),
+                'distance': f"{place.get('distance_km', 0):.2f} km",
+                'rating': place.get('rating'),
+                'result_type': result_type,
+                'source': 'google',
+            }
 
-            if cached:
-                google_data = cached.get('cafes', [])
-                location_data = cached.get('locations', [])
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"Search cache hit for '{query}'")
-            else:
-                try:
-                    # Use Autocomplete API - Much cheaper than Text Search!
-                    # Autocomplete: $2.83/1k vs Text Search: $32/1k = 91% cost savings
-                    autocomplete_results = GooglePlacesService.autocomplete_search(
-                        query=query,
-                        latitude=float(latitude),
-                        longitude=float(longitude),
-                        radius_meters=10000  # 10km radius
-                    )
+            # Add DB data if registered
+            if db_cafe:
+                result['db_cafe_id'] = db_cafe.id
+                result['average_wfc_rating'] = float(db_cafe.average_wfc_rating) if db_cafe.average_wfc_rating else None
+                result['total_reviews'] = db_cafe.total_reviews
+                result['total_visits'] = db_cafe.total_visits
 
-                    # Filter out already registered cafes
-                    db_google_ids = {c.google_place_id for c in db_results if c.google_place_id}
+            unified_results.append(result)
 
-                    # Separate cafes from other locations based on types
-                    for place in autocomplete_results:
-                        place_id = place.get('place_id')
-                        place_types = place.get('types', [])
+        # Cache for 10 minutes
+        cache.set(cache_key, unified_results, 600)
 
-                        # Check if already registered
-                        if place_id in db_google_ids:
-                            continue
-
-                        # Determine if it's a cafe or general location
-                        is_cafe = any(t in place_types for t in ['cafe', 'restaurant', 'food', 'bakery'])
-
-                        place_data = {
-                            'google_place_id': place_id,
-                            'name': place.get('name'),
-                            'address': place.get('vicinity'),
-                            'latitude': str(place['geometry']['location']['lat']),
-                            'longitude': str(place['geometry']['location']['lng']),
-                            'rating': place.get('rating'),
-                            'distance': f"{place.get('distance_km', 0):.2f} km",
-                            'source': 'google',
-                            'is_registered': False,
-                        }
-
-                        if is_cafe:
-                            place_data['result_type'] = 'cafe'
-                            google_data.append(place_data)
-                        else:
-                            place_data['result_type'] = 'location'
-                            location_data.append(place_data)
-
-                    # Cache for 10 minutes
-                    cache.set(cache_key, {
-                        'cafes': google_data,
-                        'locations': location_data
-                    }, 600)
-
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.info(f"Autocomplete search for '{query}' returned {len(google_data)} cafes, {len(location_data)} locations")
-
-                except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Google Places autocomplete error: {e}")
+        logger.info(f"Autocomplete search for '{query}' returned {len(unified_results)} results")
 
         return Response({
-            'db_results': db_data,
-            'google_results': google_data[:limit],
-            'location_results': location_data[:limit],
+            'results': unified_results[:limit],
             'query': query,
-            'used_google_api': should_use_google and (len(google_data) > 0 or len(location_data) > 0),
-            'total_results': len(db_data) + len(google_data[:limit]) + len(location_data[:limit])
+            'total_results': len(unified_results[:limit])
         })
 
 
