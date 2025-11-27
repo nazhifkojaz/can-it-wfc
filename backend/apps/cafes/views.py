@@ -255,36 +255,6 @@ class MergedNearbyCafesView(APIView):
         # 3. Filter out Google Places that already exist in database
         db_google_ids = {cafe.google_place_id for cafe in db_cafes if cafe.google_place_id}
 
-        # Pre-compute db cafe locations for distance checking (only if needed)
-        # Optimization: Create a spatial index using bounding boxes to quickly filter candidates
-        db_cafe_locations = [(float(db_cafe.latitude), float(db_cafe.longitude)) for db_cafe in db_cafes] if db_cafes else []
-
-        # Helper function to get cafes within bounding box (quick pre-filter)
-        def get_cafes_in_bounding_box(center_lat, center_lng, threshold_km=0.001):
-            """
-            Get cafes within a bounding box around a point.
-            This is a fast pre-filter before expensive distance calculations.
-            """
-            if not db_cafe_locations:
-                return []
-
-            # Calculate bounding box (1 degree lat ≈ 111 km, lon varies by latitude)
-            from math import cos, radians
-            lat_delta = threshold_km / 111.0
-            lng_delta = threshold_km / (111.0 * abs(cos(radians(center_lat))))
-
-            min_lat = center_lat - lat_delta
-            max_lat = center_lat + lat_delta
-            min_lng = center_lng - lng_delta
-            max_lng = center_lng + lng_delta
-
-            # Filter cafes within bounding box
-            candidates = []
-            for lat, lng in db_cafe_locations:
-                if min_lat <= lat <= max_lat and min_lng <= lng <= max_lng:
-                    candidates.append((lat, lng))
-            return candidates
-
         unregistered_places = []
         ALLOWED_KEYWORDS = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
             'coffee',
@@ -317,27 +287,26 @@ class MergedNearbyCafesView(APIView):
             if ALLOWED_TYPES and place_types and place_types.isdisjoint(ALLOWED_TYPES):
                 continue
 
-            # Skip if too close to existing cafe (only if we have database cafes)
-            # Optimization: Use bounding box to pre-filter candidates before distance check
+            # Skip if too close to existing cafe (within 10 meters)
+            # Optimization: Use PostGIS spatial query (O(log N) with GiST index)
             is_duplicate = False
-            if db_cafe_locations:
-                place_lat = float(place['latitude'])
-                place_lng = float(place['longitude'])
+            place_lat = float(place['latitude'])
+            place_lng = float(place['longitude'])
 
-                # Get only cafes within bounding box (fast pre-filter)
-                nearby_candidates = get_cafes_in_bounding_box(place_lat, place_lng, threshold_km=0.001)
+            # Use PostGIS to check if any cafe exists within 10 meters
+            from django.contrib.gis.geos import Point
+            from django.contrib.gis.measure import D
+            place_point = Point(place_lng, place_lat, srid=4326)
 
-                # Now only check distance for cafes within bounding box
-                for db_lat, db_lng in nearby_candidates:
-                    distance = Cafe.calculate_distance(
-                        place_lat,
-                        place_lng,
-                        db_lat,
-                        db_lng
-                    )
-                    if distance < 0.001:  # Within 10 meters
-                        is_duplicate = True
-                        break
+            # Query database for any cafe within 10 meters of this place
+            nearby_cafes = Cafe.objects.filter(
+                is_closed=False,
+                location__isnull=False,
+                location__distance_lte=(place_point, D(m=10))
+            ).exists()
+
+            if nearby_cafes:
+                is_duplicate = True
 
             if not is_duplicate:
                 # Calculate distance to user location (or search center if user location not provided)
