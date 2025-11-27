@@ -67,9 +67,9 @@ const MapPage: React.FC = () => {
     setManualSearchCenter(center);
   };
 
-  const handleCafeClick = (cafe: Cafe) => {
+  const handleCafeClick = React.useCallback((cafe: Cafe) => {
     setSelectedCafe(cafe);
-  };
+  }, []);
 
   const handleCloseSheet = () => {
     setSelectedCafe(null);

@@ -52,12 +52,15 @@ export function SearchOverlay({
     }
   }, [isOpen]);
 
-  // Debounced search
+  // Debounced search with AbortController to prevent memory leaks
   useEffect(() => {
     if (query.length < 3) {
       setResults(null);
       return;
     }
+
+    // Create AbortController for this search
+    const controller = new AbortController();
 
     // Clear previous timeout
     if (searchTimeoutRef.current) {
@@ -74,9 +77,16 @@ export function SearchOverlay({
           params.lon = userLocation.lon;
         }
 
-        const response = await api.get<SearchResponse>('/cafes/search/', { params });
+        const response = await api.get<SearchResponse>('/cafes/search/', {
+          params,
+          signal: controller.signal
+        });
         setResults(response.data);
-      } catch (error) {
+      } catch (error: any) {
+        // Ignore abort errors (expected when user types quickly or unmounts)
+        if (error.name === 'AbortError' || error.name === 'CanceledError') {
+          return;
+        }
         if (import.meta.env.DEV) {
           console.error('Search error:', error);
         }
@@ -85,7 +95,9 @@ export function SearchOverlay({
       }
     }, 500);
 
+    // Cleanup: abort request and clear timeout
     return () => {
+      controller.abort();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }

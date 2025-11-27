@@ -56,13 +56,13 @@ export const useFavorites = () => {
     },
   });
 
-  const toggleFavorite = async (cafeId: number | undefined) => {
+  const toggleFavorite = useCallback(async (cafeId: number | undefined) => {
     if (!cafeId) {
       throw new Error('Cannot favorite unregistered cafes');
     }
     const result = await toggleFavoriteMutation.mutateAsync(cafeId);
     return result.is_favorited;
-  };
+  }, [toggleFavoriteMutation]);
 
   const isFavorite = useCallback(
     (cafeId: number | undefined) => {
