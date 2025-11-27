@@ -111,12 +111,33 @@ class ReviewListView(generics.ListAPIView):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        """Optimize query with select_related to avoid N+1 queries"""
-        return Review.objects.filter(is_hidden=False).select_related(
+        """Optimize query with select_related and prefetch_related to avoid N+1 queries"""
+        from django.db.models import Prefetch
+        from .models import ReviewHelpful, ReviewFlag
+
+        queryset = Review.objects.filter(is_hidden=False).select_related(
             'user',
             'cafe',
             'visit'
         )
+
+        # Prefetch user-specific helpful/flag data if user is authenticated
+        request = self.request
+        if request and request.user.is_authenticated:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'helpful_marks',
+                    queryset=ReviewHelpful.objects.filter(user=request.user),
+                    to_attr='user_helpful'
+                ),
+                Prefetch(
+                    'flags',
+                    queryset=ReviewFlag.objects.filter(flagged_by=request.user),
+                    to_attr='user_flags'
+                )
+            )
+
+        return queryset
 
 
 @method_decorator(ratelimit(key='user', rate='10/h', method='POST'), name='post')
@@ -220,11 +241,37 @@ class CafeReviewsView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
+        """Optimize query with select_related and prefetch_related to avoid N+1 queries"""
+        from django.db.models import Prefetch
+        from .models import ReviewHelpful, ReviewFlag
+
         cafe_id = self.kwargs.get('cafe_id')
-        return Review.objects.filter(
+        queryset = Review.objects.filter(
             cafe_id=cafe_id,
             is_hidden=False
+        ).select_related(
+            'user',
+            'cafe',
+            'visit'
         )
+
+        # Prefetch user-specific helpful/flag data if user is authenticated
+        request = self.request
+        if request and request.user.is_authenticated:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'helpful_marks',
+                    queryset=ReviewHelpful.objects.filter(user=request.user),
+                    to_attr='user_helpful'
+                ),
+                Prefetch(
+                    'flags',
+                    queryset=ReviewFlag.objects.filter(flagged_by=request.user),
+                    to_attr='user_flags'
+                )
+            )
+
+        return queryset
 
 
 class ReviewFlagCreateView(generics.CreateAPIView):

@@ -12,87 +12,19 @@ class CafeStatsMixin:
 
     def get_average_ratings(self, obj):
         """
-        Calculate average ratings for each WFC criterion.
-        Returns None if cafe has no reviews.
+        Return cached average ratings from latest 100 reviews.
+        Eliminates N+1 query problem - no database query needed.
         """
-        # Only calculate for registered cafes with reviews
-        if not obj.is_closed and obj.total_reviews > 0:
-            from apps.reviews.models import Review
-            from django.db.models import Avg
-
-            # Get non-hidden reviews for this cafe
-            reviews = Review.objects.filter(cafe=obj, is_hidden=False)
-
-            if not reviews.exists():
-                return None
-
-            # Calculate averages for each criterion
-            aggregates = reviews.aggregate(
-                wifi_quality=Avg('wifi_quality'),
-                power_outlets_rating=Avg('power_outlets_rating'),
-                seating_comfort=Avg('seating_comfort'),
-                noise_level=Avg('noise_level'),
-                wfc_rating=Avg('wfc_rating'),
-            )
-
-            # Round to 1 decimal place and handle None values
-            return {
-                'wifi_quality': round(aggregates['wifi_quality'], 1) if aggregates['wifi_quality'] else 0,
-                'power_outlets_rating': round(aggregates['power_outlets_rating'], 1) if aggregates['power_outlets_rating'] else 0,
-                'seating_comfort': round(aggregates['seating_comfort'], 1) if aggregates['seating_comfort'] else 0,
-                'noise_level': round(aggregates['noise_level'], 1) if aggregates['noise_level'] else 0,
-                'wfc_rating': round(aggregates['wfc_rating'], 1) if aggregates['wfc_rating'] else 0,
-            }
-
-        return None
+        # Return cached value (precomputed in Cafe.update_stats())
+        return obj.average_ratings_cache
 
     def get_facility_stats(self, obj):
         """
-        Get facility statistics (smoking area, prayer room) from reviews.
-        Returns None if cafe has no reviews.
+        Return cached facility statistics from latest 100 reviews.
+        Eliminates N+1 query problem - no database query needed.
         """
-        # Only calculate for registered cafes with reviews
-        if not obj.is_closed and obj.total_reviews > 0:
-            from apps.reviews.models import Review
-
-            # Get non-hidden reviews for this cafe
-            reviews = Review.objects.filter(cafe=obj, is_hidden=False)
-
-            if not reviews.exists():
-                return None
-
-            total_reviews = reviews.count()
-
-            # Calculate smoking area stats
-            smoking_yes = reviews.filter(has_smoking_area=True).count()
-            smoking_no = reviews.filter(has_smoking_area=False).count()
-            smoking_unknown = reviews.filter(has_smoking_area__isnull=True).count()
-
-            # Calculate prayer room stats
-            prayer_yes = reviews.filter(has_prayer_room=True).count()
-            prayer_no = reviews.filter(has_prayer_room=False).count()
-            prayer_unknown = reviews.filter(has_prayer_room__isnull=True).count()
-
-            return {
-                'smoking_area': {
-                    'yes': smoking_yes,
-                    'no': smoking_no,
-                    'unknown': smoking_unknown,
-                    'yes_percentage': round((smoking_yes / total_reviews) * 100, 1) if total_reviews > 0 else 0,
-                    'no_percentage': round((smoking_no / total_reviews) * 100, 1) if total_reviews > 0 else 0,
-                    'unknown_percentage': round((smoking_unknown / total_reviews) * 100, 1) if total_reviews > 0 else 0,
-                },
-                'prayer_room': {
-                    'yes': prayer_yes,
-                    'no': prayer_no,
-                    'unknown': prayer_unknown,
-                    'yes_percentage': round((prayer_yes / total_reviews) * 100, 1) if total_reviews > 0 else 0,
-                    'no_percentage': round((prayer_no / total_reviews) * 100, 1) if total_reviews > 0 else 0,
-                    'unknown_percentage': round((prayer_unknown / total_reviews) * 100, 1) if total_reviews > 0 else 0,
-                }
-            }
-
-        return None
+        # Return cached value (precomputed in Cafe.update_stats())
+        return obj.facility_stats_cache
 
 
 class CafeListSerializer(CafeStatsMixin, serializers.ModelSerializer):

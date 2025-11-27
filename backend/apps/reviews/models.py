@@ -254,6 +254,11 @@ class Review(models.Model):
             models.Index(fields=['is_hidden']),
             # Composite index for common filter: cafe + is_hidden
             models.Index(fields=['cafe', 'is_hidden'], name='review_cafe_hidden_idx'),
+            # Composite index for common query pattern: cafe + is_hidden + ordering by created_at
+            # This optimizes: Review.objects.filter(cafe=X, is_hidden=False).order_by('-created_at')
+            models.Index(fields=['cafe', 'is_hidden', '-created_at'], name='review_cafe_hidden_created_idx'),
+            # Index for helpful count (used in sorting "most helpful" reviews)
+            models.Index(fields=['-helpful_count'], name='review_helpful_count_idx'),
         ]
     
     def __str__(self):
