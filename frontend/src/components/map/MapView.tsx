@@ -24,6 +24,11 @@ interface TempSearchMarker {
   distance?: string;
   rating?: number;
   result_type?: 'cafe' | 'location';
+  is_registered?: boolean;
+  db_cafe_id?: number;
+  total_reviews?: number;
+  total_visits?: number;
+  average_wfc_rating?: number;
 }
 
 interface MapViewProps {
@@ -210,7 +215,7 @@ const MapView: React.FC<MapViewProps> = ({
         {tempSearchMarker && (() => {
           // Convert SearchResult to Cafe object for CafeMarker
           const tempCafe: Cafe = {
-            id: -1, // Temporary ID for unregistered cafe
+            id: tempSearchMarker.db_cafe_id || -1,
             name: tempSearchMarker.name,
             address: tempSearchMarker.address,
             latitude: tempSearchMarker.latitude,
@@ -219,23 +224,22 @@ const MapView: React.FC<MapViewProps> = ({
             google_rating: tempSearchMarker.rating,
             distance: tempSearchMarker.distance,
             price_range: undefined,
-            total_visits: 0,
+            total_visits: tempSearchMarker.total_visits || 0,
             unique_visitors: 0,
-            total_reviews: 0,
-            average_wfc_rating: undefined,
+            total_reviews: tempSearchMarker.total_reviews || 0,
+            average_wfc_rating: tempSearchMarker.average_wfc_rating?.toString(),
             is_closed: false,
             is_verified: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            is_registered: false,
-            source: 'google_places',
+            is_registered: tempSearchMarker.is_registered || false,
+            source: tempSearchMarker.is_registered ? 'database' : 'google_places',
           };
 
           return (
             <CafeMarker
               key={`temp-${tempSearchMarker.google_place_id}`}
               cafe={tempCafe}
-              // onClick={onTempMarkerAddVisit || (() => {})}
               onClick={() => onCafeClick(tempCafe)}
             />
           );

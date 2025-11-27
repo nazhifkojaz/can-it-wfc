@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
@@ -228,9 +229,16 @@ class ReviewListSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_helpful(self, obj):
-        """Check if current user marked this review as helpful."""
+        """
+        Check if current user marked this review as helpful.
+        Uses prefetched data to avoid N+1 queries.
+        """
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            # Use prefetched data if available (from queryset optimization)
+            if hasattr(obj, 'user_helpful'):
+                return bool(obj.user_helpful)
+            # Fallback to query if not prefetched
             return ReviewHelpful.objects.filter(
                 review=obj,
                 user=request.user
@@ -238,9 +246,16 @@ class ReviewListSerializer(serializers.ModelSerializer):
         return False
 
     def get_user_has_flagged(self, obj):
-        """Check if current user has flagged this review."""
+        """
+        Check if current user has flagged this review.
+        Uses prefetched data to avoid N+1 queries.
+        """
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            # Use prefetched data if available (from queryset optimization)
+            if hasattr(obj, 'user_flags'):
+                return bool(obj.user_flags)
+            # Fallback to query if not prefetched
             return ReviewFlag.objects.filter(
                 review=obj,
                 flagged_by=request.user
@@ -589,7 +604,12 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                 })
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
+        """
+        Create visit and optional review in a single atomic transaction.
+        If any step fails, all changes are rolled back to maintain data integrity.
+        """
         from apps.cafes.models import Cafe
         from apps.cafes.services import GooglePlacesService
 

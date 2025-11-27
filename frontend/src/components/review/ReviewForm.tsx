@@ -173,9 +173,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     },
     {
       field: 'noise_level' as keyof ReviewCreate,
-      label: 'Noise Level',
+      label: 'Audio Comfort',
       icon: <Volume2 size={20} />,
-      description: 'Quieter is better for WFC',
+      description: 'How comfortable is the audio environment for work',
     },
   ];
 

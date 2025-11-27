@@ -39,7 +39,7 @@ const getMarkerColor = (cafe: Cafe): string => {
   return '#3B82F6'; // neo-info
 };
 
-const CafeMarker: React.FC<CafeMarkerProps> = ({ cafe, onClick }) => {
+const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => {
   const position: LatLngExpression = [
     parseFloat(cafe.latitude),
     parseFloat(cafe.longitude),
@@ -223,6 +223,17 @@ const CafeMarker: React.FC<CafeMarkerProps> = ({ cafe, onClick }) => {
       </Popup>
     </Marker>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if cafe data actually changed
+  // This prevents unnecessary re-renders when map moves/zooms
+  return (
+    prevProps.cafe.id === nextProps.cafe.id &&
+    prevProps.cafe.updated_at === nextProps.cafe.updated_at &&
+    prevProps.cafe.total_reviews === nextProps.cafe.total_reviews &&
+    prevProps.cafe.average_wfc_rating === nextProps.cafe.average_wfc_rating
+  );
+});
+
+CafeMarker.displayName = 'CafeMarker';
 
 export default CafeMarker;

@@ -498,7 +498,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             {renderStarRating(wifiQuality, setWifiQuality, 'WiFi Quality', <Wifi size={18} />)}
             {renderStarRating(powerOutlets, setPowerOutlets, 'Power Outlets', <Zap size={18} />)}
             {renderStarRating(seatingComfort, setSeatingComfort, 'Seat/Desk Comfort', <Armchair size={18} />)}
-            {renderStarRating(noiseLevel, setNoiseLevel, 'Noise Level', <Volume2 size={18} />)}
+            {renderStarRating(noiseLevel, setNoiseLevel, 'Audio Comfort', <Volume2 size={18} />)}
 
             <div className={styles.toggleGroup}>
               <div className={styles.toggleField}>

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2, Flag } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
 import { ConfirmDialog, ResultModal } from '../common';
@@ -41,6 +42,16 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
   // Check if this is the current user's review
   const isOwnReview = currentUserId && review.user?.id === currentUserId;
+
+  // Sanitize review comment to prevent XSS attacks
+  const sanitizedComment = useMemo(() => {
+    if (!review.comment) return '';
+    return DOMPurify.sanitize(review.comment, {
+      ALLOWED_TAGS: [], // Strip all HTML tags for plain text only
+      ALLOWED_ATTR: [],
+      KEEP_CONTENT: true
+    });
+  }, [review.comment]);
 
   const handleUsernameClick = () => {
     if (review.user?.username && onUsernameClick) {
@@ -225,9 +236,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         </div>
       </div>
 
-      {/* Review text */}
-      {review.comment && (
-        <p className={styles.reviewText}>{review.comment}</p>
+      {/* Review text - sanitized for XSS protection */}
+      {sanitizedComment && (
+        <p className={styles.reviewText}>{sanitizedComment}</p>
       )}
 
       {/* WFC Ratings with Icons - Inline */}

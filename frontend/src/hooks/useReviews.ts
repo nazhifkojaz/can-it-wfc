@@ -1,4 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { reviewApi } from '../api/client';
 import { ReviewUpdate } from '../types';
 import { queryKeys } from '../config/queryKeys';
@@ -30,6 +31,8 @@ export const useReviews = (cafeId?: number) => {
     enabled: !!cafeId,
     staleTime: 3 * 60 * 1000,
     initialPageParam: 1,
+    // Explicit structural sharing to prevent unnecessary re-renders
+    structuralSharing: true,
   });
 
   const reviews = data?.pages.flatMap(page => page.results) || [];

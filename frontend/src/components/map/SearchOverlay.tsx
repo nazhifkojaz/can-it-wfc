@@ -4,8 +4,9 @@ import api from '../../api/client';
 import styles from './SearchOverlay.module.css';
 
 interface SearchResult {
-  id?: string;
-  google_place_id?: string;
+  google_place_id: string;
+  is_registered: boolean;
+  db_cafe_id?: number;
   name: string;
   address: string;
   latitude: string;
@@ -13,17 +14,15 @@ interface SearchResult {
   distance?: string;
   rating?: number;
   average_wfc_rating?: number;
-  source: 'database' | 'google';
-  is_registered: boolean;
-  result_type?: 'cafe' | 'location';
+  total_reviews?: number;
+  total_visits?: number;
+  source: 'google';
+  result_type: 'cafe' | 'location';
 }
 
 interface SearchResponse {
-  db_results: SearchResult[];
-  google_results: SearchResult[];
-  location_results: SearchResult[];
+  results: SearchResult[];
   query: string;
-  used_google_api: boolean;
   total_results: number;
 }
 
@@ -53,12 +52,15 @@ export function SearchOverlay({
     }
   }, [isOpen]);
 
-  // Debounced search
+  // Debounced search with AbortController to prevent memory leaks
   useEffect(() => {
     if (query.length < 3) {
       setResults(null);
       return;
     }
+
+    // Create AbortController for this search
+    const controller = new AbortController();
 
     // Clear previous timeout
     if (searchTimeoutRef.current) {
@@ -75,9 +77,16 @@ export function SearchOverlay({
           params.lon = userLocation.lon;
         }
 
-        const response = await api.get<SearchResponse>('/cafes/search/', { params });
+        const response = await api.get<SearchResponse>('/cafes/search/', {
+          params,
+          signal: controller.signal
+        });
         setResults(response.data);
-      } catch (error) {
+      } catch (error: any) {
+        // Ignore abort errors (expected when user types quickly or unmounts)
+        if (error.name === 'AbortError' || error.name === 'CanceledError') {
+          return;
+        }
         if (import.meta.env.DEV) {
           console.error('Search error:', error);
         }
@@ -86,7 +95,9 @@ export function SearchOverlay({
       }
     }, 500);
 
+    // Cleanup: abort request and clear timeout
     return () => {
+      controller.abort();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -166,60 +177,17 @@ export function SearchOverlay({
         )}
 
         {!isLoading && results && results.total_results > 0 && (
-          <div>
-            {/* Database Results */}
-            {results.db_results.length > 0 && (
-              <div className={styles.resultsContainer}>
-                <div className={styles.sectionHeader}>
-                  Registered Cafes ({results.db_results.length})
-                </div>
-                {results.db_results.map((result, index) => (
-                  <SearchResultItem
-                    key={result.id || `db-${index}`}
-                    result={result}
-                    onSelect={handleSelectResult}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Google Places Cafe Results */}
-            {results.google_results.length > 0 && (
-              <div className={styles.resultsContainer}>
-                <div className={`${styles.sectionHeader} ${styles.sectionHeaderBlue}`}>
-                  <span>New Cafes from Google ({results.google_results.length})</span>
-                  {results.used_google_api && (
-                    <span className={styles.liveIndicator}>Live results</span>
-                  )}
-                </div>
-                {results.google_results.map((result, index) => (
-                  <SearchResultItem
-                    key={result.google_place_id || `google-${index}`}
-                    result={result}
-                    onSelect={handleSelectResult}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Location Results (for navigation) */}
-            {results.location_results && results.location_results.length > 0 && (
-              <div className={styles.resultsContainer}>
-                <div className={`${styles.sectionHeader} ${styles.sectionHeaderGreen}`}>
-                  <span>Locations ({results.location_results.length})</span>
-                  {results.used_google_api && (
-                    <span className={styles.liveIndicator}>Live results</span>
-                  )}
-                </div>
-                {results.location_results.map((result, index) => (
-                  <SearchResultItem
-                    key={result.google_place_id || `location-${index}`}
-                    result={result}
-                    onSelect={handleSelectResult}
-                  />
-                ))}
-              </div>
-            )}
+          <div className={styles.resultsContainer}>
+            <div className={styles.sectionHeader}>
+              Search Results ({results.total_results})
+            </div>
+            {results.results.map((result, index) => (
+              <SearchResultItem
+                key={result.google_place_id || `result-${index}`}
+                result={result}
+                onSelect={handleSelectResult}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -236,6 +204,7 @@ function SearchResultItem({
   onSelect: (result: SearchResult) => void;
 }) {
   const isLocation = result.result_type === 'location';
+  const isCafe = result.result_type === 'cafe';
   const iconColor = isLocation
     ? styles.resultIconLocation
     : (result.is_registered ? styles.resultIconRegistered : styles.resultIconNew);
@@ -256,8 +225,13 @@ function SearchResultItem({
       <div className={styles.resultContent}>
         <div className={styles.resultHeader}>
           <h3 className={styles.resultName}>{result.name}</h3>
-          {!result.is_registered && !isLocation && (
+          {!result.is_registered && isCafe && (
             <span className={styles.resultBadge}>NEW</span>
+          )}
+          {result.is_registered && isCafe && (
+            <span className={`${styles.resultBadge} ${styles.resultBadgeRegistered}`}>
+              REGISTERED
+            </span>
           )}
         </div>
 
@@ -274,14 +248,20 @@ function SearchResultItem({
           {result.is_registered && result.average_wfc_rating && (
             <span className={styles.resultMetaItem}>
               <Star size={12} className={styles.starIcon} />
-              {result.average_wfc_rating.toFixed(1)}
+              {result.average_wfc_rating.toFixed(1)} WFC
+            </span>
+          )}
+
+          {result.is_registered && result.total_reviews !== undefined && (
+            <span className={styles.resultMetaItem}>
+              {result.total_reviews} review{result.total_reviews !== 1 ? 's' : ''}
             </span>
           )}
 
           {!result.is_registered && result.rating && (
             <span className={styles.resultMetaItem}>
               <Star size={12} className={styles.starIcon} />
-              {result.rating.toFixed(1)} (Google)
+              {result.rating.toFixed(1)} Google
             </span>
           )}
         </div>

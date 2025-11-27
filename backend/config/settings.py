@@ -35,7 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Required by allauth
-    # 'django.contrib.gis',  # PostGIS support - disabled for now, will enable later
+    'django.contrib.gis',  # PostGIS support for spatial queries
 
     # Third-party apps
     'rest_framework',
@@ -95,13 +95,18 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
-# Using Supabase PostgreSQL (PostGIS disabled for now)
+# Using PostgreSQL with PostGIS for spatial queries
 DATABASES = {
     'default': env.db('DATABASE_URL', default='postgresql://localhost/canitfwc'),
 }
 
-# Use regular PostgreSQL for now (we'll enable PostGIS later)
-# DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+# Enable PostGIS backend for spatial queries
+DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+
+# GeoDjango library paths (use system libraries to avoid Anaconda conflicts)
+import os
+GDAL_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgdal.so.34'
+GEOS_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgeos_c.so'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
