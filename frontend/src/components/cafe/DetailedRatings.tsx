@@ -17,7 +17,7 @@ const RATING_ITEMS: RatingItem[] = [
   { key: 'wifi_quality', label: 'WiFi Quality', icon: <Wifi size={18} /> },
   { key: 'power_outlets_rating', label: 'Power Outlets', icon: <Zap size={18} /> },
   { key: 'seating_comfort', label: 'Seating Comfort', icon: <Armchair size={18} /> },
-  { key: 'noise_level', label: 'Noise Level', icon: <Volume2 size={18} /> },
+  { key: 'noise_level', label: 'Audio Comfort', icon: <Volume2 size={18} /> },
   { key: 'wfc_rating', label: 'Overall WFC Score', icon: <Coffee size={18} /> },
 ];
 
