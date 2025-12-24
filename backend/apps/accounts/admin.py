@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, UserSettings, Follow
 
 
 @admin.register(User)
@@ -8,11 +8,13 @@ class UserAdmin(BaseUserAdmin):
     """Custom User admin with additional fields."""
     
     list_display = [
-        'username', 
-        'email', 
+        'username',
+        'email',
         'display_name',
-        'total_reviews', 
+        'total_reviews',
         'total_visits',
+        'followers_count',
+        'following_count',
         'is_anonymous_display',
         'is_staff',
         'date_joined'
@@ -35,7 +37,7 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('bio', 'avatar_url', 'is_anonymous_display')
         }),
         ('Statistics', {
-            'fields': ('total_reviews', 'total_visits'),
+            'fields': ('total_reviews', 'total_visits', 'followers_count', 'following_count'),
             'classes': ('collapse',)
         }),
     )
@@ -62,3 +64,39 @@ class UserAdmin(BaseUserAdmin):
         count = queryset.update(is_anonymous_display=False)
         self.message_user(request, f"Disabled anonymous display for {count} users.")
     disable_anonymous_display.short_description = "Disable anonymous display"
+
+
+@admin.register(UserSettings)
+class UserSettingsAdmin(admin.ModelAdmin):
+    """User Settings admin."""
+
+    list_display = [
+        'user',
+        'profile_visibility',
+        'activity_visibility',
+        'show_followers',
+        'show_following',
+        'show_activity_dates'
+    ]
+
+    list_filter = [
+        'profile_visibility',
+        'activity_visibility',
+        'show_followers',
+        'show_following'
+    ]
+
+    search_fields = ['user__username', 'user__email']
+
+
+@admin.register(Follow)
+class FollowAdmin(admin.ModelAdmin):
+    """Follow relationships admin."""
+
+    list_display = ['follower', 'followed', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['follower__username', 'followed__username']
+    date_hierarchy = 'created_at'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('follower', 'followed')
