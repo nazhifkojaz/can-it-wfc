@@ -1,0 +1,91 @@
+/* FollowersModal Component - Neobrutalism Style */
+
+.usersList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--neo-gray-600);
+  font-size: 14px;
+}
+
+.userItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  transition: all var(--neo-transition-fast);
+}
+
+.userItem:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--neo-gray-100);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.userDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.userDetails h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userDetails p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--neo-gray-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats {
+  margin-top: 4px !important;
+  font-weight: var(--neo-font-medium);
+}

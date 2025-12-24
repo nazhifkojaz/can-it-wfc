@@ -1,0 +1,237 @@
+/* Import shared panel styles */
+@import './shared-panel-styles.css';
+
+/* User Profile Panel specific styles */
+.user-profile-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--neo-bg);
+}
+
+.profile-card {
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  padding: 24px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 16px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--neo-primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neo-primary);
+}
+
+.profile-info {
+  margin-bottom: 20px;
+}
+
+.display-name {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
+}
+
+.username {
+  color: var(--neo-gray-600);
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: var(--neo-font-bold);
+}
+
+.bio {
+  color: var(--neo-black);
+  max-width: 400px;
+  margin: 0 auto 12px;
+  line-height: 1.5;
+}
+
+.privacy-badge {
+  display: inline-block;
+  background: var(--neo-accent);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-stats {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding-top: 20px;
+  border-top: var(--neo-border-width-thin) solid var(--neo-gray-300);
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-item.clickable {
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.stat-item.clickable:hover {
+  transform: translateY(-2px);
+}
+
+.stat-item.clickable:hover svg {
+  color: var(--neo-primary-dark);
+}
+
+.stat-item.clickable:hover .stat-value {
+  color: var(--neo-primary);
+}
+
+.stat-item svg {
+  color: var(--neo-primary);
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
+  line-height: 1;
+  margin: 0;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--neo-gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: var(--neo-font-bold);
+  margin: 0;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--neo-gray-300);
+}
+
+.private-message {
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.private-message h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: var(--neo-font-black);
+}
+
+.private-message p {
+  color: var(--neo-gray-600);
+  margin: 0;
+}
+
+
+/* Activity styles are inherited from shared-panel-styles.css */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  padding: 24px;
+  text-align: center;
+}
+
+.stat-card h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--neo-gray-600);
+  font-weight: var(--neo-font-extrabold);
+}
+
+.stat-number {
+  margin: 0;
+  font-size: 36px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-primary);
+}
+
+.stat-text {
+  margin: 0;
+  font-size: 16px;
+  color: var(--neo-black);
+  font-weight: var(--neo-font-bold);
+}
+
+/* btn-primary styles are inherited from shared-panel-styles.css */
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  /* panel-content padding inherited from shared-panel-styles.css */
+
+  .profile-card {
+    padding: 20px;
+  }
+
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+  }
+
+  .display-name {
+    font-size: 20px;
+  }
+
+  .profile-stats {
+    gap: 16px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

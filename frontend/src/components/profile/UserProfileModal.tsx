@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { User, MapPin, Calendar, Star } from 'lucide-react';
-import { authApi } from '../../api/client';
-import { User as UserType } from '../../types';
+import { userApi } from '../../api/client';
+import { UserProfile } from '../../types';
 import { Modal, Loading } from '../common';
+import { usePanel } from '../../contexts/PanelContext';
 import { formatDistanceToNow } from 'date-fns';
 import styles from './UserProfileModal.module.css';
 
@@ -17,9 +18,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   username,
 }) => {
-  const [user, setUser] = useState<UserType | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showPanel } = usePanel();
 
   useEffect(() => {
     if (!isOpen || !username) return;
@@ -28,8 +30,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
       try {
         setLoading(true);
         setError(null);
-        const userData = await authApi.getUserByUsername(username);
-        setUser(userData);
+        const userData = await userApi.getUserProfile(username);
+
+        // Check if profile is private
+        if (userData.profile_visibility === 'private') {
+          setError('This profile is private');
+        } else {
+          setUser(userData);
+        }
       } catch (err: any) {
         if (import.meta.env.DEV) {
           console.error('Failed to fetch user profile:', err);
@@ -123,9 +131,17 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Coming Soon */}
-            <div className={styles.comingSoon}>
-              <p>📍 Reviews and visits coming soon!</p>
+            {/* View Full Profile Button */}
+            <div className={styles.actions}>
+              <button
+                className={styles.viewProfileButton}
+                onClick={() => {
+                  onClose();
+                  showPanel('userProfile', { username: user.username });
+                }}
+              >
+                View Full Profile
+              </button>
             </div>
           </>
         )}
