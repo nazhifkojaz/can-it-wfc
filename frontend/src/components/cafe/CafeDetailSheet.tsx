@@ -14,6 +14,7 @@ import QuickInfo from './QuickInfo';
 import ActionButtons from './ActionButtons';
 import FacilitiesStats from './FacilitiesStats';
 import { cafeApi } from '../../api/client';
+import { calculateDistance } from '../../utils/calculations';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -66,7 +67,11 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         setRefreshingCafe(true);
         try {
           const freshCafe = await cafeApi.getById(initialCafe.id);
-          setCafe(freshCafe);
+          // Preserve fields that are computed on frontend (like distance)
+          setCafe({
+            ...freshCafe,
+            distance: initialCafe.distance,
+          });
         } catch (error) {
           if (import.meta.env.DEV) {
             console.error('Error refreshing cafe data:', error);
@@ -86,6 +91,22 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       fetchNextPage();
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Calculate distance if missing and user location is available
+  useEffect(() => {
+    if (!cafe.distance && location) {
+      const distance = calculateDistance(
+        location.lat,
+        location.lng,
+        parseFloat(cafe.latitude),
+        parseFloat(cafe.longitude)
+      );
+      setCafe(prev => ({
+        ...prev,
+        distance: `${distance.toFixed(2)} km`
+      }));
+    }
+  }, [cafe.distance, cafe.latitude, cafe.longitude, location]);
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();

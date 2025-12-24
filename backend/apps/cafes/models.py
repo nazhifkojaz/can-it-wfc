@@ -1,7 +1,4 @@
 from django.db import models
-from django.contrib.gis.db import models as gis_models
-from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import D  # Distance
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from decimal import Decimal
@@ -16,7 +13,7 @@ class Cafe(models.Model):
     name = models.CharField(max_length=200)
     address = models.TextField()
     
-    # Location (keeping lat/lon for backward compatibility)
+    # Location coordinates
     latitude = models.DecimalField(
         max_digits=10,
         decimal_places=8,
@@ -28,15 +25,6 @@ class Cafe(models.Model):
         decimal_places=8,
         validators=[MinValueValidator(-180), MaxValueValidator(180)],
         help_text="Longitude coordinate (-180 to 180)"
-    )
-
-    # PostGIS spatial field for efficient geographic queries
-    location = gis_models.PointField(
-        geography=True,
-        srid=4326,
-        null=True,
-        blank=True,
-        help_text="Geographic point (automatically synced from lat/lon)"
     )
 
     # External identifiers for deduplication
@@ -115,18 +103,13 @@ class Cafe(models.Model):
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['google_place_id']),
             models.Index(fields=['-average_wfc_rating']),
-            # Spatial index for PostGIS location field (GiST index)
-            gis_models.Index(fields=['location'], name='cafes_location_gist_idx'),
         ]
     
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Auto-populate location field from latitude/longitude."""
-        if self.latitude is not None and self.longitude is not None:
-            # Always sync location from lat/lon on save
-            self.location = Point(float(self.longitude), float(self.latitude), srid=4326)
+        """Save cafe instance."""
         super().save(*args, **kwargs)
 
     @staticmethod
@@ -158,58 +141,6 @@ class Cafe(models.Model):
             lng
         )
     
-    @classmethod
-    def nearby(cls, latitude, longitude, radius_km=1, limit=50):
-        """
-        Find cafes near given coordinates within radius using PostGIS.
-
-        Performance: 10-50x faster than Python Haversine calculations.
-        Uses database-native spatial queries with GiST index.
-
-        Args:
-            latitude: Center point latitude
-            longitude: Center point longitude
-            radius_km: Search radius in kilometers (default: 1)
-            limit: Maximum number of results (default: 50)
-
-        Returns:
-            List of Cafe objects within radius, ordered by distance,
-            with distance attribute added to each cafe.
-        """
-        from django.contrib.gis.db.models.functions import Distance as DistanceFunc
-
-        # Create Point object for search center
-        search_point = Point(float(longitude), float(latitude), srid=4326)
-
-        # PostGIS query: filter by distance, annotate with distance, order by distance
-        cafes = cls.objects.filter(
-            is_closed=False,
-            location__isnull=False,  # Only cafes with location data
-            location__distance_lte=(search_point, D(km=radius_km))
-        ).annotate(
-            distance=DistanceFunc('location', search_point)
-        ).order_by('distance')[:limit]
-
-        # Convert Distance objects to km floats for backward compatibility
-        cafes_list = list(cafes)
-        for cafe in cafes_list:
-            cafe.distance = cafe.distance.km if hasattr(cafe.distance, 'km') else float(cafe.distance)
-
-        return cafes_list
-
-    @classmethod
-    def nearby_optimized(cls, latitude, longitude, radius_km=1, limit=50):
-        """
-        Alias for nearby() method - now uses PostGIS by default.
-
-        Kept for backward compatibility. Both nearby() and nearby_optimized()
-        now use the same PostGIS implementation.
-
-        Performance: 10-50x faster than previous Haversine implementation.
-        Uses PostGIS spatial queries with GiST index.
-        """
-        # Just call the PostGIS-powered nearby() method
-        return cls.nearby(latitude, longitude, radius_km, limit)
 
     @classmethod
     def find_duplicates(cls, name, latitude, longitude, threshold_meters=50):

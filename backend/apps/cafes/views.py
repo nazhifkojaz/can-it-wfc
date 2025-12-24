@@ -98,19 +98,27 @@ class NearbyCafesView(APIView):
         radius_km = serializer.validated_data.get('radius_km', 1)
         limit = serializer.validated_data.get('limit', 100)
         
-        # Find nearby cafes (using optimized method)
-        cafes = Cafe.nearby_optimized(
-            latitude=latitude,
-            longitude=longitude,
-            radius_km=float(radius_km),
-            limit=limit
-        )
-        
+        # Find nearby cafes from DB only (Haversine calculation)
+        # Note: With PlacesAPI-first architecture, consider using /api/cafes/nearby/all/ instead
+        all_cafes = Cafe.objects.filter(is_closed=False)
+
+        # Calculate distances and filter by radius
+        nearby_cafes = []
+        for cafe in all_cafes:
+            distance = cafe.distance_to(latitude, longitude)
+            if distance <= float(radius_km):
+                cafe.distance = distance
+                nearby_cafes.append(cafe)
+
+        # Sort by distance
+        nearby_cafes.sort(key=lambda c: c.distance)
+        nearby_cafes = nearby_cafes[:limit]
+
         # Serialize results
-        serializer = CafeListSerializer(cafes, many=True, context={'request': request})
-        
+        serializer = CafeListSerializer(nearby_cafes, many=True, context={'request': request})
+
         return Response({
-            'count': len(cafes),
+            'count': len(nearby_cafes),
             'results': serializer.data
         })
 
@@ -204,41 +212,7 @@ class MergedNearbyCafesView(APIView):
         distance_ref_lat = float(user_latitude) if user_latitude else float(latitude)
         distance_ref_lng = float(user_longitude) if user_longitude else float(longitude)
 
-        # 1. Get registered cafes from database (using optimized method)
-        db_cafes = Cafe.nearby_optimized(
-            latitude=latitude,
-            longitude=longitude,
-            radius_km=radius_km,
-            limit=limit
-        )
-
-        # Serialize database cafes
-        db_cafes_data = CafeListSerializer(
-            db_cafes,
-            many=True,
-            context={'request': request}
-        ).data
-
-        # Mark as registered and recalculate distance to user (if user location provided)
-        for i, cafe in enumerate(db_cafes_data):
-            cafe['is_registered'] = True
-            cafe['source'] = 'database'
-
-            # Recalculate distance to user location (if different from search center)
-            if user_latitude and user_longitude:
-                db_cafe_obj = db_cafes[i]
-                distance_to_user = Cafe.calculate_distance(
-                    float(db_cafe_obj.latitude),
-                    float(db_cafe_obj.longitude),
-                    distance_ref_lat,
-                    distance_ref_lng
-                )
-                cafe['distance'] = f"{distance_to_user:.2f} km"
-            elif cafe.get('distance') is not None:
-                # Format existing distance (from search center)
-                cafe['distance'] = f"{float(cafe['distance']):.2f} km"
-
-        # 2. Get coffee shops from Google Places (non-blocking)
+        # 1. Get coffee shops from Google Places FIRST (primary search engine)
         google_places = []
         try:
             google_places = GooglePlacesService.search_nearby_coffee_shops(
@@ -247,15 +221,38 @@ class MergedNearbyCafesView(APIView):
                 radius_meters=int(radius_km * 1000)
             )
         except Exception as e:
-            # Log the error but continue with database results only
+            # Log the error but continue
             import logging
             logger = logging.getLogger(__name__)
-            logger.warning(f"Google Places API error (non-blocking): {e}")
+            logger.warning(f"Google Places API error: {e}")
 
-        # 3. Filter out Google Places that already exist in database
-        db_google_ids = {cafe.google_place_id for cafe in db_cafes if cafe.google_place_id}
+        # 2. Extract google_place_ids for indexed lookup
+        google_place_ids = [
+            p['google_place_id']
+            for p in google_places
+            if p.get('google_place_id')
+        ]
 
-        unregistered_places = []
+        # 3. Single indexed lookup to check which cafes are WFC-verified (O(log N))
+        #    This replaces the slow PostGIS spatial query
+        registered_cafes = {}
+        if google_place_ids:
+            db_cafes = Cafe.objects.filter(
+                google_place_id__in=google_place_ids,
+                is_closed=False
+            ).select_related('created_by').values(
+                'id', 'google_place_id', 'name', 'latitude', 'longitude',
+                'average_wfc_rating', 'total_reviews', 'total_visits', 'unique_visitors',
+                'average_ratings_cache', 'facility_stats_cache', 'is_verified'
+            )
+
+            # Create lookup map for O(1) enrichment
+            registered_cafes = {
+                cafe['google_place_id']: cafe
+                for cafe in db_cafes
+            }
+
+        # 4. Filter and enrich Google Places results
         ALLOWED_KEYWORDS = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
             'coffee',
             'coffee shop',
@@ -272,84 +269,86 @@ class MergedNearbyCafesView(APIView):
             'food'
         })
 
+        enriched_results = []
         for place in google_places:
-            # Skip if already in database by google_place_id
-            if place['google_place_id'] in db_google_ids:
-                continue
+            place_id = place.get('google_place_id')
 
-            # Filter by name keywords
-            name_lower = (place.get('name') or '').lower()
-            if ALLOWED_KEYWORDS and not any(keyword in name_lower for keyword in ALLOWED_KEYWORDS):
-                continue
+            # Check if this cafe is WFC-verified (exists in our DB)
+            if place_id and place_id in registered_cafes:
+                # Enrich with WFC data
+                wfc_data = registered_cafes[place_id]
+                place.update({
+                    'is_registered': True,
+                    'source': 'database',  # Frontend expects 'database' for registered cafes
+                    'id': wfc_data['id'],  # Use 'id' for database ID
+                    'average_wfc_rating': float(wfc_data['average_wfc_rating']) if wfc_data['average_wfc_rating'] else None,
+                    'total_reviews': wfc_data['total_reviews'],
+                    'unique_visitors': wfc_data['unique_visitors'],
+                    'total_visits': wfc_data['total_visits'],
+                    'is_verified': wfc_data['is_verified'],
+                    'average_ratings': wfc_data['average_ratings_cache'],  # Frontend expects 'average_ratings'
+                    'facility_stats': wfc_data['facility_stats_cache'],  # Frontend expects 'facility_stats'
+                })
+            else:
+                # if it's not WFC-verified, apply keyword/type filtering
+                # Filter by name keywords
+                name_lower = (place.get('name') or '').lower()
+                if ALLOWED_KEYWORDS and not any(keyword in name_lower for keyword in ALLOWED_KEYWORDS):
+                    continue
 
-            # Filter by place types
-            place_types = set(place.get('types') or [])
-            if ALLOWED_TYPES and place_types and place_types.isdisjoint(ALLOWED_TYPES):
-                continue
+                # Filter by place types
+                place_types = set(place.get('types') or [])
+                if ALLOWED_TYPES and place_types and place_types.isdisjoint(ALLOWED_TYPES):
+                    continue
 
-            # Skip if too close to existing cafe (within 10 meters)
-            # Optimization: Use PostGIS spatial query (O(log N) with GiST index)
-            is_duplicate = False
-            place_lat = float(place['latitude'])
-            place_lng = float(place['longitude'])
-
-            # Use PostGIS to check if any cafe exists within 10 meters
-            from django.contrib.gis.geos import Point
-            from django.contrib.gis.measure import D
-            place_point = Point(place_lng, place_lat, srid=4326)
-
-            # Query database for any cafe within 10 meters of this place
-            nearby_cafes = Cafe.objects.filter(
-                is_closed=False,
-                location__isnull=False,
-                location__distance_lte=(place_point, D(m=10))
-            ).exists()
-
-            if nearby_cafes:
-                is_duplicate = True
-
-            if not is_duplicate:
-                # Calculate distance to user location (or search center if user location not provided)
-                distance_km = Cafe.calculate_distance(
-                    float(place['latitude']),
-                    float(place['longitude']),
-                    distance_ref_lat,
-                    distance_ref_lng
-                )
-
-                # Format to match our Cafe interface
-                unregistered_places.append({
-                    'id': f"google_{place['google_place_id']}",  # Temporary ID
-                    'name': place['name'],
-                    'address': place['address'],
-                    'latitude': place['latitude'],
-                    'longitude': place['longitude'],
-                    'google_place_id': place['google_place_id'],
-                    'price_range': place.get('price_level'),
-                    'distance': f"{distance_km:.2f} km",
-                    'total_visits': 0,
-                    'unique_visitors': 0,
-                    'total_reviews': 0,
+                # Put default values for unregistered, and allowed cafes only
+                place.update({
+                    'is_registered': False,
+                    'source': 'google_places',  # Frontend expects 'google_places' for unregistered
+                    'id': f"google_{place['google_place_id']}",  # Temporary ID for unregistered
                     'average_wfc_rating': None,
-                    'is_closed': False,
+                    'total_reviews': 0,
+                    'unique_visitors': 0,
+                    'total_visits': 0,
                     'is_verified': False,
-                    'created_at': None,
-                    'updated_at': None,
-                    'is_registered': False,  # KEY: Not in our database yet
-                    'source': 'google_places',
-                    'google_rating': place.get('rating'),
-                    'google_ratings_count': place.get('user_ratings_total', 0),
-                    'is_open_now': place.get('is_open_now'),
+                    'average_ratings': None,
+                    'facility_stats': None,
                 })
 
-        # 4. Combine and return
-        all_cafes = db_cafes_data + unregistered_places
+            # Calculate distance to user location
+            distance_km = Cafe.calculate_distance(
+                float(place['latitude']),
+                float(place['longitude']),
+                distance_ref_lat,
+                distance_ref_lng
+            )
+            place['distance'] = f"{distance_km:.2f} km"
+
+            # Add Google rating fields (always present from Google Places)
+            place['google_rating'] = place.get('rating')
+            place['google_ratings_count'] = place.get('user_ratings_total', 0)
+
+            enriched_results.append(place)
+
+        # 5. Sort: WFC-verified cafes first, then by distance
+        enriched_results.sort(
+            key=lambda x: (
+                not x['is_registered'],  # WFC-verified first (False sorts before True)
+                float(x['distance'].replace(' km', ''))  # Then by distance
+            )
+        )
+
+        # Apply limit
+        enriched_results = enriched_results[:limit]
+
+        # 6. Return enriched results
+        registered_count = sum(1 for p in enriched_results if p['is_registered'])
 
         return Response({
-            'count': len(all_cafes),
-            'registered_count': len(db_cafes_data),
-            'unregistered_count': len(unregistered_places),
-            'results': all_cafes
+            'count': len(enriched_results),
+            'registered_count': registered_count,
+            'unregistered_count': len(enriched_results) - registered_count,
+            'results': enriched_results
         })
 
 

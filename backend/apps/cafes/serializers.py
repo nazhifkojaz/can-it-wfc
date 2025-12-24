@@ -39,6 +39,8 @@ class CafeListSerializer(CafeStatsMixin, serializers.ModelSerializer):
     )
     average_ratings = serializers.SerializerMethodField()
     facility_stats = serializers.SerializerMethodField()
+    is_registered = serializers.SerializerMethodField()
+    source = serializers.SerializerMethodField()
 
     class Meta:
         model = Cafe
@@ -60,8 +62,18 @@ class CafeListSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'updated_at',
             'distance',
             'average_ratings',
-            'facility_stats'
+            'facility_stats',
+            'is_registered',
+            'source'
         ]
+
+    def get_is_registered(self, obj):
+        """All cafes in DB are registered."""
+        return True
+
+    def get_source(self, obj):
+        """Source is always database for cafes retrieved from DB."""
+        return 'database'
 
 
 class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
