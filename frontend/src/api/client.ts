@@ -5,6 +5,11 @@ import {
   UserLogin,
   UserUpdate,
   AuthTokens,
+  UserProfile,
+  UserSettings,
+  UserActivityResponse,
+  FollowUser,
+  ActivityFeedResponse,
   Cafe,
   CafeCreate,
   CafeUpdate,
@@ -186,6 +191,72 @@ export const userApi = {
   // Get user by ID
   getById: async (userId: number) => {
     const response = await api.get<User>(`/auth/users/${userId}/`);
+    return response.data;
+  },
+
+  // Get user profile by username or ID (Phase 1: Social Features)
+  getUserProfile: async (usernameOrId: string | number): Promise<UserProfile> => {
+    const response = await api.get<UserProfile>(`/auth/users/${usernameOrId}/profile/`);
+    return response.data;
+  },
+
+  // Get user activity by username or ID (Phase 1: Social Features)
+  getUserActivity: async (usernameOrId: string | number, limit: number = 20): Promise<UserActivityResponse> => {
+    const response = await api.get<UserActivityResponse>(`/auth/users/${usernameOrId}/activity/`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
+  // Get current user's settings (Phase 1: Social Features)
+  getSettings: async (): Promise<UserSettings> => {
+    const response = await api.get<UserSettings>('/auth/me/settings/');
+    return response.data;
+  },
+
+  // Update current user's settings (Phase 1: Social Features)
+  updateSettings: async (data: Partial<UserSettings>): Promise<UserSettings> => {
+    const response = await api.patch<UserSettings>('/auth/me/settings/', data);
+    return response.data;
+  },
+
+  // Follow Management
+  followUser: async (username: string) => {
+    const response = await api.post(`/auth/follow/${username}/`);
+    return response.data;
+  },
+
+  unfollowUser: async (username: string) => {
+    const response = await api.delete(`/auth/unfollow/${username}/`);
+    return response.data;
+  },
+
+  // Followers/Following Lists
+  getMyFollowers: async (): Promise<FollowUser[]> => {
+    const response = await api.get<FollowUser[]>('/auth/me/followers/');
+    return response.data;
+  },
+
+  getMyFollowing: async (): Promise<FollowUser[]> => {
+    const response = await api.get<FollowUser[]>('/auth/me/following/');
+    return response.data;
+  },
+
+  getUserFollowers: async (username: string): Promise<FollowUser[]> => {
+    const response = await api.get<FollowUser[]>(`/auth/users/${username}/followers/`);
+    return response.data;
+  },
+
+  getUserFollowing: async (username: string): Promise<FollowUser[]> => {
+    const response = await api.get<FollowUser[]>(`/auth/users/${username}/following/`);
+    return response.data;
+  },
+
+  // Enhanced Activity Feed
+  getActivityFeed: async (limit: number = 50): Promise<ActivityFeedResponse> => {
+    const response = await api.get<ActivityFeedResponse>('/auth/me/feed/', {
+      params: { limit },
+    });
     return response.data;
   },
 };
