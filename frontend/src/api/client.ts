@@ -252,9 +252,9 @@ export const userApi = {
     return response.data;
   },
 
-  // Enhanced Activity Feed
+  // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
   getActivityFeed: async (limit: number = 50): Promise<ActivityFeedResponse> => {
-    const response = await api.get<ActivityFeedResponse>('/auth/me/feed/', {
+    const response = await api.get<ActivityFeedResponse>('/activity/feed/', {
       params: { limit },
     });
     return response.data;
