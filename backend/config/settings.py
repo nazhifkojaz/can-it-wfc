@@ -38,7 +38,7 @@ INSTALLED_APPS = [
 
     # Third-party apps
     'rest_framework',
-    'rest_framework.authtoken',  # Required by dj-rest-auth
+    # Removed: 'rest_framework.authtoken' - Using JWT instead
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.cafes',
     'apps.reviews',
+    'apps.activity',  # Activity stream for feeds
 ]
 
 MIDDLEWARE = [
@@ -297,6 +298,11 @@ REST_USE_JWT = True
 JWT_AUTH_COOKIE = 'can-it-wfc-auth'
 JWT_AUTH_REFRESH_COOKIE = 'can-it-wfc-refresh'
 JWT_AUTH_HTTPONLY = env.bool('JWT_AUTH_HTTPONLY', default=not DEBUG)  # True in production (DEBUG=False)
+
+# Configure dj-rest-auth to not use token auth (using JWT instead)
+REST_AUTH = {
+    'TOKEN_MODEL': None,
+}
 
 # Google OAuth Settings
 SOCIALACCOUNT_PROVIDERS = {
