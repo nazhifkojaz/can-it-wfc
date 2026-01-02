@@ -6,8 +6,18 @@ import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
 import { VISIT_TIME_OPTIONS } from '../../config/constants';
-import { visitApi } from '../../api/client';
+import { visitApi, reviewApi } from '../../api/client';
 import styles from './AddVisitReviewModal.module.css';
+
+/**
+ * AddVisitReviewModal Component
+ *
+ * UPDATED (Review Refactor):
+ * - Checks if user already has a review for the cafe before showing review toggle
+ * - Prevents duplicate reviews (one review per user per cafe)
+ * - Directs users to edit existing reviews from visits page
+ * - Reviews can be edited anytime (no time restrictions)
+ */
 
 interface AddVisitReviewModalProps {
   isOpen: boolean;
@@ -32,6 +42,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   // Duplicate visit detection
   const [showDuplicateInfo, setShowDuplicateInfo] = useState(false);
   const [existingVisit, setExistingVisit] = useState<Visit | null>(null);
+
+  // Existing review detection (UPDATED: Review Refactor)
+  const [hasExistingReview, setHasExistingReview] = useState(false);
+  const [existingReviewLoading, setExistingReviewLoading] = useState(false);
 
   // Result modal
   const resultModal = useResultModal();
@@ -61,7 +75,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     return calculateDistance(location.lat, location.lng, cafeLat, cafeLng);
   }, [location, selectedCafe]);
 
-  // Check for duplicate visit when modal opens
+  // Check for duplicate visit and existing review when modal opens
   useEffect(() => {
     const checkDuplicate = async () => {
       if (isOpen && selectedCafe?.is_registered) {
@@ -85,6 +99,25 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       } else {
         setShowDuplicateInfo(false);
         setExistingVisit(null);
+      }
+    };
+
+    const checkExistingReview = async () => {
+      if (isOpen && selectedCafe?.is_registered) {
+        setExistingReviewLoading(true);
+        try {
+          const review = await reviewApi.getUserCafeReview(selectedCafe.id);
+          setHasExistingReview(!!review);
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('Error checking existing review:', error);
+          }
+          setHasExistingReview(false);
+        } finally {
+          setExistingReviewLoading(false);
+        }
+      } else {
+        setHasExistingReview(false);
       }
     };
 
@@ -114,6 +147,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
       refetch();
       checkDuplicate();
+      checkExistingReview();
     }
   }, [isOpen, preselectedCafe, refetch]);
 
@@ -205,7 +239,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         type: 'success',
         title: 'Visit Logged Successfully!',
         message: includeReview
-          ? 'Your visit and review have been recorded.'
+          ? 'Your visit and review have been recorded. You can edit your review anytime from your visits.'
           : 'Your visit has been recorded.',
         details: (
           <div className={styles.resultSummary}>
@@ -257,6 +291,18 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         errorDetails = (
           <div className={styles.errorTip}>
             <p>💡 You must be within 1km of the cafe to log a visit. Please move closer and try again.</p>
+          </div>
+        );
+      } else if (error.response?.data?.cafe_id) {
+        // Duplicate review error (UPDATED: Review Refactor)
+        errorTitle = 'Review Already Exists';
+        const errorMsg = Array.isArray(error.response.data.cafe_id)
+          ? error.response.data.cafe_id[0]
+          : error.response.data.cafe_id;
+        errorMessage = errorMsg;
+        errorDetails = (
+          <div className={styles.errorTip}>
+            <p>💡 You can edit your existing review from your visits page.</p>
           </div>
         );
       } else if (error.response?.data?.wfc_rating) {
@@ -328,17 +374,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
               <div className={styles.visitDetail}>
                 <DollarSign size={16} />
                 <span>{formatCurrency(existingVisit.amount_spent, existingVisit.currency || 'USD')}</span>
-              </div>
-            )}
-            {existingVisit.has_review ? (
-              <div className={styles.visitDetail}>
-                <Star size={16} />
-                <span>Review submitted</span>
-              </div>
-            ) : (
-              <div className={styles.visitDetail}>
-                <Star size={16} />
-                <span>No review yet</span>
               </div>
             )}
           </div>
@@ -477,20 +512,35 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           </select>
         </div>
 
-        <div className={styles.reviewToggle}>
-          <input
-            type="checkbox"
-            id="include-review"
-            checked={includeReview}
-            onChange={(e) => setIncludeReview(e.target.checked)}
-          />
-          <label htmlFor="include-review">
-            Add a WFC review now
-            <span className={styles.optional}>(Optional)</span>
-          </label>
-        </div>
+        {/* UPDATED (Review Refactor): Show review toggle only if no existing review */}
+        {existingReviewLoading ? (
+          <div className={styles.reviewToggle}>
+            <p>Checking review status...</p>
+          </div>
+        ) : hasExistingReview ? (
+          <div className={styles.infoBanner}>
+            <p>
+              ℹ️ You already have a review for this cafe.
+              <br />
+              <small>You can edit your review from your visits page.</small>
+            </p>
+          </div>
+        ) : (
+          <div className={styles.reviewToggle}>
+            <input
+              type="checkbox"
+              id="include-review"
+              checked={includeReview}
+              onChange={(e) => setIncludeReview(e.target.checked)}
+            />
+            <label htmlFor="include-review">
+              Add a WFC review now
+              <span className={styles.optional}>(Optional)</span>
+            </label>
+          </div>
+        )}
 
-        {includeReview && (
+        {includeReview && !hasExistingReview && (
           <div className={styles.reviewSection}>
             <h4 className={styles.reviewSectionTitle}>Work From Cafe Review</h4>
 

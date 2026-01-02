@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, Eye, DollarSign } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, DollarSign } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import ReviewForm from '../review/ReviewForm';
 import { Loading, EmptyState, ConfirmDialog, ResultModal } from '../common';
 import { useVisits, useResultModal } from '../../hooks';
-import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
+import { usePanel } from '../../contexts/PanelContext';
 import { reviewApi } from '../../api/client';
 import { formatDate, formatRating } from '../../utils';
 import { formatCurrency, CURRENCIES } from '../../utils/currency';
-import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
+import { VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review } from '../../types';
-import { differenceInDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import './VisitsPanel.css';
 
 const VisitsPanel: React.FC = () => {
-  const { hidePanel } = usePanel(); // Use hidePanel from context
+  const { hidePanel } = usePanel();
   const resultModal = useResultModal();
   const {
     visits,
@@ -26,11 +26,14 @@ const VisitsPanel: React.FC = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useVisits();
-  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+
+  // Review state - now tracked per cafe, not per visit
+  const [cafeReviews, setCafeReviews] = useState<Map<number, Review | null>>(new Map());
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [selectedCafeId, setSelectedCafeId] = useState<number | null>(null);
+  const [selectedCafeName, setSelectedCafeName] = useState<string>('');
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [isViewMode, setIsViewMode] = useState(false);
-  const [loadingReview, setLoadingReview] = useState(false);
 
   // Edit visit state
   const [showEditVisit, setShowEditVisit] = useState(false);
@@ -55,29 +58,45 @@ const VisitsPanel: React.FC = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const canAddReview = (visit: Visit): boolean => {
-    const visitDate = new Date(visit.visit_date);
-    const daysSince = differenceInDays(new Date(), visitDate);
-    return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT && !visit.has_review;
-  };
+  // UPDATED: Load review status for all cafes when visits change
+  // Memoize cafe IDs to prevent unnecessary refetches
+  const cafeIds = useMemo(() => {
+    if (visits.length === 0) return [];
+    return [...new Set(visits.map(v => v.cafe.id))];
+  }, [visits]);
 
-  const canEditReview = (visit: Visit): boolean => {
-    const visitDate = new Date(visit.visit_date);
-    const daysSince = differenceInDays(new Date(), visitDate);
-    return visit.has_review && daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
-  };
+  // Convert to stable string key for dependency comparison
+  const cafeIdsKey = cafeIds.join(',');
 
-  const canEditVisit = (visit: Visit): boolean => {
-    const visitDate = new Date(visit.visit_date);
-    const daysSince = differenceInDays(new Date(), visitDate);
-    return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
-  };
+  useEffect(() => {
+    const loadReviewStatuses = async () => {
+      if (cafeIds.length === 0) return;
 
-  const getDaysRemaining = (visit: Visit): number => {
-    const visitDate = new Date(visit.visit_date);
-    const deadline = new Date(visitDate);
-    deadline.setDate(deadline.getDate() + REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT);
-    return Math.max(0, differenceInDays(deadline, new Date()));
+      setLoadingReviews(true);
+      try {
+        // NEW: Use bulk endpoint - single request instead of N parallel requests
+        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
+
+        // Convert to Map for state
+        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+          ([id, review]) => [parseInt(id), review]
+        );
+        setCafeReviews(new Map(reviewEntries));
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error loading review statuses:', error);
+        }
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    loadReviewStatuses();
+  }, [cafeIdsKey]); // Use string key instead of visits array
+
+  // Helper to get review for a cafe
+  const getReviewForCafe = (cafeId: number): Review | null => {
+    return cafeReviews.get(cafeId) || null;
   };
 
   const getAmountSpentLabel = (visit: Visit): string => {
@@ -93,82 +112,47 @@ const VisitsPanel: React.FC = () => {
     return VISIT_TIME_LABELS[numValue as 1 | 2 | 3] || 'Not specified';
   };
 
-  const handleAddReview = (visit: Visit) => {
-    setSelectedVisit(visit);
+  // UPDATED: Cafe-level review actions
+  const handleAddCafeReview = (cafeId: number, cafeName: string) => {
+    setSelectedCafeId(cafeId);
+    setSelectedCafeName(cafeName);
     setExistingReview(null);
-    setIsViewMode(false);
     setShowReviewForm(true);
   };
 
-  const handleEditReview = async (visit: Visit) => {
-    setLoadingReview(true);
-    try {
-      // Fetch all user's reviews and find the one for this visit
-      const data = await reviewApi.getMyReviews();
-      // Handle paginated response from DRF
-      const reviewsList = Array.isArray(data) ? data : (data as any).results || [];
-      const review = reviewsList.find((r: Review) => r.visit.id === visit.id);
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      setSelectedVisit(visit);
-      setExistingReview(review);
-      setIsViewMode(false);
-      setShowReviewForm(true);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error loading review:', error);
-      }
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Load Review',
-        message: 'Failed to load review. Please try again.',
-      });
-    } finally {
-      setLoadingReview(false);
-    }
+  const handleEditCafeReview = (cafeId: number, cafeName: string, review: Review) => {
+    setSelectedCafeId(cafeId);
+    setSelectedCafeName(cafeName);
+    setExistingReview(review);
+    setShowReviewForm(true);
   };
 
-  const handleViewReview = async (visit: Visit) => {
-    setLoadingReview(true);
-    try {
-      // Fetch all user's reviews and find the one for this visit
-      const data = await reviewApi.getMyReviews();
-      // Handle paginated response from DRF
-      const reviewsList = Array.isArray(data) ? data : (data as any).results || [];
-      const review = reviewsList.find((r: Review) => r.visit.id === visit.id);
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      setSelectedVisit(visit);
-      setExistingReview(review);
-      setIsViewMode(true);
-      setShowReviewForm(true);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error loading review:', error);
-      }
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Load Review',
-        message: 'Failed to load review. Please try again.',
-      });
-    } finally {
-      setLoadingReview(false);
-    }
-  };
-
-  const handleReviewSuccess = () => {
+  const handleReviewFormSuccess = async () => {
     setShowReviewForm(false);
-    setSelectedVisit(null);
+    setSelectedCafeId(null);
+    setSelectedCafeName('');
     setExistingReview(null);
-    setIsViewMode(false);
-    // Refetch visits to update the UI with new review status
-    refetch();
+
+    // Refetch review statuses for all cafes
+    if (visits.length > 0) {
+      const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
+      const reviewPromises = cafeIds.map(async (cafeId) => {
+        const review = await reviewApi.getUserCafeReview(cafeId);
+        return [cafeId, review] as const;
+      });
+      const reviewResults = await Promise.all(reviewPromises);
+      setCafeReviews(new Map(reviewResults));
+    }
+
+    resultModal.showResultModal({
+      type: 'success',
+      title: existingReview ? 'Review Updated!' : 'Review Added!',
+      message: existingReview
+        ? 'Your review has been updated successfully!'
+        : 'Your review has been added successfully!',
+      autoClose: true,
+      autoCloseDelay: 2000,
+    });
   };
 
   const handleEditVisit = (visit: Visit) => {
@@ -215,7 +199,7 @@ const VisitsPanel: React.FC = () => {
   };
 
   const handleDeleteClick = (visit: Visit, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering other click handlers
+    e.stopPropagation();
     setVisitToDelete(visit);
     setShowDeleteConfirm(true);
   };
@@ -229,10 +213,8 @@ const VisitsPanel: React.FC = () => {
       await deleteVisit(visitToDelete.id);
       setShowDeleteConfirm(false);
       setVisitToDelete(null);
-      // Refetch to update the list
       refetch();
 
-      // Show success modal
       resultModal.showResultModal({
         type: 'success',
         title: 'Visit Deleted',
@@ -324,307 +306,249 @@ const VisitsPanel: React.FC = () => {
   return (
     <div className="visits-page">
       {/* Header */}
-              <div className="page-header">
-                <h1 className="page-title">My Visits</h1>
-                <div className="header-right">
-                  {visits.length > 0 && <span className="count-badge">{visits.length}</span>}
-                  <button
-                    className="home-button"
-                    onClick={hidePanel}
-                    aria-label="Return to map"
-                  >
-                    <Home size={20} />
-                  </button>
-                </div>
-              </div>
-      {/* Visits Container - Scrollable wrapper */}
-      <div className="visits-container">
-        <div className="visits-timeline">
-        {Object.entries(groupedVisits).map(([month, monthVisits]) => (
-          <div key={month} className="month-group">
-            <h2 className="month-header">
-              <Calendar size={18} />
-              {month}
-            </h2>
-
-            <div className="visits-list">
-              {monthVisits.map((visit) => (
-                <div key={visit.id} className="visit-card">
-                  {/* Cafe Info */}
-                  <div className="visit-header">
-                    <div className="visit-info">
-                      <h3 className="cafe-name">{visit.cafe.name}</h3>
-                      <p className="visit-date">
-                        <Clock size={14} />
-                        {formatDate(visit.visit_date)}
-                      </p>
-                    </div>
-                    <button
-                      className="delete-button"
-                      onClick={(e) => handleDeleteClick(visit, e)}
-                      aria-label="Delete visit"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-
-                  <p className="cafe-address">
-                    <MapPin size={14} />
-                    {visit.cafe.address}
-                  </p>
-
-                  {/* Visit Details */}
-                  {(visit.amount_spent || visit.visit_time) && (
-                    <div className="visit-details">
-                      {visit.amount_spent && (
-                        <span className="detail-badge">
-                          {getAmountSpentLabel(visit)}
-                        </span>
-                      )}
-                      {visit.visit_time && (
-                        <span className="detail-badge">
-                          <Clock size={14} />
-                          {getVisitTimeLabel(visit.visit_time)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Visit Stats */}
-                  <div className="visit-stats">
-                    {visit.cafe.average_wfc_rating && (
-                      <span className="stat">
-                        ⭐ {formatRating(visit.cafe.average_wfc_rating)}
-                      </span>
-                    )}
-                    <span className="stat">
-                      📍 {visit.cafe.total_visits} visits
-                    </span>
-                  </div>
-
-                  {/* Edit Visit Button (within 7 days) */}
-                  {canEditVisit(visit) && (
-                    <button
-                      className="edit-visit-button"
-                      onClick={() => handleEditVisit(visit)}
-                    >
-                      <Edit size={16} />
-                      Edit Visit Details
-                    </button>
-                  )}
-
-                  {/* Review Status */}
-                  {canEditReview(visit) ? (
-                    <div className="review-actions">
-                      <div className="deadline-notice">
-                        <p className="deadline-text">
-                          {getDaysRemaining(visit)} {getDaysRemaining(visit) === 1 ? 'day' : 'days'} left to edit
-                        </p>
-                      </div>
-                      <button
-                        className="add-review-button"
-                        onClick={() => handleEditReview(visit)}
-                        disabled={loadingReview}
-                      >
-                        <Edit size={18} />
-                        {loadingReview ? 'Loading...' : 'Edit Review'}
-                      </button>
-                    </div>
-                  ) : visit.has_review ? (
-                    <div className="review-actions">
-                      <div className="review-status completed">
-                        ✓ Review added
-                      </div>
-                      <button
-                        className="add-review-button"
-                        onClick={() => handleViewReview(visit)}
-                        disabled={loadingReview}
-                        style={{ marginTop: '8px' }}
-                      >
-                        <Eye size={18} />
-                        {loadingReview ? 'Loading...' : 'View Review'}
-                      </button>
-                    </div>
-                  ) : canAddReview(visit) ? (
-                    <div className="review-actions">
-                      <div className="deadline-notice">
-                        <p className="deadline-text">
-                          {getDaysRemaining(visit)} {getDaysRemaining(visit) === 1 ? 'day' : 'days'} left to review
-                        </p>
-                      </div>
-                      <button
-                        className="add-review-button"
-                        onClick={() => handleAddReview(visit)}
-                      >
-                        <Plus size={18} />
-                        Add Review
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="review-status expired">
-                      Review period expired
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* Load More Trigger */}
-        {hasNextPage && (
-          <div ref={loadMoreRef} className="load-more-trigger">
-            {isFetchingNextPage && (
-              <div className="load-more-spinner">
-                <Loading message="Loading more visits..." />
-              </div>
-            )}
-          </div>
-        )}
+      <div className="page-header">
+        <h1 className="page-title">My Visits</h1>
+        <div className="header-right">
+          {visits.length > 0 && <span className="count-badge">{visits.length}</span>}
+          <button
+            className="home-button"
+            onClick={hidePanel}
+            aria-label="Return to map"
+          >
+            <Home size={20} />
+          </button>
         </div>
       </div>
 
-      {/* Review Form Modal */}
-      {selectedVisit && showReviewForm && (
+      {/* Visits Container - Scrollable wrapper */}
+      <div className="visits-container">
+        <div className="visits-timeline">
+          {Object.entries(groupedVisits).map(([month, monthVisits]) => (
+            <div key={month} className="month-group">
+              <h2 className="month-header">
+                <Calendar size={18} />
+                {month}
+              </h2>
+
+              <div className="visits-list">
+                {monthVisits.map((visit) => {
+                  const review = getReviewForCafe(visit.cafe.id);
+
+                  return (
+                    <div key={visit.id} className="visit-card">
+                      {/* Cafe Info */}
+                      <div className="visit-header">
+                        <div className="visit-info">
+                          <h3 className="cafe-name">{visit.cafe.name}</h3>
+                          <p className="visit-date">
+                            <Clock size={14} />
+                            {formatDate(visit.visit_date)}
+                          </p>
+                        </div>
+                        <button
+                          className="delete-button"
+                          onClick={(e) => handleDeleteClick(visit, e)}
+                          aria-label="Delete visit"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+
+                      <p className="cafe-address">
+                        <MapPin size={14} />
+                        {visit.cafe.address}
+                      </p>
+
+                      {/* Visit Details */}
+                      {(visit.amount_spent || visit.visit_time) && (
+                        <div className="visit-details">
+                          {visit.amount_spent && (
+                            <span className="detail-badge">
+                              {getAmountSpentLabel(visit)}
+                            </span>
+                          )}
+                          {visit.visit_time && (
+                            <span className="detail-badge">
+                              <Clock size={14} />
+                              {getVisitTimeLabel(visit.visit_time)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Visit Stats */}
+                      <div className="visit-stats">
+                        {visit.cafe.average_wfc_rating && (
+                          <span className="stat">
+                            ⭐ {formatRating(visit.cafe.average_wfc_rating)}
+                          </span>
+                        )}
+                        <span className="stat">
+                          📍 {visit.cafe.total_visits} visits
+                        </span>
+                      </div>
+
+                      {/* Edit Visit Button */}
+                      <button
+                        className="edit-visit-button"
+                        onClick={() => handleEditVisit(visit)}
+                      >
+                        <Edit size={16} />
+                        Edit Visit Details
+                      </button>
+
+                      {/* UPDATED: Review Status - Cafe-level, not visit-level */}
+                      <div className="review-section">
+                        {loadingReviews ? (
+                          <div className="review-loading">
+                            Loading review status...
+                          </div>
+                        ) : review ? (
+                          <>
+                            <div className="review-status-display">
+                              <div className="review-header">
+                                <span className="review-badge">⭐ Your Review</span>
+                                <span className="review-rating">{review.wfc_rating}/5</span>
+                              </div>
+                              {review.comment && (
+                                <p className="review-comment">"{review.comment}"</p>
+                              )}
+                              <p className="review-meta">
+                                Last updated {new Date(review.updated_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <button
+                              className="edit-review-button"
+                              onClick={() => handleEditCafeReview(visit.cafe.id, visit.cafe.name, review)}
+                            >
+                              <Edit size={16} />
+                              Edit Your Review for {visit.cafe.name}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="no-review-notice">
+                              <span className="no-review-icon">📝</span>
+                              <span>No review yet for {visit.cafe.name}</span>
+                            </div>
+                            <button
+                              className="add-review-button"
+                              onClick={() => handleAddCafeReview(visit.cafe.id, visit.cafe.name)}
+                            >
+                              <Plus size={16} />
+                              Add Review for {visit.cafe.name}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Load More Trigger */}
+          {hasNextPage && (
+            <div ref={loadMoreRef} className="load-more-trigger">
+              {isFetchingNextPage && (
+                <div className="load-more-spinner">
+                  <Loading message="Loading more visits..." />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* UPDATED: Review Form Modal - Now cafe-based */}
+      {selectedCafeId && showReviewForm && (
         <ReviewForm
-          visitId={selectedVisit.id}
-          cafeId={selectedVisit.cafe.id}
-          cafeName={selectedVisit.cafe.name}
+          cafeId={selectedCafeId}
+          cafeName={selectedCafeName}
           existingReview={existingReview}
-          isViewMode={isViewMode}
           isOpen={showReviewForm}
           onClose={() => {
             setShowReviewForm(false);
+            setSelectedCafeId(null);
+            setSelectedCafeName('');
             setExistingReview(null);
-            setIsViewMode(false);
           }}
-          onSuccess={handleReviewSuccess}
+          onSuccess={handleReviewFormSuccess}
         />
       )}
 
       {/* Edit Visit Modal */}
       {showEditVisit && editingVisit && (
-        <div className="modal-overlay" onClick={() => setShowEditVisit(false)}>
-          <div className="edit-visit-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Edit Visit Details</h2>
-              <button className="close-button" onClick={() => setShowEditVisit(false)}>
-                ×
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p className="edit-cafe-name">{editingVisit.cafe.name}</p>
-              <p className="edit-visit-date">
-                <Clock size={14} />
-                {formatDate(editingVisit.visit_date)}
-              </p>
-
-              <div className="form-group">
-                <label htmlFor="edit-amount-spent">
-                  <DollarSign size={16} />
-                  Amount Spent (Optional)
-                </label>
-                <div className="currency-input-group">
-                  <input
-                    id="edit-amount-spent"
-                    type="number"
-                    value={editAmountSpent}
-                    onChange={(e) => setEditAmountSpent(e.target.value)}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="currency-input"
-                  />
-                  <select
-                    id="edit-currency"
-                    value={editCurrency}
-                    onChange={(e) => setEditCurrency(e.target.value)}
-                    className="currency-select"
-                  >
-                    {CURRENCIES.map((curr) => (
-                      <option key={curr.code} value={curr.code}>
-                        {curr.symbol} {curr.code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="edit-visit-time">
-                  <Clock size={16} />
-                  Visit Time
-                </label>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Edit Visit Details</h2>
+            <div className="form-group">
+              <label>Amount Spent</label>
+              <div className="amount-input-group">
+                <input
+                  type="number"
+                  value={editAmountSpent}
+                  onChange={(e) => setEditAmountSpent(e.target.value)}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
                 <select
-                  id="edit-visit-time"
-                  value={editVisitTime || ''}
-                  onChange={(e) => setEditVisitTime(e.target.value ? parseInt(e.target.value) : null)}
+                  value={editCurrency}
+                  onChange={(e) => setEditCurrency(e.target.value)}
+                  disabled={!editAmountSpent}
                 >
-                  <option value="">Not specified</option>
-                  {Object.entries(VISIT_TIME_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
+                  {Object.entries(CURRENCIES).map(([code, { symbol, name }]) => (
+                    <option key={code} value={code}>
+                      {code} ({symbol})
                     </option>
                   ))}
                 </select>
               </div>
+            </div>
 
-              <div className="deadline-info">
-                <p>
-                  {getDaysRemaining(editingVisit)} {getDaysRemaining(editingVisit) === 1 ? 'day' : 'days'} left to edit
-                </p>
-              </div>
+            <div className="form-group">
+              <label>Visit Time</label>
+              <select
+                value={editVisitTime || ''}
+                onChange={(e) => setEditVisitTime(e.target.value ? parseInt(e.target.value) : null)}
+              >
+                <option value="">Not specified</option>
+                <option value="1">Morning (6AM - 12PM)</option>
+                <option value="2">Afternoon (12PM - 6PM)</option>
+                <option value="3">Evening (6PM - 12AM)</option>
+              </select>
             </div>
 
             <div className="modal-actions">
-              <button
-                className="cancel-button"
-                onClick={() => setShowEditVisit(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="save-button"
-                onClick={handleSaveVisitEdit}
-              >
-                Save Changes
-              </button>
+              <button onClick={handleSaveVisitEdit}>Save</button>
+              <button onClick={() => setShowEditVisit(false)}>Cancel</button>
             </div>
           </div>
         </div>
       )}
 
       {/* Delete Confirmation Dialog */}
-      {visitToDelete && (
-        <ConfirmDialog
-          isOpen={showDeleteConfirm}
-          title="Delete Visit?"
-          message={
-            visitToDelete.has_review
-              ? <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This will also permanently delete your review. This action cannot be undone.</>
-              : <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This action cannot be undone.</>
-          }
-          confirmText="Delete"
-          cancelText="Cancel"
-          onConfirm={handleConfirmDelete} 
-          onCancel={handleCancelDelete}
-          variant="danger"
-          isLoading={isDeleting}
-        />
-      )}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Visit?"
+        message={`Are you sure you want to delete this visit to ${visitToDelete?.cafe.name}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        isLoading={isDeleting}
+        variant="danger"
+      />
 
+      {/* Result Modal */}
       <ResultModal
         isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
+        onClose={resultModal.hideResultModal}
       />
     </div>
   );

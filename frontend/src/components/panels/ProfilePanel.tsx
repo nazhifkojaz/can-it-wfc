@@ -75,7 +75,12 @@ const ProfilePanel: React.FC = () => {
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  const [loadingReviews, setLoadingReviews] = useState<Set<number>>(new Set());
+
+  // UPDATED (Review Refactor): Track reviews per cafe, not per visit
+  const [cafeReviews, setCafeReviews] = useState<Map<number, Review | null>>(new Map());
+  const [selectedCafeId, setSelectedCafeId] = useState<number | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
   const [showEditVisit, setShowEditVisit] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [editAmountSpent, setEditAmountSpent] = useState<string>('');
@@ -90,7 +95,8 @@ const ProfilePanel: React.FC = () => {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [showAddVisit, setShowAddVisit] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
-  const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
+
+  // UPDATED (Review Refactor): Cafe-level review state
   const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
   const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
@@ -107,30 +113,52 @@ const ProfilePanel: React.FC = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Visit helper functions
-  const canAddReview = (visit: Visit): boolean => {
-    const visitDate = new Date(visit.visit_date);
-    const daysSince = differenceInDays(new Date(), visitDate);
-    return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT && !visit.has_review;
+  // UPDATED (Review Refactor): Load review statuses for all cafes
+  // Memoize cafe IDs to prevent unnecessary refetches
+  const cafeIds = React.useMemo(() => {
+    if (!visits || visits.length === 0) return [];
+    return [...new Set(visits.map(v => v.cafe.id))];
+  }, [visits]);
+
+  // Convert to stable string key for dependency comparison
+  const cafeIdsKey = cafeIds.join(',');
+
+  React.useEffect(() => {
+    const loadReviewStatuses = async () => {
+      if (cafeIds.length === 0) return;
+
+      setReviewsLoading(true);
+      try {
+        // NEW: Use bulk endpoint - single request instead of N parallel requests
+        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
+
+        // Convert to Map for state
+        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+          ([id, review]) => [parseInt(id), review]
+        );
+        setCafeReviews(new Map(reviewEntries));
+      } catch (error) {
+        console.error('Error loading review statuses:', error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    if (activeTab === 'visits' && cafeIds.length > 0) {
+      loadReviewStatuses();
+    }
+  }, [cafeIdsKey, activeTab]); // Use string key instead of array
+
+  // Helper function to get review for a cafe
+  const getReviewForCafe = (cafeId: number): Review | null => {
+    return cafeReviews.get(cafeId) ?? null;
   };
 
-  const canEditReview = (visit: Visit): boolean => {
-    const visitDate = new Date(visit.visit_date);
-    const daysSince = differenceInDays(new Date(), visitDate);
-    return visit.has_review && daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
-  };
-
+  // UPDATED (Review Refactor): Visit edit is independent of review timing
   const canEditVisit = (visit: Visit): boolean => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
     return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
-  };
-
-  const getDaysRemaining = (visit: Visit): number => {
-    const visitDate = new Date(visit.visit_date);
-    const deadline = new Date(visitDate);
-    deadline.setDate(deadline.getDate() + REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT);
-    return Math.max(0, differenceInDays(deadline, new Date()));
   };
 
   const getAmountSpentLabel = (visit: Visit): string => {
@@ -281,79 +309,74 @@ const ProfilePanel: React.FC = () => {
     });
   };
 
-  // Visit handlers
-  const handleAddReview = (visit: Visit) => {
-    setSelectedVisit(visit);
+  // UPDATED (Review Refactor): Cafe-level review handlers
+  const handleAddCafeReview = (cafeId: number, cafeName: string) => {
+    setSelectedCafeId(cafeId);
+    setReviewCafeId(cafeId);
+    setReviewCafeName(cafeName);
     setExistingReview(null);
     setIsViewMode(false);
     setShowReviewForm(true);
   };
 
+  const handleEditCafeReview = (cafeId: number, cafeName: string, review: Review) => {
+    setSelectedCafeId(cafeId);
+    setReviewCafeId(cafeId);
+    setReviewCafeName(cafeName);
+    setExistingReview(review);
+    setIsViewMode(false);
+    setShowReviewForm(true);
+  };
+
+  const handleViewCafeReview = (cafeId: number, cafeName: string, review: Review) => {
+    setSelectedCafeId(cafeId);
+    setReviewCafeId(cafeId);
+    setReviewCafeName(cafeName);
+    setExistingReview(review);
+    setIsViewMode(true);
+    setShowReviewForm(true);
+  };
+
+  // Deprecated: Old visit-based handlers (keeping for compatibility)
+  const handleAddReview = (visit: Visit) => {
+    handleAddCafeReview(visit.cafe.id, visit.cafe.name);
+  };
+
   const handleEditReview = async (visit: Visit) => {
-    setLoadingReviews(prev => new Set(prev).add(visit.id));
-    try {
-      const data = await reviewApi.getMyReviews();
-      const reviewsList = Array.isArray(data) ? data : (data as any).results || [];
-      const review = reviewsList.find((r: Review) => r.visit.id === visit.id);
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      setSelectedVisit(visit);
-      setExistingReview(review);
-      setIsViewMode(false);
-      setShowReviewForm(true);
-    } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Load Review',
-        message: 'Failed to load review. Please try again.',
-      });
-    } finally {
-      setLoadingReviews(prev => {
-        const next = new Set(prev);
-        next.delete(visit.id);
-        return next;
-      });
+    const review = getReviewForCafe(visit.cafe.id);
+    if (review) {
+      handleEditCafeReview(visit.cafe.id, visit.cafe.name, review);
     }
   };
 
   const handleViewReview = async (visit: Visit) => {
-    setLoadingReviews(prev => new Set(prev).add(visit.id));
-    try {
-      const data = await reviewApi.getMyReviews();
-      const reviewsList = Array.isArray(data) ? data : (data as any).results || [];
-      const review = reviewsList.find((r: Review) => r.visit.id === visit.id);
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      setSelectedVisit(visit);
-      setExistingReview(review);
-      setIsViewMode(true);
-      setShowReviewForm(true);
-    } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Load Review',
-        message: 'Failed to load review. Please try again.',
-      });
-    } finally {
-      setLoadingReviews(prev => {
-        const next = new Set(prev);
-        next.delete(visit.id);
-        return next;
-      });
+    const review = getReviewForCafe(visit.cafe.id);
+    if (review) {
+      handleViewCafeReview(visit.cafe.id, visit.cafe.name, review);
     }
   };
 
-  const handleReviewSuccess = () => {
+  const handleReviewSuccess = async () => {
     setShowReviewForm(false);
-    setSelectedVisit(null);
+    setSelectedCafeId(null);
     setExistingReview(null);
     setIsViewMode(false);
+
+    // Reload review statuses to get updated data
+    if (visits && visits.length > 0) {
+      const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
+      const reviewPromises = cafeIds.map(async (cafeId) => {
+        try {
+          const review = await reviewApi.getUserCafeReview(cafeId);
+          return [cafeId, review] as const;
+        } catch (error) {
+          return [cafeId, null] as const;
+        }
+      });
+      const reviewResults = await Promise.all(reviewPromises);
+      setCafeReviews(new Map(reviewResults));
+    }
+
     refetchVisits();
   };
 
@@ -479,8 +502,8 @@ const ProfilePanel: React.FC = () => {
     });
   };
 
+  // UPDATED (Review Refactor): No longer need visitId for reviews
   const handleAddReviewFromFavorites = (visitId: number, cafeId: number, cafeName: string) => {
-    setReviewVisitId(visitId);
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setShowAddVisit(false);
@@ -488,11 +511,26 @@ const ProfilePanel: React.FC = () => {
     setShowReviewForm(true);
   };
 
-  const handleReviewSuccessFromFavorites = () => {
+  const handleReviewSuccessFromFavorites = async () => {
     setShowReviewForm(false);
-    setReviewVisitId(null);
     setReviewCafeId(null);
     setReviewCafeName('');
+
+    // Reload review statuses
+    if (visits && visits.length > 0) {
+      const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
+      const reviewPromises = cafeIds.map(async (cafeId) => {
+        try {
+          const review = await reviewApi.getUserCafeReview(cafeId);
+          return [cafeId, review] as const;
+        } catch (error) {
+          return [cafeId, null] as const;
+        }
+      });
+      const reviewResults = await Promise.all(reviewPromises);
+      setCafeReviews(new Map(reviewResults));
+    }
+
     refetchFavorites();
     refetchVisits();
 
@@ -741,58 +779,41 @@ const ProfilePanel: React.FC = () => {
                           </button>
                         )}
 
-                        {/* Review Status */}
-                        {canEditReview(visit) ? (
-                          <div className="review-actions">
-                            <div className="deadline-notice">
-                              <p className="deadline-text">
-                                {getDaysRemaining(visit)} {getDaysRemaining(visit) === 1 ? 'day' : 'days'} left to edit
-                              </p>
-                            </div>
-                            <button
-                              className="add-review-button"
-                              onClick={() => handleEditReview(visit)}
-                              disabled={loadingReviews.has(visit.id)}
-                            >
-                              <Edit size={18} />
-                              {loadingReviews.has(visit.id) ? 'Loading...' : 'Edit Review'}
-                            </button>
-                          </div>
-                        ) : visit.has_review ? (
-                          <div className="review-actions">
-                            <div className="review-status completed">
-                              ✓ Review added
-                            </div>
-                            <button
-                              className="add-review-button"
-                              onClick={() => handleViewReview(visit)}
-                              disabled={loadingReviews.has(visit.id)}
-                              style={{ marginTop: '8px' }}
-                            >
-                              <Eye size={18} />
-                              {loadingReviews.has(visit.id) ? 'Loading...' : 'View Review'}
-                            </button>
-                          </div>
-                        ) : canAddReview(visit) ? (
-                          <div className="review-actions">
-                            <div className="deadline-notice">
-                              <p className="deadline-text">
-                                {getDaysRemaining(visit)} {getDaysRemaining(visit) === 1 ? 'day' : 'days'} left to review
-                              </p>
-                            </div>
-                            <button
-                              className="add-review-button"
-                              onClick={() => handleAddReview(visit)}
-                            >
-                              <Plus size={18} />
-                              Add Review
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="review-status expired">
-                            Review period expired
-                          </div>
-                        )}
+                        {/* UPDATED: Cafe-level Review Status */}
+                        {(() => {
+                          const review = getReviewForCafe(visit.cafe.id);
+
+                          if (review) {
+                            return (
+                              <div className="review-actions">
+                                <div className="review-status-display">
+                                  <span className="review-badge">⭐ Your Review</span>
+                                  <span className="review-rating">{review.wfc_rating}/5</span>
+                                  {review.comment && <p className="review-comment">"{review.comment}"</p>}
+                                </div>
+                                <button
+                                  className="add-review-button"
+                                  onClick={() => handleEditCafeReview(visit.cafe.id, visit.cafe.name, review)}
+                                >
+                                  <Edit size={18} />
+                                  Edit Your Review for {visit.cafe.name}
+                                </button>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="review-actions">
+                                <button
+                                  className="add-review-button"
+                                  onClick={() => handleAddCafeReview(visit.cafe.id, visit.cafe.name)}
+                                >
+                                  <Plus size={18} />
+                                  Add Review for {visit.cafe.name}
+                                </button>
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -1059,12 +1080,6 @@ const ProfilePanel: React.FC = () => {
                   ))}
                 </select>
               </div>
-
-              <div className="deadline-info">
-                <p>
-                  {getDaysRemaining(editingVisit)} {getDaysRemaining(editingVisit) === 1 ? 'day' : 'days'} left to edit
-                </p>
-              </div>
             </div>
 
             <div className="modal-actions">
@@ -1091,9 +1106,7 @@ const ProfilePanel: React.FC = () => {
           isOpen={showDeleteConfirm}
           title="Delete Visit?"
           message={
-            visitToDelete.has_review
-              ? <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This will also permanently delete your review. This action cannot be undone.</>
-              : <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This action cannot be undone.</>
+            <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? Your review for this cafe will remain unchanged. This action cannot be undone.</>
           }
           confirmText="Delete"
           cancelText="Cancel"
@@ -1126,12 +1139,11 @@ const ProfilePanel: React.FC = () => {
         preselectedCafe={visitCafe}
       />
 
-      {/* Review Form Modal (shared) */}
-      {showReviewForm && (selectedVisit || (reviewVisitId !== null && reviewCafeId !== null)) && (
+      {/* Review Form Modal (shared) - UPDATED: Cafe-based reviews */}
+      {showReviewForm && reviewCafeId !== null && (
         <ReviewForm
-          visitId={selectedVisit?.id || reviewVisitId!}
-          cafeId={selectedVisit?.cafe.id || reviewCafeId!}
-          cafeName={selectedVisit?.cafe.name || reviewCafeName}
+          cafeId={reviewCafeId}
+          cafeName={reviewCafeName}
           existingReview={existingReview}
           isViewMode={isViewMode}
           isOpen={showReviewForm}
@@ -1139,7 +1151,7 @@ const ProfilePanel: React.FC = () => {
             setShowReviewForm(false);
             setExistingReview(null);
             setIsViewMode(false);
-            setReviewVisitId(null);
+            setSelectedCafeId(null);
             setReviewCafeId(null);
             setReviewCafeName('');
           }}

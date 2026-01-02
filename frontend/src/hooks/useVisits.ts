@@ -46,7 +46,6 @@ export const useVisits = () => {
           id: Date.now(),
           ...newVisit,
           created_at: new Date().toISOString(),
-          has_review: false,
         };
 
         return {
@@ -94,7 +93,6 @@ export const useVisits = () => {
           amount_spent: newData.amount_spent,
           visit_time: newData.visit_time,
           created_at: new Date().toISOString(),
-          has_review: newData.include_review,
         };
 
         return {

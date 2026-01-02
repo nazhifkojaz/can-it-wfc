@@ -33,41 +33,46 @@ const UserProfilePanel: React.FC = () => {
     }
   }, [activePanel]);
 
-  // Merge visits with their reviews into single entries
+  // UPDATED (Review Refactor): Reviews are now cafe-based, not visit-based
+  // Merge visits with reviews for same cafe into single entries
   const mergeActivities = (activities: UserActivityItem[]): UserActivityItem[] => {
     const merged: UserActivityItem[] = [];
-    const reviewsByVisitId = new Map<number, UserActivityItem>();
+    const reviewsByCafeId = new Map<number, UserActivityItem>();
 
-    // First, collect all reviews by their visit ID
+    // First, collect all reviews by their cafe ID
     activities.forEach(item => {
-      if (item.type === 'review' && item.visit_id) {
-        reviewsByVisitId.set(item.visit_id, item);
+      if (item.type === 'review' && item.cafe_id) {
+        reviewsByCafeId.set(item.cafe_id, item);
       }
     });
 
     // Process all activities
     activities.forEach(item => {
       if (item.type === 'visit') {
-        // Check if this visit has a review
-        const review = reviewsByVisitId.get(item.id);
+        // Check if user has a review for this cafe
+        const review = reviewsByCafeId.get(item.cafe_id);
         if (review) {
-          // Merge visit and review data
+          // Merge visit with cafe review data
           merged.push({
             ...item,
-            type: 'visit', // Keep as visit type
+            type: 'visit',
             wfc_rating: review.wfc_rating,
             comment: review.comment,
-            has_review: true,
           });
         } else {
-          // Visit without review
+          // Visit without review for this cafe
           merged.push(item);
         }
-      } else if (item.type === 'review' && !item.visit_id) {
-        // Review without visit (shouldn't happen, but handle it)
-        merged.push(item);
+      } else if (item.type === 'review') {
+        // Show standalone reviews (for cafes without recent visit in feed)
+        // Only show if not already merged with a visit
+        const hasVisitForCafe = activities.some(
+          a => a.type === 'visit' && a.cafe_id === item.cafe_id
+        );
+        if (!hasVisitForCafe) {
+          merged.push(item);
+        }
       }
-      // Skip reviews that were already merged with visits
     });
 
     return merged;

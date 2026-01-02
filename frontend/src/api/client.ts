@@ -10,6 +10,7 @@ import {
   UserActivityResponse,
   FollowUser,
   ActivityFeedResponse,
+  PaginatedResponse,
   Cafe,
   CafeCreate,
   CafeUpdate,
@@ -233,23 +234,23 @@ export const userApi = {
 
   // Followers/Following Lists
   getMyFollowers: async (): Promise<FollowUser[]> => {
-    const response = await api.get<FollowUser[]>('/auth/me/followers/');
-    return response.data;
+    const response = await api.get<PaginatedResponse<FollowUser>>('/auth/me/followers/');
+    return response.data.results;
   },
 
   getMyFollowing: async (): Promise<FollowUser[]> => {
-    const response = await api.get<FollowUser[]>('/auth/me/following/');
-    return response.data;
+    const response = await api.get<PaginatedResponse<FollowUser>>('/auth/me/following/');
+    return response.data.results;
   },
 
   getUserFollowers: async (username: string): Promise<FollowUser[]> => {
-    const response = await api.get<FollowUser[]>(`/auth/users/${username}/followers/`);
-    return response.data;
+    const response = await api.get<PaginatedResponse<FollowUser>>(`/auth/users/${username}/followers/`);
+    return response.data.results;
   },
 
   getUserFollowing: async (username: string): Promise<FollowUser[]> => {
-    const response = await api.get<FollowUser[]>(`/auth/users/${username}/following/`);
-    return response.data;
+    const response = await api.get<PaginatedResponse<FollowUser>>(`/auth/users/${username}/following/`);
+    return response.data.results;
   },
 
   // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
@@ -285,10 +286,10 @@ export const cafeApi = {
 
   // Search cafes
   search: async (query: string) => {
-    const response = await api.get<Cafe[]>('/cafes/', {
+    const response = await api.get<PaginatedResponse<Cafe>>('/cafes/', {
       params: { search: query },
     });
-    return response.data;
+    return response.data.results;
   },
 
   // Get all cafes (with optional filters)
@@ -298,8 +299,8 @@ export const cafeApi = {
     limit?: number;
     offset?: number;
   }) => {
-    const response = await api.get<Cafe[]>('/cafes/', { params });
-    return response.data;
+    const response = await api.get<PaginatedResponse<Cafe>>('/cafes/', { params });
+    return response.data.results;
   },
 
   // Get cafe by ID
@@ -345,8 +346,8 @@ export const cafeApi = {
 
   // Get user's favorite cafes
   getFavorites: async () => {
-    const response = await api.get<Favorite[]>('/cafes/favorites/');
-    return response.data;
+    const response = await api.get<PaginatedResponse<Favorite>>('/cafes/favorites/');
+    return response.data.results;
   },
 
   // Find potential duplicates (not implemented in backend API yet)
@@ -417,8 +418,8 @@ export const visitApi = {
     user?: number;
     ordering?: string;
   }) => {
-    const response = await api.get<Visit[]>('/visits/', { params });
-    return response.data;
+    const response = await api.get<PaginatedResponse<Visit>>('/visits/', { params });
+    return response.data.results;
   },
 
   // Update visit
@@ -438,7 +439,7 @@ export const visitApi = {
 // ===========================
 
 export const reviewApi = {
-  // Create new review
+  // Create new review (UPDATED: now uses cafe_id)
   create: async (data: ReviewCreate) => {
     const response = await api.post<Review>('/reviews/create/', data);
     return response.data;
@@ -463,7 +464,7 @@ export const reviewApi = {
     return response.data;
   },
 
-  // Update review
+  // Update review (UPDATED: no time restrictions now)
   update: async (id: number, data: ReviewUpdate) => {
     const response = await api.patch<Review>(`/reviews/${id}/`, data);
     return response.data;
@@ -476,8 +477,39 @@ export const reviewApi = {
 
   // Get user's reviews
   getMyReviews: async () => {
-    const response = await api.get<Review[]>('/reviews/me/');
-    return response.data;
+    const response = await api.get<PaginatedResponse<Review>>('/reviews/me/');
+    return response.data.results;
+  },
+
+  // NEW: Check if user has a review for a specific cafe
+  getUserCafeReview: async (cafeId: number): Promise<Review | null> => {
+    try {
+      const response = await api.get<Review>('/reviews/for-cafe/', {
+        params: { cafe: cafeId }
+      });
+      return response.data;
+    } catch (error: any) {
+      // Return null if 404 (no review found)
+      if (error.response?.status === 404) {
+        return null;
+      }
+      // Re-throw other errors
+      throw error;
+    }
+  },
+
+  // NEW: Bulk get reviews for multiple cafes (prevents 429 errors)
+  getUserCafeReviews: async (cafeIds: number[]): Promise<Record<number, Review | null>> => {
+    const response = await api.post<Record<string, Review | null>>('/reviews/bulk/', {
+      cafe_ids: cafeIds
+    });
+
+    // Convert string keys back to numbers
+    const result: Record<number, Review | null> = {};
+    for (const [key, value] of Object.entries(response.data)) {
+      result[parseInt(key)] = value;
+    }
+    return result;
   },
 
   // Mark review as helpful (toggle - marks or unmarks)

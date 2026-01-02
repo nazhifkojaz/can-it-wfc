@@ -12,6 +12,8 @@ export interface User {
   is_anonymous_display: boolean;
   total_reviews: number;
   total_visits: number;
+  followers_count?: number;
+  following_count?: number;
   date_joined: string;
   account_age_hours?: number;
 }
@@ -38,6 +40,17 @@ export interface UserUpdate {
   bio?: string;
   avatar_url?: string;
   is_anonymous_display?: boolean;
+}
+
+// ===========================
+// API Response Types
+// ===========================
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 }
 
 // ===========================
@@ -251,9 +264,8 @@ export interface Visit {
   check_in_longitude?: string;
   created_at: string;
   updated_at: string;
-  has_review: boolean;
-  can_review: boolean;
-  days_until_review_deadline?: number;
+  // REMOVED: has_review, can_review, days_until_review_deadline
+  // Reviews are now independent of visits
 }
 
 export interface VisitCreate {
@@ -314,7 +326,7 @@ export interface CombinedVisitReviewCreate {
 
 export interface Review {
   id: number;
-  visit: Visit;
+  // REMOVED: visit field - reviews are now independent of visits
   user: User;
   cafe: Cafe;
 
@@ -361,7 +373,7 @@ export interface Review {
 }
 
 export interface ReviewCreate {
-  visit_id: number;
+  cafe_id: number;  // UPDATED: Changed from visit_id to cafe_id
 
   // WFC Ratings (1-5)
   wifi_quality: number;
