@@ -56,3 +56,6 @@ yarn-error.log*
 
 # React build
 /frontend/build
+
+# Documentation
+docs/archive/
