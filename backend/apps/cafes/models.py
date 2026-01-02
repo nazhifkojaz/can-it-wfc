@@ -29,13 +29,35 @@ class Cafe(models.Model):
 
     # External identifiers for deduplication
     google_place_id = models.CharField(
-        max_length=255, 
-        unique=True, 
-        null=True, 
+        max_length=255,
+        unique=True,
+        null=True,
         blank=True,
         help_text="Google Places API Place ID"
     )
-    
+
+    # Google Places data (ratings)
+    google_rating = models.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1.0), MaxValueValidator(5.0)],
+        help_text="Google Maps rating (1.0 - 5.0)",
+        db_index=True  # For search/filter queries
+    )
+    google_ratings_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of Google reviews"
+    )
+    google_rating_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time Google rating was fetched from API",
+        db_index=True  # For finding stale ratings
+    )
+
     # Price range (1=$ to 4=$$$$)
     PRICE_RANGE_CHOICES = [
         (1, '$'),

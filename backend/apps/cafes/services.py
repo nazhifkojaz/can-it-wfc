@@ -238,7 +238,7 @@ class GooglePlacesService:
 
         # Default fields if not specified
         if not fields:
-            fields = 'name,formatted_address,geometry,rating,price_level,opening_hours,formatted_phone_number,website'
+            fields = 'name,formatted_address,geometry,rating,user_ratings_total,price_level,opening_hours,formatted_phone_number,website'
 
         params = {
             'place_id': place_id,

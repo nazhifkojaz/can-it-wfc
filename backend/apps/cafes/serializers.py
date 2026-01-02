@@ -64,7 +64,9 @@ class CafeListSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'average_ratings',
             'facility_stats',
             'is_registered',
-            'source'
+            'source',
+            'google_rating',  # From database
+            'google_ratings_count',  # From database
         ]
 
     def get_is_registered(self, obj):
@@ -148,13 +150,72 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         """Source is always database for cafes retrieved from DB."""
         return 'database'
 
+    def _refresh_google_rating_if_stale(self, obj):
+        """
+        Check if Google rating needs refresh and update if needed.
+        Considered stale if: older than 24 hours OR never fetched.
+
+        Returns True if refreshed, False otherwise.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        import logging
+
+        logger = logging.getLogger(__name__)
+        RATING_FRESHNESS_HOURS = 24  # Consider stale after 24 hours
+
+        # Only refresh if cafe has Google Place ID
+        if not obj.google_place_id:
+            return False
+
+        # Check if rating is stale
+        is_stale = (
+            not obj.google_rating_updated_at or
+            (timezone.now() - obj.google_rating_updated_at) > timedelta(hours=RATING_FRESHNESS_HOURS)
+        )
+
+        if not is_stale:
+            return False
+
+        # Refresh from Google Places API
+        try:
+            from apps.cafes.services import GooglePlacesService
+
+            place_details = GooglePlacesService.get_place_details(obj.google_place_id)
+
+            # Update fields
+            obj.google_rating = place_details.get('rating')
+            obj.google_ratings_count = place_details.get('user_ratings_total')
+            obj.google_rating_updated_at = timezone.now()
+
+            # Save only these fields (efficient update)
+            obj.save(update_fields=[
+                'google_rating',
+                'google_ratings_count',
+                'google_rating_updated_at'
+            ])
+
+            logger.info(f"Refreshed Google rating for cafe {obj.id}: {obj.google_rating}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to refresh Google rating for cafe {obj.id}: {e}")
+            return False
+
     def get_google_rating(self, obj):
-        """Google rating (if available)."""
-        return None  # TODO: Add google_rating field to model if needed
+        """
+        Return Google rating from database, refreshing if stale.
+        Rating is considered stale if older than 24 hours.
+        """
+        self._refresh_google_rating_if_stale(obj)
+        return float(obj.google_rating) if obj.google_rating else None
 
     def get_google_ratings_count(self, obj):
-        """Google ratings count (if available)."""
-        return None  # TODO: Add google_ratings_count field to model if needed
+        """
+        Return Google ratings count from database.
+        Already refreshed by get_google_rating if needed.
+        """
+        return obj.google_ratings_count
 
 
 class CafeCreateSerializer(serializers.ModelSerializer):

@@ -96,6 +96,8 @@ class VisitSerializer(serializers.ModelSerializer):
                     })
 
                 from apps.cafes.services import GooglePlacesService
+                from django.utils import timezone
+
                 place_details = GooglePlacesService.get_place_details(google_place_id)
 
                 new_cafe = Cafe.objects.create(
@@ -105,6 +107,10 @@ class VisitSerializer(serializers.ModelSerializer):
                     longitude=attrs['cafe_longitude'],
                     google_place_id=google_place_id,
                     price_range=place_details.get('price_level') if place_details else None,
+                    # Store Google rating data
+                    google_rating=place_details.get('rating') if place_details else None,
+                    google_ratings_count=place_details.get('user_ratings_total') if place_details else None,
+                    google_rating_updated_at=timezone.now() if place_details else None,
                     created_by=request.user,
                     is_verified=False
                 )
