@@ -264,7 +264,7 @@ class UserActivityView(APIView):
 
         # Fetch visits and reviews
         visits = Visit.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
-        reviews = Review.objects.filter(user=user).select_related('cafe', 'visit').order_by('-created_at')[:limit]
+        reviews = Review.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
 
         # Combine and transform into unified format
         activity = []
@@ -294,7 +294,7 @@ class UserActivityView(APIView):
                 'cafe_id': review.cafe.id,
                 'cafe_name': review.cafe.name,
                 'cafe_google_place_id': review.cafe.google_place_id,
-                'date': review.visit.visit_date if settings.show_activity_dates else None,
+                'date': review.created_at.date() if settings.show_activity_dates else None,
                 'created_at': review.created_at,
                 'wfc_rating': review.wfc_rating,
                 'comment': review.comment,

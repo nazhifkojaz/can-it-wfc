@@ -164,6 +164,7 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour',
         'reviews': '10/hour',  # Custom rate for creating reviews
+        'bulk': '100/hour',  # Custom rate for bulk endpoints
     }
 }
 

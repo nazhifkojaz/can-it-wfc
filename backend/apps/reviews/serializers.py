@@ -6,12 +6,15 @@ from apps.cafes.serializers import CafeListSerializer
 
 
 class VisitSerializer(serializers.ModelSerializer):
-    """Serializer for Visit model with auto-cafe-registration support."""
+    """
+    Serializer for Visit model with auto-cafe-registration support.
+
+    UPDATED: Removed has_review field - reviews are now independent of visits.
+    """
 
     cafe = CafeListSerializer(read_only=True)
     cafe_id = serializers.IntegerField(write_only=True, required=False)
     user = UserSerializer(read_only=True)
-    has_review = serializers.SerializerMethodField()
 
     check_in_latitude = serializers.DecimalField(
         max_digits=10, decimal_places=8, write_only=True, required=False,
@@ -45,7 +48,6 @@ class VisitSerializer(serializers.ModelSerializer):
             'visit_time',
             'check_in_latitude',
             'check_in_longitude',
-            'has_review',
             'created_at',
             'google_place_id',
             'cafe_name',
@@ -54,10 +56,6 @@ class VisitSerializer(serializers.ModelSerializer):
             'cafe_longitude',
         ]
         read_only_fields = ['id', 'user', 'created_at']
-    
-    def get_has_review(self, obj):
-        """Check if visit has a review."""
-        return hasattr(obj, 'review') and obj.review is not None
     
     def validate(self, attrs):
         """Validate visit data and handle cafe creation if needed."""
@@ -264,11 +262,14 @@ class ReviewListSerializer(serializers.ModelSerializer):
 
 
 class ReviewDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for review."""
+    """
+    Detailed serializer for review.
+
+    UPDATED: Removed visit field - reviews are now independent of visits.
+    """
 
     user = UserSerializer(read_only=True)
     cafe = CafeListSerializer(read_only=True)
-    visit = VisitSerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
     average_rating = serializers.ReadOnlyField()
     is_helpful = serializers.SerializerMethodField()
@@ -279,7 +280,6 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'id',
             'user',
             'cafe',
-            'visit',
             'wifi_quality',
             'power_outlets_rating',
             'noise_level',
@@ -313,14 +313,19 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating a review."""
+    """
+    Serializer for creating a review.
 
-    visit_id = serializers.IntegerField(write_only=True)
-    
+    UPDATED: Reviews are now created per cafe (not per visit).
+    One user can only have one review per cafe.
+    """
+
+    cafe_id = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Review
         fields = [
-            'visit_id',
+            'cafe_id',
             'wifi_quality',
             'power_outlets_rating',
             'noise_level',
@@ -335,30 +340,23 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             'visit_time',
             'comment'
         ]
-    
-    def validate_visit_id(self, value):
-        """Validate that user can review this visit."""
-        request = self.context.get('request')
-        
+
+    def validate_cafe_id(self, value):
+        """Validate that cafe exists."""
+        from apps.cafes.models import Cafe
+
         try:
-            visit = Visit.objects.get(id=value)
-        except Visit.DoesNotExist:
-            raise serializers.ValidationError("Visit not found.")
-        
-        # Check if visit belongs to user
-        if visit.user != request.user:
-            raise serializers.ValidationError("You can only review your own visits.")
-        
-        # Check if visit already has a review
-        if hasattr(visit, 'review') and visit.review is not None:
-            raise serializers.ValidationError("This visit already has a review.")
-        
-        return visit
-    
+            cafe = Cafe.objects.get(id=value, is_closed=False)
+        except Cafe.DoesNotExist:
+            raise serializers.ValidationError("Cafe not found or is closed.")
+
+        return cafe
+
     def validate(self, attrs):
         """Additional validation."""
         request = self.context.get('request')
-        
+        cafe = attrs.get('cafe_id')
+
         # Check if user can review (account age)
         if not request.user.can_review():
             raise serializers.ValidationError({
@@ -366,36 +364,43 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
                     'Your account must be at least 24 hours old to post reviews.'
                 ]
             })
-        
+
+        # IMPORTANT: Check if user already has a review for this cafe
+        existing_review = Review.objects.filter(
+            user=request.user,
+            cafe=cafe
+        ).first()
+
+        if existing_review:
+            raise serializers.ValidationError({
+                'cafe_id': f'You have already reviewed this cafe. Use PATCH /api/reviews/{existing_review.id}/ to update your review.'
+            })
+
         # Check spam
-        visit = attrs.get('visit_id')
-        # Create temporary review object for spam check
         temp_review = Review(
             user=request.user,
-            cafe=visit.cafe,
-            visit=visit
+            cafe=cafe
         )
         is_spam, reason = temp_review.check_spam()
         if is_spam:
             raise serializers.ValidationError({
                 'non_field_errors': [f'Review blocked: {reason}']
             })
-        
+
         return attrs
-    
+
     def create(self, validated_data):
-        """Create review with user and cafe from visit."""
-        visit = validated_data.pop('visit_id')
-        validated_data['visit'] = visit
+        """Create review with user and cafe."""
+        cafe = validated_data.pop('cafe_id')
         validated_data['user'] = self.context['request'].user
-        validated_data['cafe'] = visit.cafe
-        
+        validated_data['cafe'] = cafe
+
         review = super().create(validated_data)
-        
+
         # Update cafe and user stats
-        visit.cafe.update_stats()
+        cafe.update_stats()
         self.context['request'].user.update_stats()
-        
+
         return review
 
 
@@ -659,31 +664,45 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         visit = Visit.objects.create(**validated_data)
 
         review = None
+        message = None
+
         if include_review and review_data.get('wfc_rating'):
-            # Copy visit_time from Visit to Review for backward compatibility
-            review_data['visit_time'] = visit.visit_time
-
-            wfc_rating = review_data['wfc_rating']
-            review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
-            review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
-            review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
-            review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
-            review_data.setdefault('space_availability', wfc_rating)
-            review_data.setdefault('coffee_quality', wfc_rating)
-            review_data.setdefault('menu_options', wfc_rating)
-            review_data.setdefault('bathroom_quality', wfc_rating)
-
-            review = Review.objects.create(
-                visit=visit,
+            # Check if user already has a review for this cafe
+            existing_review = Review.objects.filter(
                 user=user,
-                cafe=cafe,
-                **review_data
-            )
+                cafe=cafe
+            ).first()
 
-            cafe.update_stats()
-            user.update_stats()
+            if existing_review:
+                # User already has a review - don't create duplicate
+                review = existing_review
+                message = 'Visit created. You already have a review for this cafe.'
+            else:
+                # Create new review
+                # Copy visit_time from Visit to Review for backward compatibility
+                review_data['visit_time'] = visit.visit_time
+
+                wfc_rating = review_data['wfc_rating']
+                review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
+                review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
+                review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
+                review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
+                review_data.setdefault('space_availability', wfc_rating)
+                review_data.setdefault('coffee_quality', wfc_rating)
+                review_data.setdefault('menu_options', wfc_rating)
+                review_data.setdefault('bathroom_quality', wfc_rating)
+
+                review = Review.objects.create(
+                    user=user,
+                    cafe=cafe,
+                    **review_data
+                )
+
+                cafe.update_stats()
+                user.update_stats()
 
         return {
             'visit': visit,
-            'review': review
+            'review': review,
+            'message': message
         }

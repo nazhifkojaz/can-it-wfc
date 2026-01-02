@@ -163,10 +163,10 @@ class TestCombinedVisitReview:
         assert 'review' in response.data
         assert response.data['review'] is not None
 
-        # Verify in database
+        # Verify in database (UPDATED: Review Refactor)
         assert Visit.objects.filter(cafe=test_cafe).exists()
         visit = Visit.objects.get(cafe=test_cafe)
-        assert Review.objects.filter(visit=visit).exists()
+        assert Review.objects.filter(cafe=test_cafe, user=visit.user).exists()
 
     def test_create_visit_without_review(self, authenticated_client, test_cafe):
         """Test creating visit only (no review)"""
@@ -322,7 +322,6 @@ class TestReviewModeration:
             visit_date=date.today()
         )
         review = Review.objects.create(
-            visit=visit,
             cafe=test_cafe,
             user=test_user,
             visit_time=2,  # Afternoon
@@ -370,7 +369,6 @@ class TestReviewModeration:
             visit_date=date.today()
         )
         review = Review.objects.create(
-            visit=visit,
             cafe=test_cafe,
             user=review_author,
             visit_time=2,  # Afternoon
@@ -428,7 +426,6 @@ class TestCafeStatistics:
         initial_reviews = test_cafe.total_reviews
 
         Review.objects.create(
-            visit=visit,
             cafe=test_cafe,
             user=test_user,
             visit_time=2,  # Afternoon
