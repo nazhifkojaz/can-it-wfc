@@ -1,12 +1,24 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests
+
+
+# Custom throttle classes for authentication endpoints
+class AuthThrottle(AnonRateThrottle):
+    scope = 'auth'
+
+
+class RegistrationThrottle(AnonRateThrottle):
+    scope = 'registration'
+
+
 from .serializers import (
     UserSerializer,
     UserDetailSerializer,
@@ -28,12 +40,13 @@ User = get_user_model()
 class UserRegistrationView(generics.CreateAPIView):
     """
     Register a new user.
-    
+
     POST /api/auth/register/
     """
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [RegistrationThrottle]
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -130,6 +143,7 @@ class GoogleLoginView(APIView):
     Returns JWT tokens and user data.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthThrottle]
 
     def post(self, request):
         token = request.data.get('access_token')

@@ -119,6 +119,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Cache Configuration (required for DRF throttling)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
@@ -165,6 +173,10 @@ REST_FRAMEWORK = {
         'user': '1000/hour',
         'reviews': '10/hour',  # Custom rate for creating reviews
         'bulk': '100/hour',  # Custom rate for bulk endpoints
+        'auth': '5/min',  # OAuth/Login endpoints (strict)
+        'registration': '3/hour',  # Account creation (very strict)
+        'nearby_anon': '5/min',  # Expensive Google Places API calls (anon)
+        'nearby_auth': '20/min',  # Expensive Google Places API calls (auth)
     }
 }
 

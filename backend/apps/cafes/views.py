@@ -19,20 +19,13 @@ from django.conf import settings
 from .services import GooglePlacesService
 
 
-class NearbySearchThrottle(UserRateThrottle):
-    """
-    Rate limit for Google Places nearby search.
-    30 requests per minute per user to prevent API cost explosion.
-    """
-    rate = '30/min'
+# Custom throttle classes for expensive Google Places API endpoints
+class NearbyAnonThrottle(AnonRateThrottle):
+    scope = 'nearby_anon'
 
 
-class NearbySearchAnonThrottle(AnonRateThrottle):
-    """
-    Rate limit for anonymous users on Google Places search.
-    10 requests per minute for anonymous users.
-    """
-    rate = '10/min'
+class NearbyAuthThrottle(UserRateThrottle):
+    scope = 'nearby_auth'
 
 
 class CafeListCreateView(generics.ListCreateAPIView):
@@ -188,11 +181,11 @@ class MergedNearbyCafesView(APIView):
     GET /api/cafes/nearby/all/?latitude={lat}&longitude={lng}&radius_km={radius}
 
     Rate limits:
-    - Authenticated: 30 requests/min
-    - Anonymous: 10 requests/min
+    - Authenticated: 20 requests/min
+    - Anonymous: 5 requests/min
     """
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [NearbySearchThrottle, NearbySearchAnonThrottle]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
 
     def get(self, request):
         # Validate query parameters
@@ -386,7 +379,7 @@ class CafeSearchView(APIView):
     }
     """
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [NearbySearchThrottle, NearbySearchAnonThrottle]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
 
     def get(self, request):
         from django.core.cache import cache
