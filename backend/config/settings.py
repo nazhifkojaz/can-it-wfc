@@ -151,7 +151,7 @@ AUTH_USER_MODEL = 'accounts.User'
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'core.authentication.JWTCookieAuthentication',  # Custom cookie-based JWT auth
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
@@ -188,15 +188,29 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+
+    # Cookie-based token storage for XSS protection
+    'AUTH_COOKIE': 'access_token',           # Cookie name for access token
+    'AUTH_COOKIE_REFRESH': 'refresh_token',  # Cookie name for refresh token
+    'AUTH_COOKIE_SECURE': not DEBUG,         # HTTPS only in production
+    'AUTH_COOKIE_HTTP_ONLY': True,           # Prevent JavaScript access (XSS protection)
+    'AUTH_COOKIE_PATH': '/',                 # Available on all paths
+    'AUTH_COOKIE_SAMESITE': 'Lax',          # CSRF protection (Lax allows navigation)
+    'AUTH_COOKIE_DOMAIN': None,              # Current domain only
 }
 
 # CORS Settings
 CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
-    default=['http://localhost:3000', 'http://127.0.0.1:3000']
+    default=[
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173',  # Vite default port
+        'http://127.0.0.1:5173',
+    ]
 )
 
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True  # Required for cookie-based authentication
 
 # API Documentation (Spectacular)
 SPECTACULAR_SETTINGS = {

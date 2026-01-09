@@ -208,11 +208,35 @@ class GoogleLoginView(APIView):
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
 
-            return Response({
+            # Create response without tokens in body (security improvement)
+            response = Response({
                 'user': UserDetailSerializer(user).data,
-                'access_token': access_token,
-                'refresh_token': refresh_token,
+                'message': 'Login successful',
+                'created': created,
             }, status=status.HTTP_200_OK)
+
+            # Set tokens as httpOnly cookies (XSS protection)
+            response.set_cookie(
+                key='access_token',
+                value=access_token,
+                max_age=3600,  # 1 hour
+                httponly=True,  # Prevent JavaScript access
+                secure=not settings.DEBUG,  # HTTPS only in production
+                samesite='Lax',  # CSRF protection
+                path='/',
+            )
+
+            response.set_cookie(
+                key='refresh_token',
+                value=refresh_token,
+                max_age=604800,  # 7 days
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Lax',
+                path='/',
+            )
+
+            return response
 
         except ValueError as e:
             # Invalid token
@@ -225,6 +249,46 @@ class GoogleLoginView(APIView):
                 {'detail': f'Google login failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class LogoutView(APIView):
+    """
+    Logout endpoint - clears authentication cookies.
+
+    POST /api/auth/logout/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        response = Response({
+            'message': 'Logged out successfully'
+        }, status=status.HTTP_200_OK)
+
+        # Clear both authentication cookies by setting them with max_age=0
+        # This explicitly expires the cookies
+        response.set_cookie(
+            key='access_token',
+            value='',
+            max_age=0,  # Expire immediately
+            expires='Thu, 01 Jan 1970 00:00:00 GMT',  # Past date
+            path='/',
+            samesite='Lax',
+            secure=not settings.DEBUG,
+            httponly=True,
+        )
+
+        response.set_cookie(
+            key='refresh_token',
+            value='',
+            max_age=0,  # Expire immediately
+            expires='Thu, 01 Jan 1970 00:00:00 GMT',  # Past date
+            path='/',
+            samesite='Lax',
+            secure=not settings.DEBUG,
+            httponly=True,
+        )
+
+        return response
 
 
 class UserActivityView(APIView):

@@ -5,6 +5,7 @@ from .views import (
     UserPublicProfileView,
     ChangePasswordView,
     GoogleLoginView,
+    LogoutView,
     UserActivityView,
     UserSettingsUpdateView,
     FollowUserView,
@@ -25,6 +26,7 @@ urlpatterns = [
 
     # Social Authentication
     path('google/', GoogleLoginView.as_view(), name='google-login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 
     # Follow Management
     path('follow/<str:username>/', FollowUserView.as_view(), name='follow-user'),
