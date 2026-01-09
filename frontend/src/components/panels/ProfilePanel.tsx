@@ -297,8 +297,8 @@ const ProfilePanel: React.FC = () => {
       message: 'Are you sure you want to log out?',
       primaryButton: {
         label: 'Log Out',
-        onClick: () => {
-          logout();
+        onClick: async () => {
+          await logout();  // Wait for logout to complete
           resultModal.closeResultModal();
         },
       },

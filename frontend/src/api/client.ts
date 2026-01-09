@@ -34,15 +34,15 @@ const api: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
 });
 
-// Request interceptor to add auth token
+// Request interceptor - no longer needed for auth tokens (handled by cookies)
+// Kept for backward compatibility and custom headers
 api.interceptors.request.use(
   (config) => {
-    const token = tokenStorage.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Tokens now sent automatically via httpOnly cookies
+    // No need to add Authorization header from localStorage
     return config;
   },
   (error) => {
@@ -50,35 +50,19 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor to handle authentication errors
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    // If error is 401 (Unauthorized), cookies may have expired
+    // Redirect to login page
+    if (error.response?.status === 401) {
+      // Clear any old localStorage tokens (migration cleanup)
+      tokenStorage.clearTokens();
 
-    // If error is 401 and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = tokenStorage.getRefreshToken();
-        if (refreshToken) {
-          const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh/`, {
-            refresh: refreshToken,
-          });
-
-          const { access } = response.data;
-          tokenStorage.setAccessToken(access);
-
-          // Retry the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return axios(originalRequest);
-        }
-      } catch (refreshError) {
-        // Refresh failed, logout user
-        tokenStorage.clearTokens();
+      // Redirect to login only if not already on login page
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/')) {
         window.location.href = buildAppPath('/');
-        return Promise.reject(refreshError);
       }
     }
 
@@ -100,27 +84,31 @@ export const authApi = {
   // Login user (JWT)
   login: async (data: UserLogin) => {
     const response = await api.post<AuthTokens>('/auth/login/', data);
-    const { access, refresh } = response.data;
-
-    // Store tokens
-    tokenStorage.setAccessToken(access);
-    tokenStorage.setRefreshToken(refresh);
-
+    // Tokens now set as httpOnly cookies by backend
     return response.data;
   },
 
   // Logout user
-  logout: () => {
+  logout: async () => {
+    try {
+      // Call backend to clear httpOnly cookies
+      await api.post('/auth/logout/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    // Also clear any old localStorage tokens (migration cleanup)
     tokenStorage.clearTokens();
   },
 
   // Refresh access token
+  // NOTE: This function is deprecated with httpOnly cookie authentication
+  // Tokens are now automatically refreshed by the backend via cookies
   refreshToken: async (refreshToken: string) => {
     const response = await api.post<{ access: string }>('/auth/refresh/', {
       refresh: refreshToken,
     });
 
-    tokenStorage.setAccessToken(response.data.access);
+    // Tokens now managed via httpOnly cookies - no localStorage needed
     return response.data;
   },
 
@@ -131,15 +119,15 @@ export const authApi = {
   },
 
   // Google OAuth login
-  googleLogin: async (accessToken: string): Promise<{ user: User; access: string; refresh: string }> => {
+  googleLogin: async (accessToken: string): Promise<{ user: User }> => {
     const response = await api.post('/auth/google/', { access_token: accessToken });
-    const { user, access_token, refresh_token } = response.data;
+    const { user } = response.data;
 
-    // Store tokens
-    tokenStorage.setAccessToken(access_token);
-    tokenStorage.setRefreshToken(refresh_token);
+    // Tokens now set as httpOnly cookies by backend
+    // Clear any old localStorage tokens (migration cleanup)
+    tokenStorage.clearTokens();
 
-    return { user, access: access_token, refresh: refresh_token };
+    return { user };
   },
 
   // Update profile (for username, bio, etc.)
