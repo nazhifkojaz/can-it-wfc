@@ -29,10 +29,8 @@ from .serializers import (
     UserSettingsSerializer,
     UserActivityItemSerializer,
     FollowUserSerializer,
-    ActivityItemSerializer
 )
 from .models import UserSettings, Follow
-from .utils import can_view_user_activity
 
 User = get_user_model()
 
@@ -616,148 +614,23 @@ class ActivityFeedView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """Fetch and combine all activity types."""
-        from apps.reviews.models import Visit, Review
+        """
+        Fetch activity feed using Activity table.
+
+        NEW IMPLEMENTATION: Uses ActivityService for optimized query performance.
+        Reduces from 7+ queries to 1 query with proper indexing.
+        """
+        from apps.activity.services import ActivityService
+        from apps.activity.serializers import ActivitySerializer
 
         user = request.user
         limit = min(int(request.query_params.get('limit', 50)), 100)
 
-        activities = []
+        # Use ActivityService - single optimized query
+        activities = ActivityService.get_user_feed(user, limit=limit)
 
-        # 1. Get user's own visits
-        own_visits = Visit.objects.filter(user=user)\
-            .select_related('cafe')\
-            .order_by('-created_at')[:limit]
-
-        for visit in own_visits:
-            activities.append({
-                'id': f'own_visit_{visit.id}',
-                'type': 'own_visit',
-                'created_at': visit.created_at,
-                'cafe_id': visit.cafe.id,
-                'cafe_name': visit.cafe.name,
-                'cafe_google_place_id': visit.cafe.google_place_id,
-                'visit_time': visit.visit_time,
-                'amount_spent': visit.amount_spent,
-                'currency': visit.currency,
-            })
-
-        # 2. Get user's own reviews
-        own_reviews = Review.objects.filter(user=user)\
-            .select_related('cafe', 'visit')\
-            .order_by('-created_at')[:limit]
-
-        for review in own_reviews:
-            activities.append({
-                'id': f'own_review_{review.id}',
-                'type': 'own_review',
-                'created_at': review.created_at,
-                'cafe_id': review.cafe.id,
-                'cafe_name': review.cafe.name,
-                'cafe_google_place_id': review.cafe.google_place_id,
-                'wfc_rating': review.wfc_rating,
-                'comment': review.comment,
-            })
-
-        # 3. Get following users' IDs
-        following_ids = Follow.objects.filter(follower=user)\
-            .values_list('followed_id', flat=True)
-
-        if following_ids:
-            # 4. Get following users' visits (respecting privacy)
-            following_visits = Visit.objects.filter(
-                user_id__in=following_ids
-            ).select_related('cafe', 'user', 'user__settings')\
-            .order_by('-created_at')[:limit]
-
-            for visit in following_visits:
-                # Check activity visibility
-                if not can_view_user_activity(user, visit.user):
-                    continue
-
-                activities.append({
-                    'id': f'following_visit_{visit.id}',
-                    'type': 'following_visit',
-                    'created_at': visit.created_at,
-                    'actor_username': visit.user.username,
-                    'actor_display_name': visit.user.display_name,
-                    'actor_avatar_url': visit.user.avatar_url,
-                    'cafe_id': visit.cafe.id,
-                    'cafe_name': visit.cafe.name,
-                    'cafe_google_place_id': visit.cafe.google_place_id,
-                    'visit_time': visit.visit_time,
-                    'amount_spent': visit.amount_spent,
-                    'currency': visit.currency,
-                })
-
-            # 5. Get following users' reviews (respecting privacy)
-            following_reviews = Review.objects.filter(
-                user_id__in=following_ids
-            ).select_related('cafe', 'user', 'user__settings', 'visit')\
-            .order_by('-created_at')[:limit]
-
-            for review in following_reviews:
-                # Check activity visibility
-                if not can_view_user_activity(user, review.user):
-                    continue
-
-                activities.append({
-                    'id': f'following_review_{review.id}',
-                    'type': 'following_review',
-                    'created_at': review.created_at,
-                    'actor_username': review.user.username,
-                    'actor_display_name': review.user.display_name,
-                    'actor_avatar_url': review.user.avatar_url,
-                    'cafe_id': review.cafe.id,
-                    'cafe_name': review.cafe.name,
-                    'cafe_google_place_id': review.cafe.google_place_id,
-                    'wfc_rating': review.wfc_rating,
-                    'comment': review.comment,
-                })
-
-        # 6. Get new followers
-        new_followers = Follow.objects.filter(followed=user)\
-            .select_related('follower')\
-            .order_by('-created_at')[:limit]
-
-        for follow in new_followers:
-            activities.append({
-                'id': f'new_follower_{follow.id}',
-                'type': 'new_follower',
-                'created_at': follow.created_at,
-                'actor_username': follow.follower.username,
-                'actor_display_name': follow.follower.display_name,
-                'actor_avatar_url': follow.follower.avatar_url,
-            })
-
-        # 7. Get following's follow activity (who they followed)
-        if following_ids:
-            following_follows = Follow.objects.filter(
-                follower_id__in=following_ids
-            ).select_related('follower', 'followed')\
-            .order_by('-created_at')[:limit]
-
-            for follow in following_follows:
-                activities.append({
-                    'id': f'following_follow_{follow.id}',
-                    'type': 'following_followed',
-                    'created_at': follow.created_at,
-                    'actor_username': follow.follower.username,
-                    'actor_display_name': follow.follower.display_name,
-                    'actor_avatar_url': follow.follower.avatar_url,
-                    'target_username': follow.followed.username,
-                    'target_display_name': follow.followed.display_name,
-                    'target_avatar_url': follow.followed.avatar_url,
-                })
-
-        # Sort all activities by created_at descending
-        activities.sort(key=lambda x: x['created_at'], reverse=True)
-
-        # Apply limit
-        activities = activities[:limit]
-
-        # Serialize
-        serializer = ActivityItemSerializer(activities, many=True)
+        # Serialize activities (ActivitySerializer handles backward compatibility)
+        serializer = ActivitySerializer(activities, many=True)
 
         return Response({
             'activities': serializer.data,
