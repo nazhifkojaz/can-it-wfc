@@ -63,15 +63,20 @@
   top: 80px;
   left: 16px;
   right: 16px;
-  z-index: 10;
+  z-index: 440;
   background: var(--neo-danger-light);
   border: var(--neo-border-width) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
   padding: 16px;
   display: flex;
   gap: 12px;
-  color: var(--neo-danger);
+  color: var(--neo-black);
   box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.location-error svg {
+  color: var(--neo-danger);
+  flex-shrink: 0;
 }
 
 .error-title {
@@ -80,13 +85,46 @@
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  color: var(--neo-black);
 }
 
 .error-message {
   font-size: 13px;
   margin: 0;
-  color: var(--neo-danger);
+  color: var(--neo-black);
   font-weight: 500;
+}
+
+.location-loading {
+  position: absolute;
+  top: 80px;
+  left: 16px;
+  right: 16px;
+  z-index: 440;
+  background: var(--neo-info-light, #e3f2fd);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  padding: 12px 16px;
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.location-loading-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--neo-black);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.location-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--neo-gray-300, #ccc);
+  border-top-color: var(--neo-primary, #3b82f6);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .loading-overlay {

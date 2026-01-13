@@ -218,7 +218,7 @@ const MapPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Location error */}
+        {/* Location error - show non-intrusive banner */}
         {locationError && (
           <div className="location-error">
             <AlertCircle size={20} />
@@ -229,13 +229,18 @@ const MapPage: React.FC = () => {
           </div>
         )}
 
-        {/* Loading state */}
-        {locationLoading && (
-          <Loading fullScreen message="Getting your location..." />
+        {/* Location loading - show subtle indicator, don't block UI */}
+        {locationLoading && !locationError && (
+          <div className="location-loading">
+            <div className="location-loading-content">
+              <div className="location-loading-spinner"></div>
+              <span>Waiting for location permission...</span>
+            </div>
+          </div>
         )}
 
-        {/* Map view */}
-        {viewMode === 'map' && !locationLoading && (
+        {/* Map view - render immediately, don't wait for location */}
+        {viewMode === 'map' && (
           <div className="map-view-container">
             <MapView
               cafes={cafes}
@@ -252,8 +257,8 @@ const MapPage: React.FC = () => {
           </div>
         )}
 
-        {/* List view */}
-        {viewMode === 'list' && !locationLoading && (
+        {/* List view - render immediately, don't wait for location */}
+        {viewMode === 'list' && (
           <div className="list-view-container">
             <CafeList
               cafes={cafes}
