@@ -160,8 +160,12 @@ class VisitSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
-        """Create visit with current user."""
+        """
+        Create visit with current user and update cafe stats atomically.
+        Uses @transaction.atomic to ensure visit creation and stats update succeed together.
+        """
         validated_data.pop('google_place_id', None)
         validated_data.pop('cafe_name', None)
         validated_data.pop('cafe_address', None)
@@ -391,8 +395,12 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
-        """Create review with user and cafe."""
+        """
+        Create review with user and cafe, and update stats atomically.
+        Uses @transaction.atomic to ensure review creation and stats updates succeed together.
+        """
         cafe = validated_data.pop('cafe_id')
         validated_data['user'] = self.context['request'].user
         validated_data['cafe'] = cafe

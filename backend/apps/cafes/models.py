@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from apps.core.constants import EARTH_RADIUS_KM
@@ -202,6 +202,7 @@ class Cafe(models.Model):
         
         return duplicates
     
+    @transaction.atomic
     def update_stats(self):
         """
         Update cafe stats efficiently using aggregation.
@@ -209,6 +210,8 @@ class Cafe(models.Model):
 
         Caches average_ratings and facility_stats from latest 100 reviews
         to keep stats fresh and prevent N+1 queries in serializers.
+
+        Uses @transaction.atomic to ensure all-or-nothing updates.
         """
         from apps.reviews.models import Review, Visit
         from django.db.models import Count, Avg

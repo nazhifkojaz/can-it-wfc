@@ -2,6 +2,7 @@ from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from .serializers import (
     VisitSerializer,
@@ -191,22 +192,32 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
             return ReviewUpdateSerializer
         return ReviewDetailSerializer
 
+    @transaction.atomic
     def perform_update(self, serializer):
         """
         Update review and refresh cafe stats.
 
         UPDATED: No time restrictions - users can edit their review anytime.
+        Uses @transaction.atomic to ensure review update and stats update succeed together.
         """
         review = serializer.save()
         review.cafe.update_stats()
 
+    @transaction.atomic
     def perform_destroy(self, instance):
         """
         Delete review (hard delete).
         Allowed at any time (no time restrictions).
         Stats are updated automatically via signals.
+        Activities are soft-deleted to maintain user feed integrity.
+        Uses @transaction.atomic to ensure all-or-nothing deletion.
         """
-        # Hard delete (stats updated via signals)
+        from apps.activity.services import ActivityService
+
+        # Soft-delete related activities first
+        ActivityService.soft_delete_activities(Review, instance.id)
+
+        # Then hard-delete review (triggers signal → update_stats)
         instance.delete()
 
 

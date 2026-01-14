@@ -1,5 +1,5 @@
 from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 
@@ -63,16 +63,24 @@ class User(AbstractUser):
         min_age = getattr(settings, 'MIN_ACCOUNT_AGE_HOURS', 0) # will adjust later
         return self.account_age_hours >= min_age
     
+    @transaction.atomic
     def update_stats(self):
-        """Update denormalized statistics."""
+        """
+        Update denormalized statistics.
+        Uses @transaction.atomic to ensure all-or-nothing updates.
+        """
         from apps.reviews.models import Review, Visit
 
         self.total_reviews = Review.objects.filter(user=self).count()
         self.total_visits = Visit.objects.filter(user=self).count()
         self.save(update_fields=['total_reviews', 'total_visits'])
 
+    @transaction.atomic
     def update_follow_counts(self):
-        """Update cached follower/following counts."""
+        """
+        Update cached follower/following counts.
+        Uses @transaction.atomic to ensure all-or-nothing updates.
+        """
         self.followers_count = self.followers.count()
         self.following_count = self.following.count()
         self.save(update_fields=['followers_count', 'following_count'])
