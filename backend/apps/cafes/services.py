@@ -258,3 +258,69 @@ class GooglePlacesService:
         except requests.RequestException as e:
             logger.warning(f"Google Places details request failed: {e}")
             return None
+
+
+class CafeService:
+    """Service class for cafe-related business logic."""
+
+    @staticmethod
+    def get_or_create_from_google(
+        google_place_id: str,
+        cafe_data: dict,
+        created_by
+    ) -> tuple:
+        """
+        Get existing cafe or create new one with complete Google Places data.
+
+        This method ensures all cafes created from Google Places have consistent
+        data including Google ratings, price level, and other metadata.
+
+        Args:
+            google_place_id: Google Place ID
+            cafe_data: Dict with required keys: name, address, latitude, longitude
+            created_by: User who is creating the cafe
+
+        Returns:
+            Tuple of (cafe, created) where created is True if cafe was newly created
+
+        Raises:
+            ValueError: If required fields are missing from cafe_data
+        """
+        from apps.cafes.models import Cafe
+        from django.utils import timezone
+
+        # Check if cafe already exists
+        existing_cafe = Cafe.objects.filter(google_place_id=google_place_id).first()
+        if existing_cafe:
+            logger.info(f"Cafe with Google Place ID {google_place_id} already exists")
+            return existing_cafe, False
+
+        # Validate required fields
+        required_fields = ['name', 'address', 'latitude', 'longitude']
+        missing_fields = [f for f in required_fields if f not in cafe_data]
+        if missing_fields:
+            raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
+
+        # Fetch additional details from Google Places API
+        logger.info(f"Fetching Google Place details for {google_place_id}")
+        place_details = GooglePlacesService.get_place_details(google_place_id)
+
+        # Create new cafe with complete data
+        cafe = Cafe.objects.create(
+            name=cafe_data['name'],
+            address=cafe_data['address'],
+            latitude=cafe_data['latitude'],
+            longitude=cafe_data['longitude'],
+            google_place_id=google_place_id,
+            # Google Places API data (ensures consistency across all creation paths)
+            price_range=place_details.get('price_level') if place_details else None,
+            google_rating=place_details.get('rating') if place_details else None,
+            google_ratings_count=place_details.get('user_ratings_total') if place_details else None,
+            google_rating_updated_at=timezone.now() if place_details else None,
+            # Metadata
+            created_by=created_by,
+            is_verified=False
+        )
+
+        logger.info(f"Created new cafe: {cafe.name} (ID: {cafe.id}, Google Place ID: {google_place_id})")
+        return cafe, True

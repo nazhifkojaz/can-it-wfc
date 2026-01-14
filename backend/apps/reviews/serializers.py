@@ -78,44 +78,38 @@ class VisitSerializer(serializers.ModelSerializer):
         elif 'google_place_id' in attrs:
             google_place_id = attrs['google_place_id']
 
-            existing_cafe = Cafe.objects.filter(
-                google_place_id=google_place_id
-            ).first()
+            # Validate required fields for new cafe
+            required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
+            missing_fields = [f for f in required_fields if f not in attrs]
 
-            if existing_cafe:
-                attrs['cafe_id'] = existing_cafe
-            else:
-                required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
-                missing_fields = [f for f in required_fields if f not in attrs]
+            if missing_fields:
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        f'Missing required fields for new cafe: {", ".join(missing_fields)}'
+                    ]
+                })
 
-                if missing_fields:
-                    raise serializers.ValidationError({
-                        'non_field_errors': [
-                            f'Missing required fields for new cafe: {", ".join(missing_fields)}'
-                        ]
-                    })
+            # Use CafeService to get or create cafe with complete Google data
+            from apps.cafes.services import CafeService
 
-                from apps.cafes.services import GooglePlacesService
-                from django.utils import timezone
+            cafe_data = {
+                'name': attrs['cafe_name'],
+                'address': attrs['cafe_address'],
+                'latitude': attrs['cafe_latitude'],
+                'longitude': attrs['cafe_longitude'],
+            }
 
-                place_details = GooglePlacesService.get_place_details(google_place_id)
-
-                new_cafe = Cafe.objects.create(
-                    name=attrs['cafe_name'],
-                    address=attrs['cafe_address'],
-                    latitude=attrs['cafe_latitude'],
-                    longitude=attrs['cafe_longitude'],
+            try:
+                cafe, created = CafeService.get_or_create_from_google(
                     google_place_id=google_place_id,
-                    price_range=place_details.get('price_level') if place_details else None,
-                    # Store Google rating data
-                    google_rating=place_details.get('rating') if place_details else None,
-                    google_ratings_count=place_details.get('user_ratings_total') if place_details else None,
-                    google_rating_updated_at=timezone.now() if place_details else None,
-                    created_by=request.user,
-                    is_verified=False
+                    cafe_data=cafe_data,
+                    created_by=request.user
                 )
-
-                attrs['cafe_id'] = new_cafe
+                attrs['cafe_id'] = cafe
+            except ValueError as e:
+                raise serializers.ValidationError({
+                    'non_field_errors': [str(e)]
+                })
 
         else:
             raise serializers.ValidationError({
@@ -622,7 +616,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         If any step fails, all changes are rolled back to maintain data integrity.
         """
         from apps.cafes.models import Cafe
-        from apps.cafes.services import GooglePlacesService
 
         request = self.context['request']
         user = request.user
@@ -645,24 +638,22 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
             # Create cafe from Google Places data
             google_place_id = validated_data.pop('google_place_id')
 
-            # Check if cafe already exists
-            existing_cafe = Cafe.objects.filter(google_place_id=google_place_id).first()
-            if existing_cafe:
-                cafe = existing_cafe
-            else:
-                # Fetch Google Places details for additional data
-                place_details = GooglePlacesService.get_place_details(google_place_id)
+            # Use CafeService to get or create cafe with complete Google data
+            # This fixes the bug where Google rating fields were missing
+            from apps.cafes.services import CafeService
 
-                cafe = Cafe.objects.create(
-                    name=validated_data.pop('cafe_name'),
-                    address=validated_data.pop('cafe_address'),
-                    latitude=validated_data.pop('cafe_latitude'),
-                    longitude=validated_data.pop('cafe_longitude'),
-                    google_place_id=google_place_id,
-                    price_range=place_details.get('price_level') if place_details else None,
-                    created_by=user,
-                    is_verified=False
-                )
+            cafe_data = {
+                'name': validated_data.pop('cafe_name'),
+                'address': validated_data.pop('cafe_address'),
+                'latitude': validated_data.pop('cafe_latitude'),
+                'longitude': validated_data.pop('cafe_longitude'),
+            }
+
+            cafe, created = CafeService.get_or_create_from_google(
+                google_place_id=google_place_id,
+                cafe_data=cafe_data,
+                created_by=user
+            )
 
         validated_data['cafe'] = cafe
         validated_data['user'] = user
