@@ -125,6 +125,7 @@ class Cafe(models.Model):
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['google_place_id']),
             models.Index(fields=['-average_wfc_rating']),
+            models.Index(fields=['is_closed', '-created_at'], name='cafe_closed_created_idx'),
         ]
     
     def __str__(self):
@@ -309,6 +310,9 @@ class Favorite(models.Model):
         verbose_name_plural = 'Favorites'
         unique_together = ['user', 'cafe']
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'cafe'], name='favorite_lookup_idx'),
+        ]
     
     def __str__(self):
         return f"{self.user.username} → {self.cafe.name}"

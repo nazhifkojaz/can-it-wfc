@@ -31,6 +31,9 @@ class User(AbstractUser):
         verbose_name = 'User'
         verbose_name_plural = 'Users'
         ordering = ['-date_joined']
+        indexes = [
+            models.Index(fields=['email'], name='user_email_idx'),
+        ]
     
     def __str__(self):
         return self.username
