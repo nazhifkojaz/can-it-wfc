@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.utils import timezone
 from apps.core.currency_utils import CURRENCY_CHOICES
+from apps.core.constants import REVIEW_AUTO_HIDE_FLAG_THRESHOLD
 
 
 class Visit(models.Model):
@@ -416,12 +417,12 @@ class ReviewFlag(models.Model):
     def save(self, *args, **kwargs):
         """Auto-hide review if it reaches flag threshold."""
         super().save(*args, **kwargs)
-        
+
         # Update flag count
         self.review.flag_count = self.review.flags.count()
-        
+
         # Auto-hide if threshold reached
-        if self.review.flag_count >= 3:
+        if self.review.flag_count >= REVIEW_AUTO_HIDE_FLAG_THRESHOLD:
             self.review.is_hidden = True
             self.review.is_flagged = True
         

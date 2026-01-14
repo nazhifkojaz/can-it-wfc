@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
+from apps.core.constants import EARTH_RADIUS_KM
 from decimal import Decimal
 import math
 
@@ -141,7 +142,7 @@ class Cafe(models.Model):
         Calculate distance between two points using Haversine formula.
         Returns distance in kilometers.
         """
-        R = 6371  # Earth's radius in kilometers
+        R = EARTH_RADIUS_KM
         
         lat1_rad = math.radians(float(lat1))
         lat2_rad = math.radians(float(lat2))

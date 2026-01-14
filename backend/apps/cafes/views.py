@@ -15,6 +15,7 @@ from .serializers import (
     CafeFlagSerializer
 )
 from core.permissions import IsOwnerOrReadOnly
+from apps.core.constants import MAX_NEARBY_CAFES
 from django.conf import settings
 from .services import GooglePlacesService
 
@@ -195,7 +196,7 @@ class MergedNearbyCafesView(APIView):
         latitude = serializer.validated_data['latitude']
         longitude = serializer.validated_data['longitude']
         radius_km = float(serializer.validated_data.get('radius_km', 1))
-        limit = serializer.validated_data.get('limit', 200)
+        limit = serializer.validated_data.get('limit', MAX_NEARBY_CAFES)
 
         # Get user's actual location for distance calculation (if provided)
         user_latitude = serializer.validated_data.get('user_latitude')

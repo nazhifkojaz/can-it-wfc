@@ -2,6 +2,12 @@ import requests
 from django.conf import settings
 from typing import List, Dict, Optional
 import logging
+from apps.core.constants import (
+    GOOGLE_PAGINATION_DELAY_SECONDS,
+    GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS,
+    GOOGLE_PLACE_DETAILS_TIMEOUT_SECONDS,
+    MAX_AUTOCOMPLETE_PREDICTIONS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,9 +120,9 @@ class GooglePlacesService:
                 if len(all_places) >= max_results:
                     break
 
-                # Google requires 2-second delay between pagination requests
+                # Google requires delay between pagination requests
                 import time
-                time.sleep(2)
+                time.sleep(GOOGLE_PAGINATION_DELAY_SECONDS)
 
             logger.info(f"Fetched {len(all_places)} cafes from Google Places (within {radius_meters}m, {page_count} pages)")
 
@@ -168,7 +174,7 @@ class GooglePlacesService:
             params['types'] = types
 
         try:
-            response = requests.get(url, params=params, timeout=5)
+            response = requests.get(url, params=params, timeout=GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS)
             response.raise_for_status()
             data = response.json()
 
@@ -177,7 +183,7 @@ class GooglePlacesService:
                 return []
 
             places = []
-            predictions = data.get('predictions', [])[:10]  # Limit to 10 predictions
+            predictions = data.get('predictions', [])[:MAX_AUTOCOMPLETE_PREDICTIONS]
 
             # For each prediction, get place details to retrieve coordinates
             # Place Details (Basic Data - geometry, name, address) is FREE!
@@ -247,7 +253,7 @@ class GooglePlacesService:
         }
 
         try:
-            response = requests.get(url, params=params, timeout=3)
+            response = requests.get(url, params=params, timeout=GOOGLE_PLACE_DETAILS_TIMEOUT_SECONDS)
             response.raise_for_status()
             data = response.json()
 

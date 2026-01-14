@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.core.constants import GOOGLE_RATING_FRESHNESS_HOURS
 from .models import Cafe, Favorite, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
@@ -162,7 +163,6 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         import logging
 
         logger = logging.getLogger(__name__)
-        RATING_FRESHNESS_HOURS = 24  # Consider stale after 24 hours
 
         # Only refresh if cafe has Google Place ID
         if not obj.google_place_id:
@@ -171,7 +171,7 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         # Check if rating is stale
         is_stale = (
             not obj.google_rating_updated_at or
-            (timezone.now() - obj.google_rating_updated_at) > timedelta(hours=RATING_FRESHNESS_HOURS)
+            (timezone.now() - obj.google_rating_updated_at) > timedelta(hours=GOOGLE_RATING_FRESHNESS_HOURS)
         )
 
         if not is_stale:

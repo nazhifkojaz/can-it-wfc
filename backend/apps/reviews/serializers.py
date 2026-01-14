@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
+from apps.core.constants import MAX_CHECKIN_DISTANCE_KM
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
@@ -149,10 +150,11 @@ class VisitSerializer(serializers.ModelSerializer):
             cafe.longitude
         )
 
-        if distance > 1.0:
+        if distance > MAX_CHECKIN_DISTANCE_KM:
             raise serializers.ValidationError({
                 'check_in_latitude': [
-                    f'You are {distance:.2f}km away from {cafe.name}. You must be within 1km to log a visit.'
+                    f'You are {distance:.2f}km away from {cafe.name}. '
+                    f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
                 ]
             })
 
