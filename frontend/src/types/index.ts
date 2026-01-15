@@ -204,7 +204,7 @@ export interface Cafe {
   created_by?: User;
   created_at?: string;  // Optional - null for unregistered cafes
   updated_at?: string;  // Optional - null for unregistered cafes
-  distance?: string;
+  distance?: number | string;  // Numeric from API, string for backward compat
   is_favorited?: boolean;
 
   // NEW: Registration status

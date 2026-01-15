@@ -309,7 +309,7 @@ class MergedNearbyCafesView(APIView):
                 distance_ref_lat,
                 distance_ref_lng
             )
-            place['distance'] = f"{distance_km:.2f} km"
+            place['distance'] = round(distance_km, 2)
 
             # Add Google rating fields (always present from Google Places)
             place['google_rating'] = place.get('rating')
@@ -321,7 +321,7 @@ class MergedNearbyCafesView(APIView):
         enriched_results.sort(
             key=lambda x: (
                 not x['is_registered'],  # WFC-verified first (False sorts before True)
-                float(x['distance'].replace(' km', ''))  # Then by distance
+                x['distance']  # Then by distance (numeric)
             )
         )
 
@@ -363,7 +363,7 @@ class CafeSearchView(APIView):
                 "address": "Address",
                 "latitude": "3.14",
                 "longitude": "101.68",
-                "distance": "1.23 km",
+                "distance": 1.23,
                 "rating": 4.5,
                 "result_type": "cafe" | "location"
             }
@@ -459,7 +459,7 @@ class CafeSearchView(APIView):
                 'address': place.get('vicinity'),
                 'latitude': str(place['geometry']['location']['lat']),
                 'longitude': str(place['geometry']['location']['lng']),
-                'distance': f"{place.get('distance_km', 0):.2f} km",
+                'distance': round(place.get('distance_km', 0), 2),
                 'rating': place.get('rating'),
                 'result_type': result_type,
                 'source': 'google',

@@ -30,7 +30,7 @@ import AddVisitModal from '../visit/AddVisitModal';
 import FollowersModal from '../social/FollowersModal';
 import { authApi, reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays, format } from 'date-fns';
-import { formatDate, formatRating, formatPriceRange } from '../../utils';
+import { formatDate, formatRating, formatPriceRange, formatDistance } from '../../utils';
 import { formatCurrency, CURRENCIES } from '../../utils/currency';
 import { formatVisitTime } from '../../utils/visit';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
@@ -880,8 +880,8 @@ const ProfilePanel: React.FC = () => {
                     {cafe.price_range && (
                       <span className="price">{formatPriceRange(cafe.price_range)}</span>
                     )}
-                    {cafe.distance && (
-                      <span className="distance">{cafe.distance}</span>
+                    {cafe.distance !== undefined && (
+                      <span className="distance">{formatDistance(cafe.distance)}</span>
                     )}
                   </div>
 

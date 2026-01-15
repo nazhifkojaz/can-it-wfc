@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Star, Users, Coffee } from 'lucide-react';
 import { Cafe } from '../../types';
+import { parseDistance, formatDistance } from '../../utils/formatters';
 import './CafeList.css';
 
 interface CafeListProps {
@@ -21,8 +22,8 @@ const CafeList: React.FC<CafeListProps> = ({ cafes: initialCafes, loading, error
     return [...cafes].sort((a, b) => {
       switch (sortOption) {
         case 'distance':
-          const distA = parseFloat(a.distance?.replace(' km', '') || '999');
-          const distB = parseFloat(b.distance?.replace(' km', '') || '999');
+          const distA = parseDistance(a.distance);
+          const distB = parseDistance(b.distance);
           return distA - distB;
 
         case 'rating':
@@ -163,9 +164,9 @@ const CafeList: React.FC<CafeListProps> = ({ cafes: initialCafes, loading, error
                   </div>
                 </div>
 
-                {cafe.distance && (
+                {cafe.distance !== undefined && (
                   <div className="cafe-distance">
-                    {cafe.distance} away
+                    {formatDistance(cafe.distance)} away
                   </div>
                 )}
               </div>

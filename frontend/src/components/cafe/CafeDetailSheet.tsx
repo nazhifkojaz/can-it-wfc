@@ -15,6 +15,7 @@ import ActionButtons from './ActionButtons';
 import FacilitiesStats from './FacilitiesStats';
 import { cafeApi } from '../../api/client';
 import { calculateDistance } from '../../utils/calculations';
+import { formatDistance } from '../../utils/formatters';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -236,9 +237,9 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           <MapPin size={16} />
           <span>{cafe.address}</span>
         </div>
-        {cafe.distance && (
+        {cafe.distance !== undefined && (
           <div className={styles.metaItem}>
-            <span className={styles.distance}>📍 {cafe.distance} away</span>
+            <span className={styles.distance}>📍 {formatDistance(cafe.distance)} away</span>
           </div>
         )}
       </div>
