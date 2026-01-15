@@ -1,8 +1,16 @@
 from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError, Throttled
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
+from core.exceptions import (
+    CafeNotFound,
+    ReviewNotFound,
+    SelfHelpfulNotAllowed,
+    InvalidCafeIds,
+    TooManyCafeIds,
+)
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from .serializers import (
     VisitSerializer,
@@ -163,11 +171,8 @@ class ReviewCreateView(generics.CreateAPIView):
         # Check rate limit
         was_limited = getattr(request, 'limited', False)
         if was_limited:
-            return Response(
-                {'error': 'Rate limit exceeded. You can only post 10 reviews per hour.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS
-            )
-        
+            raise Throttled(detail='You can only post 10 reviews per hour.')
+
         return super().create(request, *args, **kwargs)
 
 
@@ -321,10 +326,7 @@ class UserCafeReviewView(APIView):
         cafe_id = request.query_params.get('cafe')
 
         if not cafe_id:
-            return Response(
-                {'error': 'cafe parameter required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValidationError({'cafe': 'This parameter is required'})
 
         try:
             review = Review.objects.get(
@@ -336,10 +338,7 @@ class UserCafeReviewView(APIView):
             serializer = ReviewDetailSerializer(review, context={'request': request})
             return Response(serializer.data)
         except Review.DoesNotExist:
-            return Response(
-                {'detail': 'No review found for this cafe'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            raise ReviewNotFound(detail='No review found for this cafe')
 
 
 class BulkUserCafeReviewsView(APIView):
@@ -373,31 +372,19 @@ class BulkUserCafeReviewsView(APIView):
 
         # Validation
         if not cafe_ids:
-            return Response(
-                {'error': 'cafe_ids array required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValidationError({'cafe_ids': 'This field is required'})
 
         if not isinstance(cafe_ids, list):
-            return Response(
-                {'error': 'cafe_ids must be an array'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValidationError({'cafe_ids': 'Must be an array'})
 
         if len(cafe_ids) > 100:
-            return Response(
-                {'error': 'Maximum 100 cafe IDs per request'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise TooManyCafeIds()
 
         # Convert to integers and validate
         try:
             cafe_ids = [int(id) for id in cafe_ids]
         except (ValueError, TypeError):
-            return Response(
-                {'error': 'All cafe_ids must be valid integers'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise InvalidCafeIds(detail='All cafe_ids must be valid integers')
 
         # Fetch all reviews for these cafes
         reviews = Review.objects.filter(
@@ -437,17 +424,11 @@ class MarkReviewHelpfulView(APIView):
         try:
             review = Review.objects.get(pk=pk, is_hidden=False)
         except Review.DoesNotExist:
-            return Response(
-                {'error': 'Review not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            raise ReviewNotFound()
 
         # Can't mark own review as helpful
         if review.user == request.user:
-            return Response(
-                {'error': 'You cannot mark your own review as helpful'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise SelfHelpfulNotAllowed()
 
         # Check if already marked helpful
         existing = ReviewHelpful.objects.filter(

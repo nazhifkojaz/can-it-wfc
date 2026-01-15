@@ -2,7 +2,9 @@ from rest_framework import generics, status, permissions, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
+from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
+from core.exceptions import CafeNotFound, AlreadyFavorited
 from .models import Cafe, Favorite, CafeFlag
 from .serializers import (
     CafeListSerializer,
@@ -132,32 +134,23 @@ class FavoriteListCreateView(generics.ListCreateAPIView):
     
     def create(self, request, *args, **kwargs):
         cafe_id = request.data.get('cafe_id')
-        
+
         if not cafe_id:
-            return Response(
-                {'error': 'cafe_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            raise ValidationError({'cafe_id': 'This field is required'})
+
         try:
             cafe = Cafe.objects.get(id=cafe_id)
         except Cafe.DoesNotExist:
-            return Response(
-                {'error': 'Cafe not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
+            raise CafeNotFound()
+
         # Check if already favorited
         if Favorite.objects.filter(user=request.user, cafe=cafe).exists():
-            return Response(
-                {'error': 'Cafe already in favorites'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            raise AlreadyFavorited()
+
         # Create favorite
         favorite = Favorite.objects.create(user=request.user, cafe=cafe)
         serializer = self.get_serializer(favorite)
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

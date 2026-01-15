@@ -8,6 +8,15 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from core.exceptions import (
+    UserNotFound,
+    SelfFollowNotAllowed,
+    AlreadyFollowing,
+    NotFollowing,
+    GoogleAuthError,
+    GoogleAuthTokenRequired,
+    GoogleEmailNotProvided,
+)
 
 
 # Custom throttle classes for authentication endpoints
@@ -147,10 +156,7 @@ class GoogleLoginView(APIView):
         token = request.data.get('access_token')
 
         if not token:
-            return Response(
-                {'detail': 'access_token is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise GoogleAuthTokenRequired()
 
         try:
             # Verify the Google ID token
@@ -167,10 +173,7 @@ class GoogleLoginView(APIView):
             picture = idinfo.get('picture', '')
 
             if not email:
-                return Response(
-                    {'detail': 'Email not provided by Google'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                raise GoogleEmailNotProvided()
 
             # Get or create user
             user = User.objects.filter(email=email).first()
@@ -238,15 +241,9 @@ class GoogleLoginView(APIView):
 
         except ValueError as e:
             # Invalid token
-            return Response(
-                {'detail': f'Invalid Google token: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise GoogleAuthError(detail=f'Invalid Google token: {str(e)}')
         except Exception as e:
-            return Response(
-                {'detail': f'Google login failed: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            raise GoogleAuthError(detail=f'Google login failed: {str(e)}')
 
 
 class LogoutView(APIView):
@@ -307,18 +304,12 @@ class UserActivityView(APIView):
             try:
                 user = User.objects.get(id=int(username))
             except User.DoesNotExist:
-                return Response(
-                    {'detail': 'User not found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                raise UserNotFound()
         else:
             try:
                 user = User.objects.get(username=username)
             except User.DoesNotExist:
-                return Response(
-                    {'detail': 'User not found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                raise UserNotFound()
 
         # Check privacy settings
         settings = user.settings
@@ -425,24 +416,15 @@ class FollowUserView(APIView):
         try:
             target_user = User.objects.get(username=username)
         except User.DoesNotExist:
-            return Response(
-                {'detail': 'User not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            raise UserNotFound()
 
         # Prevent self-following
         if request.user == target_user:
-            return Response(
-                {'detail': 'You cannot follow yourself'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise SelfFollowNotAllowed()
 
         # Check if already following
         if Follow.objects.filter(follower=request.user, followed=target_user).exists():
-            return Response(
-                {'detail': 'You are already following this user'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise AlreadyFollowing()
 
         # Create follow relationship
         Follow.objects.create(follower=request.user, followed=target_user)
@@ -467,10 +449,7 @@ class UnfollowUserView(APIView):
         try:
             target_user = User.objects.get(username=username)
         except User.DoesNotExist:
-            return Response(
-                {'detail': 'User not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            raise UserNotFound()
 
         # Try to delete follow relationship
         deleted_count, _ = Follow.objects.filter(
@@ -479,10 +458,7 @@ class UnfollowUserView(APIView):
         ).delete()
 
         if deleted_count == 0:
-            return Response(
-                {'detail': 'You are not following this user'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise NotFollowing()
 
         return Response({
             'message': f'You have unfollowed {username}',
