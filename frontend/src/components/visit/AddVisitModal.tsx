@@ -4,6 +4,7 @@ import { Cafe, VisitCreate } from '../../types';
 import { Modal, ResultModal } from '../common';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance } from '../../utils';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import styles from './AddVisitModal.module.css';
 
 interface AddVisitModalProps {
@@ -160,18 +161,20 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
       }
 
       let errorTitle = 'Failed to Log Visit';
-      let errorMessage = error.response?.data?.message || error.message || 'Failed to log visit. Please try again.';
       let errorDetails = null;
 
-      if (error.response?.data?.check_in_latitude) {
+      // Check for field-specific distance error
+      const distanceError = getFieldError(error, 'check_in_latitude');
+      if (distanceError) {
         errorTitle = 'Distance Check Failed';
-        errorMessage = error.response.data.check_in_latitude[0];
         errorDetails = (
           <div className={styles.errorTip}>
             <p>💡 You must be within 1km of the cafe to log a visit. Please move closer and try again.</p>
           </div>
         );
       }
+
+      const errorMessage = distanceError || extractApiError(error).message;
 
       resultModal.showResultModal({
         type: 'error',

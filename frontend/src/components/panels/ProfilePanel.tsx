@@ -33,6 +33,7 @@ import { formatDistanceToNow, differenceInDays, format } from 'date-fns';
 import { formatDate, formatRating, formatPriceRange } from '../../utils';
 import { formatCurrency, CURRENCIES } from '../../utils/currency';
 import { formatVisitTime } from '../../utils/visit';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
@@ -205,12 +206,11 @@ const ProfilePanel: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
+      const bioError = getFieldError(error, 'bio');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: error.response?.data?.bio?.[0] ||
-                 error.response?.data?.detail ||
-                 'Failed to update profile',
+        message: bioError || extractApiError(error).message,
       });
     } finally {
       setLoading(false);
@@ -257,12 +257,11 @@ const ProfilePanel: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
+      const usernameError = getFieldError(error, 'username');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: error.response?.data?.username?.[0] ||
-                 error.response?.data?.detail ||
-                 'Username may already be taken',
+        message: usernameError || extractApiError(error).message,
       });
     } finally {
       setSavingUsername(false);
@@ -410,11 +409,10 @@ const ProfilePanel: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to update visit';
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Update Visit',
-        message: errorMsg,
+        message: extractApiError(error).message,
       });
     }
   };
@@ -444,11 +442,10 @@ const ProfilePanel: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to delete visit';
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Delete Visit',
-        message: errorMsg,
+        message: extractApiError(error).message,
       });
     } finally {
       setIsDeleting(false);
@@ -473,7 +470,7 @@ const ProfilePanel: React.FC = () => {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',
-        message: error.message || 'Failed to remove favorite. Please try again.',
+        message: extractApiError(error).message,
       });
     }
   };

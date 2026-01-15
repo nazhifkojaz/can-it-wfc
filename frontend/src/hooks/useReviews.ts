@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { reviewApi } from '../api/client';
 import { ReviewUpdate } from '../types';
 import { queryKeys } from '../config/queryKeys';
+import { extractApiError } from '../utils/errorUtils';
 
 export const useReviews = (cafeId?: number) => {
   const queryClient = useQueryClient();
@@ -150,7 +151,7 @@ export const useReviews = (cafeId?: number) => {
   return {
     reviews,
     loading,
-    error: fetchError ? String(fetchError) : null,
+    error: fetchError ? extractApiError(fetchError).message : null,
     refetch,
     fetchNextPage,
     hasNextPage,
@@ -183,7 +184,7 @@ export const useMyReviews = () => {
   return {
     reviews,
     loading,
-    error: fetchError ? String(fetchError) : null,
+    error: fetchError ? extractApiError(fetchError).message : null,
     refetch,
   };
 };

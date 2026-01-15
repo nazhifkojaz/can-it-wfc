@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, UserLogin, UserRegistration } from '../types';
 import { authApi, userApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
+import { extractApiError } from '../utils/errorUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -70,9 +71,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userData);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Login failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const apiError = extractApiError(err);
+      setError(apiError.message);
+      throw new Error(apiError.message);
     } finally {
       setLoading(false);
     }
@@ -97,9 +98,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password: data.password,
       });
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Registration failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const apiError = extractApiError(err);
+      setError(apiError.message);
+      throw new Error(apiError.message);
     } finally {
       setLoading(false);
     }

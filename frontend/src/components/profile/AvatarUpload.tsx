@@ -3,6 +3,7 @@ import { User, Upload, X, Loader } from 'lucide-react';
 import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
 import { CLOUDINARY_CONFIG, validateAvatarFile } from '../../config/cloudinary';
+import { extractApiError } from '../../utils/errorUtils';
 import styles from './AvatarUpload.module.css';
 
 interface AvatarUploadProps {
@@ -146,11 +147,11 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
               autoClose: true,
               autoCloseDelay: 2000,
             });
-          } catch (error) {
+          } catch (error: any) {
             resultModal.showResultModal({
               type: 'error',
               title: 'Remove Failed',
-              message: 'Failed to remove avatar.',
+              message: extractApiError(error).message,
             });
           }
         },

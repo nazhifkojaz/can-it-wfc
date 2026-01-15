@@ -7,6 +7,7 @@ import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
 import { VISIT_TIME_OPTIONS } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import styles from './AddVisitReviewModal.module.css';
 
 /**
@@ -282,32 +283,36 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
 
       let errorTitle = 'Failed to Log Visit';
-      let errorMessage = error.response?.data?.message || error.message || 'Failed to log visit. Please try again.';
       let errorDetails = null;
 
-      if (error.response?.data?.check_in_latitude) {
+      // Check for field-specific errors
+      const distanceError = getFieldError(error, 'check_in_latitude');
+      const cafeIdError = getFieldError(error, 'cafe_id');
+      const ratingError = getFieldError(error, 'wfc_rating');
+
+      let errorMessage: string;
+
+      if (distanceError) {
         errorTitle = 'Distance Check Failed';
-        errorMessage = error.response.data.check_in_latitude[0];
+        errorMessage = distanceError;
         errorDetails = (
           <div className={styles.errorTip}>
             <p>💡 You must be within 1km of the cafe to log a visit. Please move closer and try again.</p>
           </div>
         );
-      } else if (error.response?.data?.cafe_id) {
-        // Duplicate review error (UPDATED: Review Refactor)
+      } else if (cafeIdError) {
         errorTitle = 'Review Already Exists';
-        const errorMsg = Array.isArray(error.response.data.cafe_id)
-          ? error.response.data.cafe_id[0]
-          : error.response.data.cafe_id;
-        errorMessage = errorMsg;
+        errorMessage = cafeIdError;
         errorDetails = (
           <div className={styles.errorTip}>
             <p>💡 You can edit your existing review from your visits page.</p>
           </div>
         );
-      } else if (error.response?.data?.wfc_rating) {
+      } else if (ratingError) {
         errorTitle = 'Validation Error';
-        errorMessage = error.response.data.wfc_rating[0];
+        errorMessage = ratingError;
+      } else {
+        errorMessage = extractApiError(error).message;
       }
 
       resultModal.showResultModal({

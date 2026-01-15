@@ -5,6 +5,7 @@ import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
 import { ConfirmDialog, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
+import { extractApiError } from '../../utils/errorUtils';
 import FlagReviewModal from './FlagReviewModal';
 import styles from './ReviewCard.module.css';
 
@@ -88,7 +89,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Delete Review',
-        message: error.response?.data?.detail || error.message || 'Failed to delete review. Please try again.',
+        message: extractApiError(error).message,
       });
     } finally {
       setIsDeleting(false);
@@ -148,14 +149,10 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         console.error('Failed to flag review:', error);
       }
 
-      const errorMessage = error.response?.data?.detail ||
-                          error.response?.data?.non_field_errors?.[0] ||
-                          'Failed to submit report. Please try again.';
-
       resultModal.showResultModal({
         type: 'error',
         title: 'Report Failed',
-        message: errorMessage,
+        message: extractApiError(error).message,
       });
 
       throw error; // Re-throw so modal knows to not close

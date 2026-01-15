@@ -7,6 +7,7 @@ import { useResultModal } from '../../hooks';
 import { ResultModal } from '../common';
 import UsernameSetupModal from './UsernameSetupModal';
 import { User } from '../../types';
+import { extractApiError } from '../../utils/errorUtils';
 import styles from './GoogleLoginButton.module.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || '';
@@ -54,12 +55,11 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin' }
       if (import.meta.env.DEV) {
         console.error('Google login error:', error);
       }
+      const apiError = extractApiError(error);
       resultModal.showResultModal({
         type: 'error',
         title: 'Google Sign-In Failed',
-        message: error.response?.data?.detail ||
-                 error.response?.data?.non_field_errors?.[0] ||
-                 'Failed to sign in with Google. Please try again.',
+        message: apiError.message,
       });
     }
   };

@@ -7,6 +7,7 @@ import { useVisits, useResultModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { reviewApi } from '../../api/client';
 import { formatDate, formatRating } from '../../utils';
+import { extractApiError } from '../../utils/errorUtils';
 import { formatCurrency, CURRENCIES } from '../../utils/currency';
 import { VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review } from '../../types';
@@ -188,12 +189,11 @@ const VisitsPanel: React.FC = () => {
       if (import.meta.env.DEV) {
         console.error('Error updating visit:', error);
       }
-      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to update visit';
 
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Update Visit',
-        message: errorMsg,
+        message: extractApiError(error).message,
       });
     }
   };
@@ -226,12 +226,11 @@ const VisitsPanel: React.FC = () => {
       if (import.meta.env.DEV) {
         console.error('Error deleting visit:', error);
       }
-      const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to delete visit';
 
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Delete Visit',
-        message: errorMsg,
+        message: extractApiError(error).message,
       });
     } finally {
       setIsDeleting(false);

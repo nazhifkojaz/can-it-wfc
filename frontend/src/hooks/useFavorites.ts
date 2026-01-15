@@ -3,6 +3,7 @@ import { cafeApi } from '../api/client';
 import { Cafe } from '../types';
 import { queryKeys } from '../config/queryKeys';
 import { useCallback } from 'react';
+import { extractApiError } from '../utils/errorUtils';
 
 export const useFavorites = () => {
   const queryClient = useQueryClient();
@@ -77,7 +78,7 @@ export const useFavorites = () => {
   return {
     favorites,
     loading,
-    error: fetchError ? String(fetchError) : null,
+    error: fetchError ? extractApiError(fetchError).message : null,
     refetch,
     toggleFavorite,
     isFavorite,

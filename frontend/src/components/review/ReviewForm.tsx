@@ -5,6 +5,7 @@ import { Modal, ResultModal } from '../common';
 import { useReviews, useResultModal } from '../../hooks';
 import { reviewApi } from '../../api/client';
 import { isValidReviewComment } from '../../utils';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import styles from './ReviewForm.module.css';
 
@@ -154,20 +155,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         console.error('Error submitting review:', err);
       }
 
-      // Handle specific error cases
-      if (err.response?.data?.cafe_id) {
-        // Duplicate review error from backend
-        const errorMsg = Array.isArray(err.response.data.cafe_id)
-          ? err.response.data.cafe_id[0]
-          : err.response.data.cafe_id;
-        setError(errorMsg);
-      } else if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError(err.message || 'Failed to submit review. Please try again.');
-      }
+      // Check for field-specific errors first (e.g., duplicate review)
+      const cafeIdError = getFieldError(err, 'cafe_id');
+      const errorMessage = cafeIdError || extractApiError(err).message;
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

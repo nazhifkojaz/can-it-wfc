@@ -26,6 +26,7 @@ import {
 import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
+import { extractApiError, ApiError } from '../utils/errorUtils';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -527,35 +528,30 @@ export default api;
 // Error Handler Utility
 // ===========================
 
-export const handleApiError = (error: any) => {
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<any>;
-    
-    if (axiosError.response) {
-      // Server responded with error
-      const { status, data } = axiosError.response;
-      
-      switch (status) {
-        case 400:
-          return data.message || 'Invalid request';
-        case 401:
-          return 'Unauthorized. Please login again.';
-        case 403:
-          return 'You do not have permission to perform this action.';
-        case 404:
-          return 'Resource not found';
-        case 429:
-          return 'Too many requests. Please try again later.';
-        case 500:
-          return 'Server error. Please try again later.';
-        default:
-          return data.message || 'An error occurred';
-      }
-    } else if (axiosError.request) {
-      // Request made but no response
-      return 'Network error. Please check your connection.';
-    }
+/**
+ * Handle API error and return user-friendly message.
+ * Uses centralized error extraction utility.
+ */
+export const handleApiError = (error: any): string => {
+  const apiError = extractApiError(error);
+
+  // Log in development
+  if (import.meta.env.DEV) {
+    console.error('API Error:', {
+      code: apiError.code,
+      message: apiError.message,
+      details: apiError.details,
+      status: apiError.status,
+    });
   }
-  
-  return 'An unexpected error occurred';
+
+  return apiError.message;
+};
+
+/**
+ * Get full API error info (code, message, details).
+ * Useful for programmatic error handling.
+ */
+export const getApiError = (error: any): ApiError => {
+  return extractApiError(error);
 };

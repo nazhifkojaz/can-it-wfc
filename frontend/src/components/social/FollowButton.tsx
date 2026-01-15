@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserPlus, UserMinus } from 'lucide-react';
 import { userApi } from '../../api/client';
+import { extractApiError } from '../../utils/errorUtils';
 import styles from './FollowButton.module.css';
 
 interface FollowButtonProps {
@@ -33,10 +34,9 @@ const FollowButton: React.FC<FollowButtonProps> = ({
       }
     } catch (error) {
       console.error('Failed to toggle follow:', error);
-      const errorMessage = error instanceof Error ? error : new Error('Failed to update follow status');
-      onError?.(errorMessage);
-      // Optionally show a brief error message in the component
-      alert(`Failed to ${isFollowing ? 'unfollow' : 'follow'} user. Please try again.`);
+      const apiError = extractApiError(error);
+      const errorObj = new Error(apiError.message);
+      onError?.(errorObj);
     } finally {
       setLoading(false);
     }

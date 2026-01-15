@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { visitApi } from '../api/client';
 import { VisitCreate, CombinedVisitReviewCreate } from '../types';
 import { queryKeys } from '../config/queryKeys';
+import { extractApiError } from '../utils/errorUtils';
 
 export const useVisits = () => {
   const queryClient = useQueryClient();
@@ -183,7 +184,7 @@ export const useVisits = () => {
   return {
     visits,
     loading,
-    error: fetchError ? String(fetchError) : null,
+    error: fetchError ? extractApiError(fetchError).message : null,
     refetch,
     fetchNextPage,
     hasNextPage,

@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { cafeApi } from '../api/client';
 import { Cafe, NearbyCafesParams } from '../types';
+import { extractApiError } from '../utils/errorUtils';
 
 interface UseCafesOptions {
   autoFetch?: boolean;
@@ -28,7 +29,7 @@ export const useCafes = (options?: UseCafesOptions) => {
       });
       setCafes(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch cafes');
+      setError(extractApiError(err).message);
     } finally {
       setLoading(false);
     }
@@ -52,7 +53,7 @@ export const useCafes = (options?: UseCafesOptions) => {
       const data = await cafeApi.search(query);
       setCafes(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to search cafes');
+      setError(extractApiError(err).message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export const useNearbyCafes = (params?: NearbyCafesParams) => {
       const data = await cafeApi.getNearby(searchParams);
       setCafes(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch nearby cafes');
+      setError(extractApiError(err).message);
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ export const useCafe = (cafeId?: number) => {
       const data = await cafeApi.getById(id);
       setCafe(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch cafe');
+      setError(extractApiError(err).message);
     } finally {
       setLoading(false);
     }
