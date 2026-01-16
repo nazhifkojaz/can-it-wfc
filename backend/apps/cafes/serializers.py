@@ -137,7 +137,17 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         ]
 
     def get_is_favorited(self, obj):
-        """Check if current user has favorited this cafe."""
+        """
+        Check if current user has favorited this cafe.
+
+        Uses prefetched data when available (from CafeDetailView.get_queryset)
+        to avoid N+1 query problem. Falls back to database query for edge cases.
+        """
+        # Use prefetched data if available (avoids N+1 query)
+        if hasattr(obj, '_user_favorites'):
+            return len(obj._user_favorites) > 0
+
+        # Fallback for cases without prefetch (e.g., nested serializers)
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return Favorite.objects.filter(user=request.user, cafe=obj).exists()

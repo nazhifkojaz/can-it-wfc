@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Prefetch
 from core.exceptions import CafeNotFound, AlreadyFavorited
 from .models import Cafe, Favorite, CafeFlag
 from .serializers import (
@@ -55,20 +56,38 @@ class CafeListCreateView(generics.ListCreateAPIView):
 class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update or delete a cafe.
-    
+
     GET /api/cafes/{id}/
     PUT /api/cafes/{id}/
     PATCH /api/cafes/{id}/
     DELETE /api/cafes/{id}/
     """
-    queryset = Cafe.objects.all()
     permission_classes = [IsOwnerOrReadOnly]
-    
+
+    def get_queryset(self):
+        """
+        Get queryset with prefetched favorites for authenticated users.
+
+        This eliminates the N+1 query problem in get_is_favorited().
+        """
+        queryset = Cafe.objects.all()
+
+        # Prefetch user's favorites to avoid N+1 query in serializer
+        if self.request.user.is_authenticated:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'favorited_by',
+                    queryset=Favorite.objects.filter(user=self.request.user),
+                    to_attr='_user_favorites'
+                )
+            )
+        return queryset
+
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
             return CafeUpdateSerializer
         return CafeDetailSerializer
-    
+
     def perform_destroy(self, instance):
         """Soft delete: mark as closed instead of deleting."""
         instance.is_closed = True
