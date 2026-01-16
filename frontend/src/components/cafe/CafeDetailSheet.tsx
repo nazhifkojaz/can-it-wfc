@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
-import { Cafe, Review } from '../../types';
+import { Cafe } from '../../types';
 import { Sheet, Loading, EmptyState, ResultModal } from '../common';
-import { useReviews, useFavorites, useGeolocation, useResultModal } from '../../hooks';
+import { useReviews, useFavorites, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
 import UserProfileModal from '../profile/UserProfileModal';
@@ -13,8 +13,6 @@ import DetailedRatings from './DetailedRatings';
 import QuickInfo from './QuickInfo';
 import ActionButtons from './ActionButtons';
 import FacilitiesStats from './FacilitiesStats';
-import { cafeApi } from '../../api/client';
-import { calculateDistance } from '../../utils/calculations';
 import { formatDistance } from '../../utils/formatters';
 import styles from './CafeDetailSheet.module.css';
 
@@ -32,8 +30,14 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   onLogVisit,
 }) => {
   const { user } = useAuth();
-  const [cafe, setCafe] = useState<Cafe>(initialCafe);
-  const [refreshingCafe, setRefreshingCafe] = useState(false);
+  const { location } = useGeolocation({ watch: false });
+
+  // Use custom hook for cafe state management (replaces 2 useState + 3 useEffect)
+  const { cafe, isRefreshing: refreshingCafe } = useCafeDetail({
+    initialCafe,
+    isOpen,
+    userLocation: location,
+  });
 
   const {
     reviews,
@@ -46,7 +50,6 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     flagReview,
   } = useReviews(cafe.is_registered && cafe.id > 0 ? cafe.id : undefined);
   const { toggleFavorite, isFavorite } = useFavorites();
-  const { location } = useGeolocation({ watch: false });
   const resultModal = useResultModal();
 
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
@@ -57,57 +60,12 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     rootMargin: '100px',
   });
 
-  // Update local cafe state when initialCafe changes
+  // Load more reviews when scrolling
   useEffect(() => {
-    // Set initial data immediately (for unregistered cafes or initial display)
-    setCafe(initialCafe);
-
-    // For registered cafes, fetch fresh data from API
-    const refreshCafeData = async () => {
-      if (isOpen && initialCafe.is_registered && initialCafe.id > 0) {
-        setRefreshingCafe(true);
-        try {
-          const freshCafe = await cafeApi.getById(initialCafe.id);
-          // Preserve fields that are computed on frontend (like distance)
-          setCafe({
-            ...freshCafe,
-            distance: initialCafe.distance,
-          });
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error refreshing cafe data:', error);
-          }
-          // Keep using initialCafe data on error
-        } finally {
-          setRefreshingCafe(false);
-        }
-      }
-    };
-
-    refreshCafeData();
-  }, [isOpen, initialCafe]);
-
-  React.useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // Calculate distance if missing and user location is available
-  useEffect(() => {
-    if (!cafe.distance && location) {
-      const distance = calculateDistance(
-        location.lat,
-        location.lng,
-        parseFloat(cafe.latitude),
-        parseFloat(cafe.longitude)
-      );
-      setCafe(prev => ({
-        ...prev,
-        distance: `${distance.toFixed(2)} km`
-      }));
-    }
-  }, [cafe.distance, cafe.latitude, cafe.longitude, location]);
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
