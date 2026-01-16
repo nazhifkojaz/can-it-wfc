@@ -182,160 +182,172 @@ class MergedNearbyCafesView(APIView):
     throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
 
     def get(self, request):
-        # Validate query parameters
+        """Main endpoint handler - orchestrates the nearby cafes search."""
+        params = self._validate_and_extract_params(request)
+        google_places = self._fetch_google_places(params)
+        registered_map = self._get_registered_cafes_map(google_places)
+        enriched = self._enrich_and_filter_results(google_places, registered_map, params)
+        sorted_results = self._sort_and_limit(enriched, params['limit'])
+        return self._build_response(sorted_results)
+
+    def _validate_and_extract_params(self, request):
+        """Validate query parameters and extract search configuration."""
         serializer = NearbyQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
         latitude = serializer.validated_data['latitude']
         longitude = serializer.validated_data['longitude']
-        radius_km = float(serializer.validated_data.get('radius_km', 1))
-        limit = serializer.validated_data.get('limit', MAX_NEARBY_CAFES)
-
-        # Get user's actual location for distance calculation (if provided)
         user_latitude = serializer.validated_data.get('user_latitude')
         user_longitude = serializer.validated_data.get('user_longitude')
 
-        # Use user location for distance if available, otherwise use search center
-        distance_ref_lat = float(user_latitude) if user_latitude else float(latitude)
-        distance_ref_lng = float(user_longitude) if user_longitude else float(longitude)
+        return {
+            'latitude': latitude,
+            'longitude': longitude,
+            'radius_km': float(serializer.validated_data.get('radius_km', 1)),
+            'limit': serializer.validated_data.get('limit', MAX_NEARBY_CAFES),
+            # Use user location for distance if available, otherwise use search center
+            'distance_ref_lat': float(user_latitude) if user_latitude else float(latitude),
+            'distance_ref_lng': float(user_longitude) if user_longitude else float(longitude),
+        }
 
-        # 1. Get coffee shops from Google Places FIRST (primary search engine)
-        google_places = []
+    def _fetch_google_places(self, params):
+        """Fetch coffee shops from Google Places API."""
         try:
-            google_places = GooglePlacesService.search_nearby_coffee_shops(
-                latitude=latitude,
-                longitude=longitude,
-                radius_meters=int(radius_km * 1000)
+            return GooglePlacesService.search_nearby_coffee_shops(
+                latitude=params['latitude'],
+                longitude=params['longitude'],
+                radius_meters=int(params['radius_km'] * 1000)
             )
         except Exception as e:
-            # Log the error but continue
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Google Places API error: {e}")
+            return []
 
-        # 2. Extract google_place_ids for indexed lookup
+    def _get_registered_cafes_map(self, google_places):
+        """
+        Look up which Google Places are registered in our database.
+
+        Returns a dict mapping google_place_id -> cafe data for O(1) enrichment.
+        """
         google_place_ids = [
             p['google_place_id']
             for p in google_places
             if p.get('google_place_id')
         ]
 
-        # 3. Single indexed lookup to check which cafes are WFC-verified (O(log N))
-        #    This replaces the slow PostGIS spatial query
-        registered_cafes = {}
-        if google_place_ids:
-            db_cafes = Cafe.objects.filter(
-                google_place_id__in=google_place_ids,
-                is_closed=False
-            ).select_related('created_by').values(
-                'id', 'google_place_id', 'name', 'latitude', 'longitude',
-                'average_wfc_rating', 'total_reviews', 'total_visits', 'unique_visitors',
-                'average_ratings_cache', 'facility_stats_cache', 'is_verified'
-            )
+        if not google_place_ids:
+            return {}
 
-            # Create lookup map for O(1) enrichment
-            registered_cafes = {
-                cafe['google_place_id']: cafe
-                for cafe in db_cafes
-            }
+        db_cafes = Cafe.objects.filter(
+            google_place_id__in=google_place_ids,
+            is_closed=False
+        ).select_related('created_by').values(
+            'id', 'google_place_id', 'name', 'latitude', 'longitude',
+            'average_wfc_rating', 'total_reviews', 'total_visits', 'unique_visitors',
+            'average_ratings_cache', 'facility_stats_cache', 'is_verified'
+        )
 
-        # 4. Filter and enrich Google Places results
-        ALLOWED_KEYWORDS = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
-            'coffee',
-            'coffee shop',
-            'roastery',
-            'roaster',
-            'kopi',
-            'koffie'
+        return {cafe['google_place_id']: cafe for cafe in db_cafes}
+
+    def _get_filter_config(self):
+        """Get keyword and type filters for unregistered cafes."""
+        allowed_keywords = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
+            'coffee', 'coffee shop', 'roastery', 'roaster', 'kopi', 'koffie'
         ])
-        ALLOWED_TYPES = getattr(settings, 'GOOGLE_PLACES_ALLOWED_TYPES', {
-            'cafe',
-            'coffee_shop',
-            'bakery',
-            'restaurant',
-            'food'
+        allowed_types = getattr(settings, 'GOOGLE_PLACES_ALLOWED_TYPES', {
+            'cafe', 'coffee_shop', 'bakery', 'restaurant', 'food'
         })
+        return allowed_keywords, allowed_types
 
+    def _enrich_registered_place(self, place, wfc_data):
+        """Enrich a registered cafe with WFC data."""
+        place.update({
+            'is_registered': True,
+            'source': 'database',
+            'id': wfc_data['id'],
+            'average_wfc_rating': float(wfc_data['average_wfc_rating']) if wfc_data['average_wfc_rating'] else None,
+            'total_reviews': wfc_data['total_reviews'],
+            'unique_visitors': wfc_data['unique_visitors'],
+            'total_visits': wfc_data['total_visits'],
+            'is_verified': wfc_data['is_verified'],
+            'average_ratings': wfc_data['average_ratings_cache'],
+            'facility_stats': wfc_data['facility_stats_cache'],
+        })
+        return place
+
+    def _should_include_unregistered(self, place, allowed_keywords, allowed_types):
+        """Check if an unregistered place passes keyword/type filters."""
+        name_lower = (place.get('name') or '').lower()
+        if allowed_keywords and not any(kw in name_lower for kw in allowed_keywords):
+            return False
+
+        place_types = set(place.get('types') or [])
+        if allowed_types and place_types and place_types.isdisjoint(allowed_types):
+            return False
+
+        return True
+
+    def _enrich_unregistered_place(self, place):
+        """Add default values for an unregistered cafe."""
+        place.update({
+            'is_registered': False,
+            'source': 'google_places',
+            'id': f"google_{place['google_place_id']}",
+            'average_wfc_rating': None,
+            'total_reviews': 0,
+            'unique_visitors': 0,
+            'total_visits': 0,
+            'is_verified': False,
+            'average_ratings': None,
+            'facility_stats': None,
+        })
+        return place
+
+    def _enrich_and_filter_results(self, google_places, registered_map, params):
+        """Filter unregistered cafes and enrich all results with WFC/distance data."""
+        allowed_keywords, allowed_types = self._get_filter_config()
         enriched_results = []
+
         for place in google_places:
             place_id = place.get('google_place_id')
 
-            # Check if this cafe is WFC-verified (exists in our DB)
-            if place_id and place_id in registered_cafes:
-                # Enrich with WFC data
-                wfc_data = registered_cafes[place_id]
-                place.update({
-                    'is_registered': True,
-                    'source': 'database',  # Frontend expects 'database' for registered cafes
-                    'id': wfc_data['id'],  # Use 'id' for database ID
-                    'average_wfc_rating': float(wfc_data['average_wfc_rating']) if wfc_data['average_wfc_rating'] else None,
-                    'total_reviews': wfc_data['total_reviews'],
-                    'unique_visitors': wfc_data['unique_visitors'],
-                    'total_visits': wfc_data['total_visits'],
-                    'is_verified': wfc_data['is_verified'],
-                    'average_ratings': wfc_data['average_ratings_cache'],  # Frontend expects 'average_ratings'
-                    'facility_stats': wfc_data['facility_stats_cache'],  # Frontend expects 'facility_stats'
-                })
+            if place_id and place_id in registered_map:
+                # Registered cafe - enrich with WFC data
+                place = self._enrich_registered_place(place, registered_map[place_id])
             else:
-                # if it's not WFC-verified, apply keyword/type filtering
-                # Filter by name keywords
-                name_lower = (place.get('name') or '').lower()
-                if ALLOWED_KEYWORDS and not any(keyword in name_lower for keyword in ALLOWED_KEYWORDS):
+                # Unregistered cafe - apply filters
+                if not self._should_include_unregistered(place, allowed_keywords, allowed_types):
                     continue
+                place = self._enrich_unregistered_place(place)
 
-                # Filter by place types
-                place_types = set(place.get('types') or [])
-                if ALLOWED_TYPES and place_types and place_types.isdisjoint(ALLOWED_TYPES):
-                    continue
-
-                # Put default values for unregistered, and allowed cafes only
-                place.update({
-                    'is_registered': False,
-                    'source': 'google_places',  # Frontend expects 'google_places' for unregistered
-                    'id': f"google_{place['google_place_id']}",  # Temporary ID for unregistered
-                    'average_wfc_rating': None,
-                    'total_reviews': 0,
-                    'unique_visitors': 0,
-                    'total_visits': 0,
-                    'is_verified': False,
-                    'average_ratings': None,
-                    'facility_stats': None,
-                })
-
-            # Calculate distance to user location
-            distance_km = Cafe.calculate_distance(
+            # Calculate distance and add Google rating fields
+            place['distance'] = round(Cafe.calculate_distance(
                 float(place['latitude']),
                 float(place['longitude']),
-                distance_ref_lat,
-                distance_ref_lng
-            )
-            place['distance'] = round(distance_km, 2)
-
-            # Add Google rating fields (always present from Google Places)
+                params['distance_ref_lat'],
+                params['distance_ref_lng']
+            ), 2)
             place['google_rating'] = place.get('rating')
             place['google_ratings_count'] = place.get('user_ratings_total', 0)
 
             enriched_results.append(place)
 
-        # 5. Sort: WFC-verified cafes first, then by distance
-        enriched_results.sort(
-            key=lambda x: (
-                not x['is_registered'],  # WFC-verified first (False sorts before True)
-                x['distance']  # Then by distance (numeric)
-            )
-        )
+        return enriched_results
 
-        # Apply limit
-        enriched_results = enriched_results[:limit]
+    def _sort_and_limit(self, results, limit):
+        """Sort by registration status (registered first) then by distance."""
+        results.sort(key=lambda x: (not x['is_registered'], x['distance']))
+        return results[:limit]
 
-        # 6. Return enriched results
-        registered_count = sum(1 for p in enriched_results if p['is_registered'])
-
+    def _build_response(self, results):
+        """Format the final API response."""
+        registered_count = sum(1 for p in results if p['is_registered'])
         return Response({
-            'count': len(enriched_results),
+            'count': len(results),
             'registered_count': registered_count,
-            'unregistered_count': len(enriched_results) - registered_count,
-            'results': enriched_results
+            'unregistered_count': len(results) - registered_count,
+            'results': results
         })
 
 
