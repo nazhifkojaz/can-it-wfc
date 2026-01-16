@@ -3,11 +3,16 @@ Activity service layer.
 
 Handles activity creation and distribution (fan-out).
 """
-from typing import List
+from typing import List, Type, TYPE_CHECKING
 from django.db import transaction
+from django.db.models import Model, QuerySet
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from .models import Activity, ActivityType
+
+if TYPE_CHECKING:
+    from apps.reviews.models import Visit, Review
+    from apps.accounts.models import Follow
 
 User = get_user_model()
 
@@ -36,7 +41,7 @@ class ActivityService:
 
     @classmethod
     @transaction.atomic
-    def create_visit_activity(cls, visit):
+    def create_visit_activity(cls, visit: 'Visit') -> int:
         """
         DEPRECATED: Visit activities removed from social feed for privacy.
 
@@ -101,7 +106,7 @@ class ActivityService:
 
     @classmethod
     @transaction.atomic
-    def create_review_activity(cls, review):
+    def create_review_activity(cls, review: 'Review') -> int:
         """
         Create activity when user reviews a cafe.
 
@@ -157,7 +162,7 @@ class ActivityService:
 
     @classmethod
     @transaction.atomic
-    def create_follow_activity(cls, follow):
+    def create_follow_activity(cls, follow: 'Follow') -> int:
         """
         Create activity when user follows someone.
 
@@ -272,7 +277,7 @@ class ActivityService:
         return list(User.objects.filter(id__in=follower_ids))
 
     @classmethod
-    def get_user_feed(cls, user, limit=50, offset=0):
+    def get_user_feed(cls, user: User, limit: int = 50, offset: int = 0) -> QuerySet[Activity]:
         """
         Get user's activity feed.
 
@@ -295,7 +300,7 @@ class ActivityService:
         return activities
 
     @classmethod
-    def soft_delete_activities(cls, target_model, target_id):
+    def soft_delete_activities(cls, target_model: Type[Model], target_id: int) -> int:
         """
         Soft delete activities when source object is deleted.
 
@@ -305,6 +310,9 @@ class ActivityService:
         Args:
             target_model: Model class (Visit, Review, Follow)
             target_id: ID of the deleted object
+
+        Returns:
+            int: Number of activities soft-deleted
         """
         content_type = ContentType.objects.get_for_model(target_model)
 
