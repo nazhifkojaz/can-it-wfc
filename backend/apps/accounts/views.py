@@ -1,8 +1,7 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -39,7 +38,7 @@ from .serializers import (
     UserActivityItemSerializer,
     FollowUserSerializer,
 )
-from .models import UserSettings, Follow
+from .models import Follow
 
 User = get_user_model()
 
@@ -168,8 +167,6 @@ class GoogleLoginView(APIView):
 
             # Get user info from token
             email = idinfo.get('email')
-            given_name = idinfo.get('given_name', '')
-            family_name = idinfo.get('family_name', '')
             picture = idinfo.get('picture', '')
 
             if not email:

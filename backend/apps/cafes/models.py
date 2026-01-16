@@ -214,7 +214,7 @@ class Cafe(models.Model):
         Uses @transaction.atomic to ensure all-or-nothing updates.
         """
         from apps.reviews.models import Review, Visit
-        from django.db.models import Count, Avg
+        from django.db.models import Count
 
         # Single aggregated query for visits (1 query instead of 2)
         visit_stats = Visit.objects.filter(cafe=self).aggregate(

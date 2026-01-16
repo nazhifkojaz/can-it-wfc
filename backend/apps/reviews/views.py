@@ -5,13 +5,12 @@ from rest_framework.exceptions import ValidationError, Throttled
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from core.exceptions import (
-    CafeNotFound,
     ReviewNotFound,
     SelfHelpfulNotAllowed,
     InvalidCafeIds,
     TooManyCafeIds,
 )
-from .models import Visit, Review, ReviewFlag, ReviewHelpful
+from .models import Visit, Review, ReviewHelpful
 from .serializers import (
     VisitSerializer,
     ReviewListSerializer,
@@ -300,7 +299,7 @@ class ReviewFlagCreateView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        flag = serializer.save()
+        serializer.save()
 
         return Response({
             'message': 'Review flagged successfully. It will be reviewed by moderators.',

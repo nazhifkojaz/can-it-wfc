@@ -184,7 +184,7 @@ class VisitSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update visit within 7-day window."""
-        from datetime import date, timedelta
+        from datetime import date
 
         # Check 7-day window
         days_since_visit = (date.today() - instance.visit_date).days

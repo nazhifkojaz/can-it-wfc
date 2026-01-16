@@ -316,7 +316,7 @@ class TestReviewModeration:
     def test_flag_review(self, authenticated_client, test_cafe, test_user, db):
         """Test flagging a review"""
         # Create visit and review
-        visit = Visit.objects.create(
+        _visit = Visit.objects.create(  # noqa: F841
             cafe=test_cafe,
             user=test_user,
             visit_date=date.today()
@@ -363,7 +363,7 @@ class TestReviewModeration:
             password='pass123'
         )
 
-        visit = Visit.objects.create(
+        _visit = Visit.objects.create(  # noqa: F841
             cafe=test_cafe,
             user=review_author,
             visit_date=date.today()
@@ -417,7 +417,7 @@ class TestCafeStatistics:
 
     def test_cafe_stats_update_after_review(self, authenticated_client, test_cafe, test_user):
         """Test cafe statistics are updated after review creation"""
-        visit = Visit.objects.create(
+        _visit = Visit.objects.create(  # noqa: F841
             cafe=test_cafe,
             user=test_user,
             visit_date=date.today()

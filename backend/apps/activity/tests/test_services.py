@@ -71,16 +71,16 @@ def test_create_review_activity(users, cafe, follows):
     alice = users['alice']
 
     # Create visit first (required for review)
-    visit = Visit.objects.create(
+    _visit = Visit.objects.create(  # noqa: F841
         user=alice,
         cafe=cafe
     )
 
-    # Create review with all required fields
-    review = Review.objects.create(
-        visit=visit,
+    # Create review with all required fields (UPDATED: Review Refactor)
+    _review = Review.objects.create(  # noqa: F841
         user=alice,
         cafe=cafe,
+        visit_time=2,  # Required field
         wifi_quality=5,
         noise_level=2,
         seating_comfort=4,
@@ -125,12 +125,12 @@ def test_get_user_feed(users, cafe, follows):
     alice = users['alice']
     bob = users['bob']
 
-    # Create some activities
-    visit = Visit.objects.create(user=alice, cafe=cafe)
-    review = Review.objects.create(
-        visit=visit,
+    # Create some activities (UPDATED: Review Refactor)
+    _visit = Visit.objects.create(user=alice, cafe=cafe)  # noqa: F841
+    _review = Review.objects.create(  # noqa: F841
         user=alice,
         cafe=cafe,
+        visit_time=2,  # Required field
         wifi_quality=5,
         noise_level=3,
         seating_comfort=4,

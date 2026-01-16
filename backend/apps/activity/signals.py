@@ -11,7 +11,7 @@ public activities (reviews, follows) appear in the social feed.
 """
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from apps.reviews.models import Visit, Review
+from apps.reviews.models import Review
 from apps.accounts.models import Follow
 from .services import ActivityService
 import logging

@@ -4,7 +4,6 @@ Tests for Activity model.
 import pytest
 from django.contrib.auth import get_user_model
 from apps.cafes.models import Cafe
-from apps.reviews.models import Visit
 from apps.activity.models import Activity, ActivityType
 
 User = get_user_model()

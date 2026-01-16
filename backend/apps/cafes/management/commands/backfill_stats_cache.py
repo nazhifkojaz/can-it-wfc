@@ -11,7 +11,6 @@ Usage:
 
 from django.core.management.base import BaseCommand
 from apps.cafes.models import Cafe
-from django.db import transaction
 
 
 class Command(BaseCommand):

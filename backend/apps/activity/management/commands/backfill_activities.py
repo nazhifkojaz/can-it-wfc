@@ -113,7 +113,7 @@ class Command(BaseCommand):
             for review in batch:
                 try:
                     with transaction.atomic():
-                        count = ActivityService.create_review_activity(review)
+                        ActivityService.create_review_activity(review)
                         processed += 1
                         if processed % 50 == 0:
                             self.stdout.write(f"  Processed {processed}/{total_reviews} reviews...")
@@ -151,7 +151,7 @@ class Command(BaseCommand):
             for follow in batch:
                 try:
                     with transaction.atomic():
-                        count = ActivityService.create_follow_activity(follow)
+                        ActivityService.create_follow_activity(follow)
                         processed += 1
                         if processed % 50 == 0:
                             self.stdout.write(f"  Processed {processed}/{total_follows} follows...")
