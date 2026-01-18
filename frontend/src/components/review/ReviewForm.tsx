@@ -5,11 +5,21 @@ import { Modal, ResultModal } from '../common';
 import { useReviews, useResultModal } from '../../hooks';
 import { reviewApi } from '../../api/client';
 import { isValidReviewComment } from '../../utils';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import styles from './ReviewForm.module.css';
 
+/**
+ * ReviewForm Component
+ *
+ * UPDATED (Review Refactor):
+ * Reviews are now cafe-based, not visit-based. One user can only have one review per cafe.
+ * - Users can edit their review anytime (no time restrictions)
+ * - No longer tied to specific visits
+ * - Duplicate reviews are prevented at the backend level
+ */
+
 interface ReviewFormProps {
-  visitId: number;
   cafeId: number;
   cafeName: string;
   isOpen: boolean;
@@ -20,7 +30,6 @@ interface ReviewFormProps {
 }
 
 const ReviewForm: React.FC<ReviewFormProps> = ({
-  visitId,
   cafeId,
   cafeName,
   isOpen,
@@ -34,7 +43,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   const resultModal = useResultModal();
 
   const [formData, setFormData] = useState<ReviewCreate>({
-    visit_id: visitId,
+    cafe_id: cafeId,
     wifi_quality: existingReview?.wifi_quality || 3,
     power_outlets_rating: existingReview?.power_outlets_rating || 3,
     noise_level: existingReview?.noise_level || 3,
@@ -104,7 +113,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         resultModal.showResultModal({
           type: 'success',
           title: 'Review Updated!',
-          message: 'Your review has been updated successfully.',
+          message: 'Your review has been updated successfully. You can edit it again anytime.',
           primaryButton: {
             label: 'Okay',
             onClick: () => {
@@ -130,7 +139,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         resultModal.showResultModal({
           type: 'success',
           title: 'Review Submitted!',
-          message: 'Your review has been submitted successfully.',
+          message: 'Your review has been submitted successfully. You can edit it anytime from your visits.',
           primaryButton: {
             label: 'Okay',
             onClick: () => {
@@ -145,7 +154,11 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       if (import.meta.env.DEV) {
         console.error('Error submitting review:', err);
       }
-      setError(err.message || 'Failed to submit review');
+
+      // Check for field-specific errors first (e.g., duplicate review)
+      const cafeIdError = getFieldError(err, 'cafe_id');
+      const errorMessage = cafeIdError || extractApiError(err).message;
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

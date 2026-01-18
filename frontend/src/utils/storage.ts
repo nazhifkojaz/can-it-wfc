@@ -69,29 +69,15 @@ export const clearStorage = (): void => {
 };
 
 // Token-specific utilities
+// NOTE: Tokens are now stored in httpOnly cookies for security (XSS protection)
+// This utility is kept only for cleaning up legacy localStorage tokens
 export const tokenStorage = {
-  getAccessToken: (): string | null => {
-    return getStorageItem<string>(STORAGE_KEYS.ACCESS_TOKEN);
-  },
-
-  setAccessToken: (token: string): void => {
-    setStorageItem(STORAGE_KEYS.ACCESS_TOKEN, token);
-  },
-
-  getRefreshToken: (): string | null => {
-    return getStorageItem<string>(STORAGE_KEYS.REFRESH_TOKEN);
-  },
-
-  setRefreshToken: (token: string): void => {
-    setStorageItem(STORAGE_KEYS.REFRESH_TOKEN, token);
-  },
-
+  /**
+   * Clear old tokens from localStorage (migration cleanup)
+   * Safe to call - removes any legacy tokens left from previous authentication implementation
+   */
   clearTokens: (): void => {
     removeStorageItem(STORAGE_KEYS.ACCESS_TOKEN);
     removeStorageItem(STORAGE_KEYS.REFRESH_TOKEN);
-  },
-
-  hasTokens: (): boolean => {
-    return !!(tokenStorage.getAccessToken() && tokenStorage.getRefreshToken());
   },
 };

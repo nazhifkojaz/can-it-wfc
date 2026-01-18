@@ -35,11 +35,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Required by allauth
-    'django.contrib.gis',  # PostGIS support for spatial queries
 
     # Third-party apps
     'rest_framework',
-    'rest_framework.authtoken',  # Required by dj-rest-auth
+    # Removed: 'rest_framework.authtoken' - Using JWT instead
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
@@ -58,6 +57,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.cafes',
     'apps.reviews',
+    'apps.activity',  # Activity stream for feeds
 ]
 
 MIDDLEWARE = [
@@ -95,18 +95,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
-# Using PostgreSQL with PostGIS for spatial queries
+# Using PostgreSQL (regular, not PostGIS)
 DATABASES = {
     'default': env.db('DATABASE_URL', default='postgresql://localhost/canitfwc'),
 }
-
-# Enable PostGIS backend for spatial queries
-DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
-
-# GeoDjango library paths (use system libraries to avoid Anaconda conflicts)
-import os
-GDAL_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgdal.so.34'
-GEOS_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgeos_c.so'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -126,6 +118,14 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Cache Configuration (required for DRF throttling)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -151,7 +151,7 @@ AUTH_USER_MODEL = 'accounts.User'
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'core.authentication.JWTCookieAuthentication',  # Custom cookie-based JWT auth
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
@@ -164,6 +164,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': 'core.exception_handlers.custom_exception_handler',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
@@ -172,6 +173,11 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour',
         'reviews': '10/hour',  # Custom rate for creating reviews
+        'bulk': '100/hour',  # Custom rate for bulk endpoints
+        'auth': '5/min',  # OAuth/Login endpoints (strict)
+        'registration': '3/hour',  # Account creation (very strict)
+        'nearby_anon': '5/min',  # Expensive Google Places API calls (anon)
+        'nearby_auth': '20/min',  # Expensive Google Places API calls (auth)
     }
 }
 
@@ -183,15 +189,29 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+
+    # Cookie-based token storage for XSS protection
+    'AUTH_COOKIE': 'access_token',           # Cookie name for access token
+    'AUTH_COOKIE_REFRESH': 'refresh_token',  # Cookie name for refresh token
+    'AUTH_COOKIE_SECURE': not DEBUG,         # HTTPS only in production
+    'AUTH_COOKIE_HTTP_ONLY': True,           # Prevent JavaScript access (XSS protection)
+    'AUTH_COOKIE_PATH': '/',                 # Available on all paths
+    'AUTH_COOKIE_SAMESITE': 'Lax',          # CSRF protection (Lax allows navigation)
+    'AUTH_COOKIE_DOMAIN': None,              # Current domain only
 }
 
 # CORS Settings
 CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
-    default=['http://localhost:3000', 'http://127.0.0.1:3000']
+    default=[
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173',  # Vite default port
+        'http://127.0.0.1:5173',
+    ]
 )
 
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True  # Required for cookie-based authentication
 
 # API Documentation (Spectacular)
 SPECTACULAR_SETTINGS = {
@@ -306,6 +326,11 @@ REST_USE_JWT = True
 JWT_AUTH_COOKIE = 'can-it-wfc-auth'
 JWT_AUTH_REFRESH_COOKIE = 'can-it-wfc-refresh'
 JWT_AUTH_HTTPONLY = env.bool('JWT_AUTH_HTTPONLY', default=not DEBUG)  # True in production (DEBUG=False)
+
+# Configure dj-rest-auth to not use token auth (using JWT instead)
+REST_AUTH = {
+    'TOKEN_MODEL': None,
+}
 
 # Google OAuth Settings
 SOCIALACCOUNT_PROVIDERS = {

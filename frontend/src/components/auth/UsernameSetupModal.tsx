@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import styles from './UsernameSetupModal.module.css';
 
 interface UsernameSetupModalProps {
@@ -63,9 +64,9 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
         onClose: () => onComplete(username),
       });
     } catch (error: any) {
-      const errorMsg = error.response?.data?.username?.[0] ||
-                       error.response?.data?.detail ||
-                       'Failed to update username. It may already be taken.';
+      // Check for field-specific username error first
+      const usernameError = getFieldError(error, 'username');
+      const errorMsg = usernameError || extractApiError(error).message;
 
       resultModal.showResultModal({
         type: 'error',

@@ -180,3 +180,35 @@
   color: var(--neo-black);
   margin: 0;
 }
+
+/* Actions */
+.actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  border-top: var(--neo-border-width-thin) solid var(--neo-gray-300);
+}
+
+.viewProfileButton {
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: var(--neo-font-extrabold);
+  text-transform: uppercase;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--neo-black);
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+}
+
+.viewProfileButton:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
+}
+
+.viewProfileButton:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}

@@ -249,7 +249,7 @@ class TestUserModel:
 
     def test_update_stats(self, test_user):
         """Test update_stats recalculates user statistics"""
-        initial_reviews = test_user.total_reviews
+        _initial_reviews = test_user.total_reviews  # noqa: F841
         test_user.update_stats()
 
         # Should recalculate from database

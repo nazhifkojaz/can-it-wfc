@@ -9,9 +9,8 @@ interface GeolocationState {
 
 interface GeolocationOptions {
   enableHighAccuracy?: boolean;
-  timeout?: number;
   maximumAge?: number;
-  watch?: boolean; // Only watch position if explicitly enabled
+  watch?: boolean; // Deprecated: watchPosition is now always used for automatic late permission handling
 }
 
 export const useGeolocation = (options?: GeolocationOptions) => {
@@ -32,26 +31,17 @@ export const useGeolocation = (options?: GeolocationOptions) => {
   }, []);
 
   const onError = useCallback((error: GeolocationPositionError) => {
-    let errorMessage = 'Failed to get your location';
-
-    switch (error.code) {
-      case error.PERMISSION_DENIED:
-        errorMessage = 'Location permission denied';
-        break;
-      case error.POSITION_UNAVAILABLE:
-        errorMessage = 'Location information unavailable';
-        break;
-      case error.TIMEOUT:
-        errorMessage = 'Location request timed out';
-        break;
+    // Only set error for explicit permission denial
+    // Ignore timeout/unavailable - watchPosition keeps trying
+    if (error.code === error.PERMISSION_DENIED) {
+      setState({
+        latitude: null,
+        longitude: null,
+        error: 'Location permission denied. Please enable location access in your browser settings.',
+        loading: false,
+      });
     }
-
-    setState({
-      latitude: null,
-      longitude: null,
-      error: errorMessage,
-      loading: false,
-    });
+    // For other errors, keep loading state - watchPosition will keep trying
   }, []);
 
   useEffect(() => {
@@ -66,40 +56,31 @@ export const useGeolocation = (options?: GeolocationOptions) => {
 
     const geoOptions: PositionOptions = {
       enableHighAccuracy: options?.enableHighAccuracy ?? true,
-      timeout: options?.timeout ?? 10000,
-      maximumAge: options?.maximumAge ?? 0,
+      maximumAge: options?.maximumAge ?? 60000, // Accept cached location up to 1 minute old
+      // No timeout - let watchPosition wait indefinitely for user permission
     };
 
-    // Get current position
-    navigator.geolocation.getCurrentPosition(onSuccess, onError, geoOptions);
+    // Use watchPosition to automatically handle late permission grants
+    // This solves the problem where users click "Allow" after a delay
+    const watchId = navigator.geolocation.watchPosition(
+      onSuccess,
+      onError,
+      geoOptions
+    );
 
-    // Only watch position if explicitly enabled (to prevent battery drain)
-    let watchId: number | undefined;
-    if (options?.watch) {
-      watchId = navigator.geolocation.watchPosition(
-        onSuccess,
-        onError,
-        geoOptions
-      );
-    }
-
-    // Cleanup - clear watch if it was set
+    // Cleanup - clear watch on unmount
     return () => {
-      if (watchId !== undefined) {
-        navigator.geolocation.clearWatch(watchId);
-      }
+      navigator.geolocation.clearWatch(watchId);
     };
   }, [
     options?.enableHighAccuracy,
-    options?.timeout,
     options?.maximumAge,
-    options?.watch,
     onSuccess,
     onError,
   ]);
 
   const refetch = useCallback(() => {
-    setState(prev => ({ ...prev, loading: true }));
+    setState(prev => ({ ...prev, loading: true, error: null }));
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -111,19 +92,21 @@ export const useGeolocation = (options?: GeolocationOptions) => {
         });
       },
       (error) => {
-        setState(prev => ({
-          ...prev,
-          error: error.message,
-          loading: false,
-        }));
+        if (error.code === error.PERMISSION_DENIED) {
+          setState(prev => ({
+            ...prev,
+            error: 'Location permission denied. Please enable location access in your browser settings.',
+            loading: false,
+          }));
+        }
+        // For other errors, keep trying via the main watchPosition
       },
       {
         enableHighAccuracy: options?.enableHighAccuracy ?? true,
-        timeout: options?.timeout ?? 10000,
-        maximumAge: options?.maximumAge ?? 0,
+        maximumAge: 0, // Force fresh location on manual refetch
       }
     );
-  }, [options?.enableHighAccuracy, options?.timeout, options?.maximumAge]);
+  }, [options?.enableHighAccuracy]);
 
   // Memoize location object to prevent unnecessary re-renders
   const location = useMemo(() => {

@@ -1,0 +1,48 @@
+/* FollowButton Component - Neobrutalism Style */
+
+.followButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  cursor: pointer;
+  transition: all var(--neo-transition-fast);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.followButton:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-black);
+  background: var(--neo-primary-dark);
+}
+
+.followButton:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.followButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.followButton.following {
+  background: var(--neo-white);
+  color: var(--neo-black);
+}
+
+.followButton.following:hover:not(:disabled) {
+  background: var(--neo-danger-light);
+  color: var(--neo-danger);
+  border-color: var(--neo-danger);
+}

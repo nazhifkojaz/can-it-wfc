@@ -1,10 +1,10 @@
 import React from 'react';
-import { ClipboardList, Star, User } from 'lucide-react';
+import { Activity, User } from 'lucide-react';
 import { usePanel } from '../../contexts/PanelContext';
 import './BottomNav.css';
 
 interface NavItem {
-  panel: 'visits' | 'favorites' | 'profile';
+  panel: 'activity' | 'profile';
   label: string;
   icon: React.ReactNode;
 }
@@ -14,14 +14,9 @@ const BottomNav: React.FC = () => {
 
   const navItems: NavItem[] = [
     {
-      panel: 'visits',
-      label: 'Visits',
-      icon: <ClipboardList size={24} />,
-    },
-    {
-      panel: 'favorites',
-      label: 'Favorites',
-      icon: <Star size={24} />,
+      panel: 'activity',
+      label: 'Activity',
+      icon: <Activity size={24} />,
     },
     {
       panel: 'profile',

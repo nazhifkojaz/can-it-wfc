@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, List, Map as MapIcon } from 'lucide-react';
 import MobileLayout from '../components/layout/MobileLayout';
 import MapView from '../components/map/MapView';
@@ -11,6 +12,7 @@ import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
 import { Cafe } from '../types';
 import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
+import { cafeApi } from '../api/client';
 import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
@@ -33,6 +35,7 @@ interface SearchResult {
 }
 
 const MapPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [showAddVisitReview, setShowAddVisitReview] = useState(false);
@@ -46,6 +49,59 @@ const MapPage: React.FC = () => {
   const { activePanel } = usePanel();
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
+
+  // Close CafeDetailSheet when any panel opens
+  React.useEffect(() => {
+    if (activePanel) {
+      setSelectedCafe(null);
+    }
+  }, [activePanel]);
+
+  // Handle cafe query parameter (from activity clicks)
+  React.useEffect(() => {
+    const cafeId = searchParams.get('cafe');
+    if (cafeId && !activePanel) {
+      const fetchAndJumpToCafe = async () => {
+        try {
+          const cafe = await cafeApi.getById(parseInt(cafeId));
+          // Jump to cafe location
+          setJumpToLocation({ lat: cafe.latitude, lng: cafe.longitude });
+
+          // Create temp marker to ensure cafe is visible
+          // If cafe is already in nearby list, MapView will handle showing it
+          setTempSearchMarker({
+            google_place_id: cafe.google_place_id || '',
+            is_registered: true,
+            db_cafe_id: cafe.id,
+            name: cafe.name,
+            address: cafe.address,
+            latitude: cafe.latitude.toString(),
+            longitude: cafe.longitude.toString(),
+            rating: cafe.google_rating,
+            average_wfc_rating: cafe.average_wfc_rating,
+            total_reviews: cafe.total_reviews,
+            total_visits: cafe.total_visits,
+            source: 'google',
+            result_type: 'cafe',
+          });
+
+          // Clear query param
+          setSearchParams({});
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to jump to cafe from activity:', error);
+          }
+          resultModal.showResultModal({
+            type: 'error',
+            title: 'Cafe Not Found',
+            message: 'Failed to open the selected cafe. It may have been removed.',
+          });
+          setSearchParams({});
+        }
+      };
+      fetchAndJumpToCafe();
+    }
+  }, [searchParams, activePanel, setSearchParams, resultModal]);
 
   const searchCenter = manualSearchCenter || location;
   const {
@@ -162,7 +218,7 @@ const MapPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Location error */}
+        {/* Location error - show non-intrusive banner */}
         {locationError && (
           <div className="location-error">
             <AlertCircle size={20} />
@@ -173,13 +229,18 @@ const MapPage: React.FC = () => {
           </div>
         )}
 
-        {/* Loading state */}
-        {locationLoading && (
-          <Loading fullScreen message="Getting your location..." />
+        {/* Location loading - show subtle indicator, don't block UI */}
+        {locationLoading && !locationError && (
+          <div className="location-loading">
+            <div className="location-loading-content">
+              <div className="location-loading-spinner"></div>
+              <span>Waiting for location permission...</span>
+            </div>
+          </div>
         )}
 
-        {/* Map view */}
-        {viewMode === 'map' && !locationLoading && (
+        {/* Map view - render immediately, don't wait for location */}
+        {viewMode === 'map' && (
           <div className="map-view-container">
             <MapView
               cafes={cafes}
@@ -196,8 +257,8 @@ const MapPage: React.FC = () => {
           </div>
         )}
 
-        {/* List view */}
-        {viewMode === 'list' && !locationLoading && (
+        {/* List view - render immediately, don't wait for location */}
+        {viewMode === 'list' && (
           <div className="list-view-container">
             <CafeList
               cafes={cafes}

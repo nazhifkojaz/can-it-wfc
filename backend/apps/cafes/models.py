@@ -1,9 +1,7 @@
-from django.db import models
-from django.contrib.gis.db import models as gis_models
-from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import D  # Distance
+from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
+from apps.core.constants import EARTH_RADIUS_KM
 from decimal import Decimal
 import math
 
@@ -16,7 +14,7 @@ class Cafe(models.Model):
     name = models.CharField(max_length=200)
     address = models.TextField()
     
-    # Location (keeping lat/lon for backward compatibility)
+    # Location coordinates
     latitude = models.DecimalField(
         max_digits=10,
         decimal_places=8,
@@ -30,24 +28,37 @@ class Cafe(models.Model):
         help_text="Longitude coordinate (-180 to 180)"
     )
 
-    # PostGIS spatial field for efficient geographic queries
-    location = gis_models.PointField(
-        geography=True,
-        srid=4326,
-        null=True,
-        blank=True,
-        help_text="Geographic point (automatically synced from lat/lon)"
-    )
-
     # External identifiers for deduplication
     google_place_id = models.CharField(
-        max_length=255, 
-        unique=True, 
-        null=True, 
+        max_length=255,
+        unique=True,
+        null=True,
         blank=True,
         help_text="Google Places API Place ID"
     )
-    
+
+    # Google Places data (ratings)
+    google_rating = models.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1.0), MaxValueValidator(5.0)],
+        help_text="Google Maps rating (1.0 - 5.0)",
+        db_index=True  # For search/filter queries
+    )
+    google_ratings_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of Google reviews"
+    )
+    google_rating_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time Google rating was fetched from API",
+        db_index=True  # For finding stale ratings
+    )
+
     # Price range (1=$ to 4=$$$$)
     PRICE_RANGE_CHOICES = [
         (1, '$'),
@@ -115,18 +126,14 @@ class Cafe(models.Model):
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['google_place_id']),
             models.Index(fields=['-average_wfc_rating']),
-            # Spatial index for PostGIS location field (GiST index)
-            gis_models.Index(fields=['location'], name='cafes_location_gist_idx'),
+            models.Index(fields=['is_closed', '-created_at'], name='cafe_closed_created_idx'),
         ]
     
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Auto-populate location field from latitude/longitude."""
-        if self.latitude is not None and self.longitude is not None:
-            # Always sync location from lat/lon on save
-            self.location = Point(float(self.longitude), float(self.latitude), srid=4326)
+        """Save cafe instance."""
         super().save(*args, **kwargs)
 
     @staticmethod
@@ -135,7 +142,7 @@ class Cafe(models.Model):
         Calculate distance between two points using Haversine formula.
         Returns distance in kilometers.
         """
-        R = 6371  # Earth's radius in kilometers
+        R = EARTH_RADIUS_KM
         
         lat1_rad = math.radians(float(lat1))
         lat2_rad = math.radians(float(lat2))
@@ -158,58 +165,6 @@ class Cafe(models.Model):
             lng
         )
     
-    @classmethod
-    def nearby(cls, latitude, longitude, radius_km=1, limit=50):
-        """
-        Find cafes near given coordinates within radius using PostGIS.
-
-        Performance: 10-50x faster than Python Haversine calculations.
-        Uses database-native spatial queries with GiST index.
-
-        Args:
-            latitude: Center point latitude
-            longitude: Center point longitude
-            radius_km: Search radius in kilometers (default: 1)
-            limit: Maximum number of results (default: 50)
-
-        Returns:
-            List of Cafe objects within radius, ordered by distance,
-            with distance attribute added to each cafe.
-        """
-        from django.contrib.gis.db.models.functions import Distance as DistanceFunc
-
-        # Create Point object for search center
-        search_point = Point(float(longitude), float(latitude), srid=4326)
-
-        # PostGIS query: filter by distance, annotate with distance, order by distance
-        cafes = cls.objects.filter(
-            is_closed=False,
-            location__isnull=False,  # Only cafes with location data
-            location__distance_lte=(search_point, D(km=radius_km))
-        ).annotate(
-            distance=DistanceFunc('location', search_point)
-        ).order_by('distance')[:limit]
-
-        # Convert Distance objects to km floats for backward compatibility
-        cafes_list = list(cafes)
-        for cafe in cafes_list:
-            cafe.distance = cafe.distance.km if hasattr(cafe.distance, 'km') else float(cafe.distance)
-
-        return cafes_list
-
-    @classmethod
-    def nearby_optimized(cls, latitude, longitude, radius_km=1, limit=50):
-        """
-        Alias for nearby() method - now uses PostGIS by default.
-
-        Kept for backward compatibility. Both nearby() and nearby_optimized()
-        now use the same PostGIS implementation.
-
-        Performance: 10-50x faster than previous Haversine implementation.
-        Uses PostGIS spatial queries with GiST index.
-        """
-        # Just call the PostGIS-powered nearby() method
-        return cls.nearby(latitude, longitude, radius_km, limit)
 
     @classmethod
     def find_duplicates(cls, name, latitude, longitude, threshold_meters=50):
@@ -247,6 +202,7 @@ class Cafe(models.Model):
         
         return duplicates
     
+    @transaction.atomic
     def update_stats(self):
         """
         Update cafe stats efficiently using aggregation.
@@ -254,9 +210,11 @@ class Cafe(models.Model):
 
         Caches average_ratings and facility_stats from latest 100 reviews
         to keep stats fresh and prevent N+1 queries in serializers.
+
+        Uses @transaction.atomic to ensure all-or-nothing updates.
         """
         from apps.reviews.models import Review, Visit
-        from django.db.models import Count, Avg
+        from django.db.models import Count
 
         # Single aggregated query for visits (1 query instead of 2)
         visit_stats = Visit.objects.filter(cafe=self).aggregate(
@@ -356,6 +314,9 @@ class Favorite(models.Model):
         verbose_name_plural = 'Favorites'
         unique_together = ['user', 'cafe']
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'cafe'], name='favorite_lookup_idx'),
+        ]
     
     def __str__(self):
         return f"{self.user.username} → {self.cafe.name}"

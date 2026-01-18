@@ -3,8 +3,8 @@ import { Star, Coffee } from 'lucide-react';
 import styles from './RatingsComparison.module.css';
 
 interface RatingsComparisonProps {
-  googleRating?: number;
-  googleCount?: number;
+  googleRating?: number | null;
+  googleCount?: number | null;
   wfcRating?: string | null;
   wfcCount: number;
   isRegistered: boolean;
@@ -18,6 +18,8 @@ const RatingsComparison: React.FC<RatingsComparisonProps> = ({
   isRegistered,
 }) => {
   const wfcRatingNumber = wfcRating ? parseFloat(wfcRating) : null;
+  // Handle null/undefined googleCount from database
+  const safeGoogleCount = googleCount ?? 0;
 
   return (
     <div className={styles.container}>
@@ -34,7 +36,7 @@ const RatingsComparison: React.FC<RatingsComparisonProps> = ({
             <>
               <div className={styles.ratingValue}>{googleRating.toFixed(1)}</div>
               <div className={styles.ratingCount}>
-                {googleCount.toLocaleString()} {googleCount === 1 ? 'review' : 'reviews'}
+                {safeGoogleCount.toLocaleString()} {safeGoogleCount === 1 ? 'review' : 'reviews'}
               </div>
             </>
           ) : (

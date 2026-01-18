@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { visitApi } from '../api/client';
 import { VisitCreate, CombinedVisitReviewCreate } from '../types';
 import { queryKeys } from '../config/queryKeys';
+import { extractApiError } from '../utils/errorUtils';
 
 export const useVisits = () => {
   const queryClient = useQueryClient();
@@ -46,7 +47,6 @@ export const useVisits = () => {
           id: Date.now(),
           ...newVisit,
           created_at: new Date().toISOString(),
-          has_review: false,
         };
 
         return {
@@ -94,7 +94,6 @@ export const useVisits = () => {
           amount_spent: newData.amount_spent,
           visit_time: newData.visit_time,
           created_at: new Date().toISOString(),
-          has_review: newData.include_review,
         };
 
         return {
@@ -185,7 +184,7 @@ export const useVisits = () => {
   return {
     visits,
     loading,
-    error: fetchError ? String(fetchError) : null,
+    error: fetchError ? extractApiError(fetchError).message : null,
     refetch,
     fetchNextPage,
     hasNextPage,

@@ -6,7 +6,7 @@ import ReviewForm from '../review/ReviewForm';
 import { Loading, EmptyState, ResultModal } from '../common';
 import { useFavorites, useResultModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
-import { formatPriceRange, formatRating } from '../../utils';
+import { formatPriceRange, formatRating, formatDistance } from '../../utils';
 import { Cafe } from '../../types';
 import './FavoritesPanel.css';
 
@@ -197,8 +197,8 @@ const FavoritesPanel: React.FC = () => {
               {cafe.price_range && (
                 <span className="price">{formatPriceRange(cafe.price_range)}</span>
               )}
-              {cafe.distance && (
-                <span className="distance">{cafe.distance}</span>
+              {cafe.distance !== undefined && (
+                <span className="distance">{formatDistance(cafe.distance)}</span>
               )}
             </div>
 

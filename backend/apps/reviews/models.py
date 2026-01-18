@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.utils import timezone
 from apps.core.currency_utils import CURRENCY_CHOICES
+from apps.core.constants import REVIEW_AUTO_HIDE_FLAG_THRESHOLD
 
 
 class Visit(models.Model):
@@ -112,16 +113,16 @@ class Visit(models.Model):
 
 class Review(models.Model):
     """
-    WFC-focused cafe reviews with detailed criteria.
-    Must be linked to a visit - users can only review cafes they've visited.
+    WFC-focused cafe reviews.
+
+    UPDATED (Review Refactor):
+    Reviews are now independent of visits. One user can only have one review per cafe.
+    Users can update their review at any time (no time restrictions).
+
+    - Visits are for personal tracking (private, multiple visits allowed)
+    - Reviews are for sharing opinions (public, one per user per cafe)
     """
     # Relationships
-    visit = models.OneToOneField(
-        Visit,
-        on_delete=models.CASCADE,
-        related_name='review',
-        help_text="Link to a specific visit (required)"
-    )
     cafe = models.ForeignKey(
         'cafes.Cafe',
         on_delete=models.CASCADE,
@@ -247,11 +248,22 @@ class Review(models.Model):
         verbose_name = 'Review'
         verbose_name_plural = 'Reviews'
         ordering = ['-created_at']
+
+        # UPDATED: Unique constraint - one review per user per cafe
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'cafe'],
+                name='unique_user_cafe_review'
+            )
+        ]
+
         indexes = [
             models.Index(fields=['cafe', '-created_at']),
             models.Index(fields=['user', '-created_at']),
             models.Index(fields=['-wfc_rating']),
             models.Index(fields=['is_hidden']),
+            # NEW: Index for user-cafe lookups (checking if review exists)
+            models.Index(fields=['user', 'cafe'], name='review_user_cafe_idx'),
             # Composite index for common filter: cafe + is_hidden
             models.Index(fields=['cafe', 'is_hidden'], name='review_cafe_hidden_idx'),
             # Composite index for common query pattern: cafe + is_hidden + ordering by created_at
@@ -405,12 +417,12 @@ class ReviewFlag(models.Model):
     def save(self, *args, **kwargs):
         """Auto-hide review if it reaches flag threshold."""
         super().save(*args, **kwargs)
-        
+
         # Update flag count
         self.review.flag_count = self.review.flags.count()
-        
+
         # Auto-hide if threshold reached
-        if self.review.flag_count >= 3:
+        if self.review.flag_count >= REVIEW_AUTO_HIDE_FLAG_THRESHOLD:
             self.review.is_hidden = True
             self.review.is_flagged = True
         

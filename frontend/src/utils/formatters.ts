@@ -69,13 +69,6 @@ export const formatRating = (rating: number | string | null | undefined): string
 };
 
 /**
- * Format visit time
- */
-export const formatVisitTime = (visitTime: number): string => {
-  return VISIT_TIME_LABELS[visitTime as keyof typeof VISIT_TIME_LABELS] || 'Unknown';
-};
-
-/**
  * Format date to readable string
  */
 export const formatDate = (date: string | Date): string => {

@@ -1,8 +1,16 @@
 from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError, Throttled
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Visit, Review, ReviewFlag, ReviewHelpful
+from django.db import transaction
+from core.exceptions import (
+    ReviewNotFound,
+    SelfHelpfulNotAllowed,
+    InvalidCafeIds,
+    TooManyCafeIds,
+)
+from .models import Visit, Review, ReviewHelpful
 from .serializers import (
     VisitSerializer,
     ReviewListSerializer,
@@ -33,7 +41,12 @@ class VisitListCreateView(generics.ListCreateAPIView):
     ordering = ['-visit_date']
 
     def get_queryset(self):
-        return Visit.objects.filter(user=self.request.user).select_related('cafe', 'review')
+        """
+        Get user's visits.
+
+        UPDATED: Removed select_related('review') - reviews are now independent of visits.
+        """
+        return Visit.objects.filter(user=self.request.user).select_related('cafe')
 
 
 class VisitDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -111,14 +124,17 @@ class ReviewListView(generics.ListAPIView):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        """Optimize query with select_related and prefetch_related to avoid N+1 queries"""
+        """
+        Optimize query with select_related and prefetch_related to avoid N+1 queries.
+
+        UPDATED: Removed select_related('visit') - reviews are now independent of visits.
+        """
         from django.db.models import Prefetch
         from .models import ReviewHelpful, ReviewFlag
 
         queryset = Review.objects.filter(is_hidden=False).select_related(
             'user',
-            'cafe',
-            'visit'
+            'cafe'
         )
 
         # Prefetch user-specific helpful/flag data if user is authenticated
@@ -154,11 +170,8 @@ class ReviewCreateView(generics.CreateAPIView):
         # Check rate limit
         was_limited = getattr(request, 'limited', False)
         if was_limited:
-            return Response(
-                {'error': 'Rate limit exceeded. You can only post 10 reviews per hour.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS
-            )
-        
+            raise Throttled(detail='You can only post 10 reviews per hour.')
+
         return super().create(request, *args, **kwargs)
 
 
@@ -183,35 +196,32 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
             return ReviewUpdateSerializer
         return ReviewDetailSerializer
 
+    @transaction.atomic
     def perform_update(self, serializer):
         """
         Update review and refresh cafe stats.
-        Only allowed within 7 days of visit date.
+
+        UPDATED: No time restrictions - users can edit their review anytime.
+        Uses @transaction.atomic to ensure review update and stats update succeed together.
         """
-        from datetime import timedelta
-        from django.utils import timezone
-
-        review = self.get_object()
-        visit_date = review.visit.visit_date
-        days_since_visit = (timezone.now().date() - visit_date).days
-
-        if days_since_visit > 7:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied(
-                "Reviews can only be edited within 7 days of the visit date. "
-                f"This visit was {days_since_visit} days ago."
-            )
-
         review = serializer.save()
         review.cafe.update_stats()
 
+    @transaction.atomic
     def perform_destroy(self, instance):
         """
         Delete review (hard delete).
         Allowed at any time (no time restrictions).
         Stats are updated automatically via signals.
+        Activities are soft-deleted to maintain user feed integrity.
+        Uses @transaction.atomic to ensure all-or-nothing deletion.
         """
-        # Hard delete (stats updated via signals)
+        from apps.activity.services import ActivityService
+
+        # Soft-delete related activities first
+        ActivityService.soft_delete_activities(Review, instance.id)
+
+        # Then hard-delete review (triggers signal → update_stats)
         instance.delete()
 
 
@@ -241,7 +251,11 @@ class CafeReviewsView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        """Optimize query with select_related and prefetch_related to avoid N+1 queries"""
+        """
+        Optimize query with select_related and prefetch_related to avoid N+1 queries.
+
+        UPDATED: Removed select_related('visit') - reviews are now independent of visits.
+        """
         from django.db.models import Prefetch
         from .models import ReviewHelpful, ReviewFlag
 
@@ -251,8 +265,7 @@ class CafeReviewsView(generics.ListAPIView):
             is_hidden=False
         ).select_related(
             'user',
-            'cafe',
-            'visit'
+            'cafe'
         )
 
         # Prefetch user-specific helpful/flag data if user is authenticated
@@ -286,12 +299,115 @@ class ReviewFlagCreateView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        flag = serializer.save()
+        serializer.save()
 
         return Response({
             'message': 'Review flagged successfully. It will be reviewed by moderators.',
             'flag': serializer.data
         }, status=status.HTTP_201_CREATED)
+
+
+class UserCafeReviewView(APIView):
+    """
+    Check if user has a review for a specific cafe.
+
+    GET /api/reviews/for-cafe/?cafe={cafe_id}
+
+    Returns:
+    - 200: Review object if exists
+    - 404: No review found
+
+    NEW: Added for review refactor - check existing reviews before creating.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        cafe_id = request.query_params.get('cafe')
+
+        if not cafe_id:
+            raise ValidationError({'cafe': 'This parameter is required'})
+
+        try:
+            review = Review.objects.get(
+                user=request.user,
+                cafe_id=cafe_id,
+                is_hidden=False
+            )
+            from .serializers import ReviewDetailSerializer
+            serializer = ReviewDetailSerializer(review, context={'request': request})
+            return Response(serializer.data)
+        except Review.DoesNotExist:
+            raise ReviewNotFound(detail='No review found for this cafe')
+
+
+class BulkUserCafeReviewsView(APIView):
+    """
+    Get reviews for multiple cafes in a single request.
+
+    POST /api/reviews/bulk/
+
+    Request body:
+    {
+        "cafe_ids": [1, 5, 13, 24, ...]
+    }
+
+    Returns:
+    {
+        "1": { review object },
+        "5": { review object },
+        "13": null,  # No review for this cafe
+        "24": { review object },
+        ...
+    }
+
+    NEW: Added to prevent 429 errors from N parallel requests.
+    Instead of making N requests for N cafes, make 1 bulk request.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = 'bulk'
+
+    def post(self, request):
+        cafe_ids = request.data.get('cafe_ids', [])
+
+        # Validation
+        if not cafe_ids:
+            raise ValidationError({'cafe_ids': 'This field is required'})
+
+        if not isinstance(cafe_ids, list):
+            raise ValidationError({'cafe_ids': 'Must be an array'})
+
+        if len(cafe_ids) > 100:
+            raise TooManyCafeIds()
+
+        # Convert to integers and validate
+        try:
+            cafe_ids = [int(id) for id in cafe_ids]
+        except (ValueError, TypeError):
+            raise InvalidCafeIds(detail='All cafe_ids must be valid integers')
+
+        # Fetch all reviews for these cafes
+        reviews = Review.objects.filter(
+            user=request.user,
+            cafe_id__in=cafe_ids,
+            is_hidden=False
+        ).select_related('cafe', 'user')
+
+        # Serialize reviews
+        serializer = ReviewDetailSerializer(
+            reviews,
+            many=True,
+            context={'request': request}
+        )
+
+        # Create a map: cafe_id -> review object (or null if no review)
+        review_map = {review['cafe']['id']: review for review in serializer.data}
+
+        # Fill in nulls for cafes without reviews
+        result = {}
+        for cafe_id in cafe_ids:
+            result[str(cafe_id)] = review_map.get(cafe_id, None)
+
+        return Response(result)
 
 
 class MarkReviewHelpfulView(APIView):
@@ -307,17 +423,11 @@ class MarkReviewHelpfulView(APIView):
         try:
             review = Review.objects.get(pk=pk, is_hidden=False)
         except Review.DoesNotExist:
-            return Response(
-                {'error': 'Review not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            raise ReviewNotFound()
 
         # Can't mark own review as helpful
         if review.user == request.user:
-            return Response(
-                {'error': 'You cannot mark your own review as helpful'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise SelfHelpfulNotAllowed()
 
         # Check if already marked helpful
         existing = ReviewHelpful.objects.filter(

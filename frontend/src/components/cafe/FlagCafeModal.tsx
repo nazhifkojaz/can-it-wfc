@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Flag, X } from 'lucide-react';
 import { Modal, Loading } from '../common';
 import api from '../../api/client';
+import { extractApiError } from '../../utils/errorUtils';
 import styles from './FlagCafeModal.module.css';
 
 interface FlagCafeModalProps {
@@ -77,14 +78,7 @@ const FlagCafeModal: React.FC<FlagCafeModalProps> = ({
       }
       handleClose();
     } catch (err: any) {
-      if (err.response?.data?.non_field_errors) {
-        setError(err.response.data.non_field_errors[0]);
-      } else if (err.response?.data) {
-        const firstError = Object.values(err.response.data)[0];
-        setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
-      } else {
-        setError('Failed to submit flag. Please try again.');
-      }
+      setError(extractApiError(err).message);
     } finally {
       setIsSubmitting(false);
     }

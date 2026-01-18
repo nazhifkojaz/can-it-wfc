@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Modal, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
+import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import styles from './ChangePasswordModal.module.css';
 
 interface ChangePasswordModalProps {
@@ -122,31 +123,11 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       if (import.meta.env.DEV) {
         console.error('Change password error:', error);
       }
-      if (import.meta.env.DEV) {
-        console.error('Error response:', error.response);
-      }
-      if (import.meta.env.DEV) {
-        console.error('Error data:', error.response?.data);
-      }
 
-      // Extract error message from various possible formats
-      let errorMessage = 'Failed to change password. Please try again.';
-
-      if (error.response?.data) {
-        const data = error.response.data;
-        // Check for field-specific errors
-        if (data.old_password) {
-          errorMessage = Array.isArray(data.old_password) ? data.old_password[0] : data.old_password;
-        } else if (data.new_password) {
-          errorMessage = Array.isArray(data.new_password) ? data.new_password[0] : data.new_password;
-        } else if (data.detail) {
-          errorMessage = data.detail;
-        } else if (data.non_field_errors) {
-          errorMessage = Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors;
-        } else if (typeof data === 'string') {
-          errorMessage = data;
-        }
-      }
+      // Check for field-specific errors first, then fall back to general message
+      const oldPasswordError = getFieldError(error, 'old_password');
+      const newPasswordError = getFieldError(error, 'new_password');
+      const errorMessage = oldPasswordError || newPasswordError || extractApiError(error).message;
 
       resultModal.showResultModal({
         type: 'error',

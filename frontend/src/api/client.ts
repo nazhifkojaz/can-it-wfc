@@ -5,6 +5,12 @@ import {
   UserLogin,
   UserUpdate,
   AuthTokens,
+  UserProfile,
+  UserSettings,
+  UserActivityResponse,
+  FollowUser,
+  ActivityFeedResponse,
+  PaginatedResponse,
   Cafe,
   CafeCreate,
   CafeUpdate,
@@ -20,6 +26,7 @@ import {
 import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
+import { extractApiError, ApiError } from '../utils/errorUtils';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -28,15 +35,15 @@ const api: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
 });
 
-// Request interceptor to add auth token
+// Request interceptor - no longer needed for auth tokens (handled by cookies)
+// Kept for backward compatibility and custom headers
 api.interceptors.request.use(
   (config) => {
-    const token = tokenStorage.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Tokens now sent automatically via httpOnly cookies
+    // No need to add Authorization header from localStorage
     return config;
   },
   (error) => {
@@ -44,35 +51,19 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor to handle authentication errors
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    // If error is 401 (Unauthorized), cookies may have expired
+    // Redirect to login page
+    if (error.response?.status === 401) {
+      // Clear any old localStorage tokens (migration cleanup)
+      tokenStorage.clearTokens();
 
-    // If error is 401 and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = tokenStorage.getRefreshToken();
-        if (refreshToken) {
-          const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh/`, {
-            refresh: refreshToken,
-          });
-
-          const { access } = response.data;
-          tokenStorage.setAccessToken(access);
-
-          // Retry the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return axios(originalRequest);
-        }
-      } catch (refreshError) {
-        // Refresh failed, logout user
-        tokenStorage.clearTokens();
+      // Redirect to login only if not already on login page
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/')) {
         window.location.href = buildAppPath('/');
-        return Promise.reject(refreshError);
       }
     }
 
@@ -94,27 +85,31 @@ export const authApi = {
   // Login user (JWT)
   login: async (data: UserLogin) => {
     const response = await api.post<AuthTokens>('/auth/login/', data);
-    const { access, refresh } = response.data;
-
-    // Store tokens
-    tokenStorage.setAccessToken(access);
-    tokenStorage.setRefreshToken(refresh);
-
+    // Tokens now set as httpOnly cookies by backend
     return response.data;
   },
 
   // Logout user
-  logout: () => {
+  logout: async () => {
+    try {
+      // Call backend to clear httpOnly cookies
+      await api.post('/auth/logout/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    // Also clear any old localStorage tokens (migration cleanup)
     tokenStorage.clearTokens();
   },
 
   // Refresh access token
+  // NOTE: This function is deprecated with httpOnly cookie authentication
+  // Tokens are now automatically refreshed by the backend via cookies
   refreshToken: async (refreshToken: string) => {
     const response = await api.post<{ access: string }>('/auth/refresh/', {
       refresh: refreshToken,
     });
 
-    tokenStorage.setAccessToken(response.data.access);
+    // Tokens now managed via httpOnly cookies - no localStorage needed
     return response.data;
   },
 
@@ -125,15 +120,15 @@ export const authApi = {
   },
 
   // Google OAuth login
-  googleLogin: async (accessToken: string): Promise<{ user: User; access: string; refresh: string }> => {
+  googleLogin: async (accessToken: string): Promise<{ user: User }> => {
     const response = await api.post('/auth/google/', { access_token: accessToken });
-    const { user, access_token, refresh_token } = response.data;
+    const { user } = response.data;
 
-    // Store tokens
-    tokenStorage.setAccessToken(access_token);
-    tokenStorage.setRefreshToken(refresh_token);
+    // Tokens now set as httpOnly cookies by backend
+    // Clear any old localStorage tokens (migration cleanup)
+    tokenStorage.clearTokens();
 
-    return { user, access: access_token, refresh: refresh_token };
+    return { user };
   },
 
   // Update profile (for username, bio, etc.)
@@ -188,6 +183,72 @@ export const userApi = {
     const response = await api.get<User>(`/auth/users/${userId}/`);
     return response.data;
   },
+
+  // Get user profile by username or ID (Phase 1: Social Features)
+  getUserProfile: async (usernameOrId: string | number): Promise<UserProfile> => {
+    const response = await api.get<UserProfile>(`/auth/users/${usernameOrId}/profile/`);
+    return response.data;
+  },
+
+  // Get user activity by username or ID (Phase 1: Social Features)
+  getUserActivity: async (usernameOrId: string | number, limit: number = 20): Promise<UserActivityResponse> => {
+    const response = await api.get<UserActivityResponse>(`/auth/users/${usernameOrId}/activity/`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
+  // Get current user's settings (Phase 1: Social Features)
+  getSettings: async (): Promise<UserSettings> => {
+    const response = await api.get<UserSettings>('/auth/me/settings/');
+    return response.data;
+  },
+
+  // Update current user's settings (Phase 1: Social Features)
+  updateSettings: async (data: Partial<UserSettings>): Promise<UserSettings> => {
+    const response = await api.patch<UserSettings>('/auth/me/settings/', data);
+    return response.data;
+  },
+
+  // Follow Management
+  followUser: async (username: string) => {
+    const response = await api.post(`/auth/follow/${username}/`);
+    return response.data;
+  },
+
+  unfollowUser: async (username: string) => {
+    const response = await api.delete(`/auth/unfollow/${username}/`);
+    return response.data;
+  },
+
+  // Followers/Following Lists
+  getMyFollowers: async (): Promise<FollowUser[]> => {
+    const response = await api.get<PaginatedResponse<FollowUser>>('/auth/me/followers/');
+    return response.data.results;
+  },
+
+  getMyFollowing: async (): Promise<FollowUser[]> => {
+    const response = await api.get<PaginatedResponse<FollowUser>>('/auth/me/following/');
+    return response.data.results;
+  },
+
+  getUserFollowers: async (username: string): Promise<FollowUser[]> => {
+    const response = await api.get<PaginatedResponse<FollowUser>>(`/auth/users/${username}/followers/`);
+    return response.data.results;
+  },
+
+  getUserFollowing: async (username: string): Promise<FollowUser[]> => {
+    const response = await api.get<PaginatedResponse<FollowUser>>(`/auth/users/${username}/following/`);
+    return response.data.results;
+  },
+
+  // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
+  getActivityFeed: async (limit: number = 50): Promise<ActivityFeedResponse> => {
+    const response = await api.get<ActivityFeedResponse>('/activity/feed/', {
+      params: { limit },
+    });
+    return response.data;
+  },
 };
 
 // ===========================
@@ -214,10 +275,10 @@ export const cafeApi = {
 
   // Search cafes
   search: async (query: string) => {
-    const response = await api.get<Cafe[]>('/cafes/', {
+    const response = await api.get<PaginatedResponse<Cafe>>('/cafes/', {
       params: { search: query },
     });
-    return response.data;
+    return response.data.results;
   },
 
   // Get all cafes (with optional filters)
@@ -227,8 +288,8 @@ export const cafeApi = {
     limit?: number;
     offset?: number;
   }) => {
-    const response = await api.get<Cafe[]>('/cafes/', { params });
-    return response.data;
+    const response = await api.get<PaginatedResponse<Cafe>>('/cafes/', { params });
+    return response.data.results;
   },
 
   // Get cafe by ID
@@ -274,8 +335,8 @@ export const cafeApi = {
 
   // Get user's favorite cafes
   getFavorites: async () => {
-    const response = await api.get<Favorite[]>('/cafes/favorites/');
-    return response.data;
+    const response = await api.get<PaginatedResponse<Favorite>>('/cafes/favorites/');
+    return response.data.results;
   },
 
   // Find potential duplicates (not implemented in backend API yet)
@@ -346,8 +407,8 @@ export const visitApi = {
     user?: number;
     ordering?: string;
   }) => {
-    const response = await api.get<Visit[]>('/visits/', { params });
-    return response.data;
+    const response = await api.get<PaginatedResponse<Visit>>('/visits/', { params });
+    return response.data.results;
   },
 
   // Update visit
@@ -367,7 +428,7 @@ export const visitApi = {
 // ===========================
 
 export const reviewApi = {
-  // Create new review
+  // Create new review (UPDATED: now uses cafe_id)
   create: async (data: ReviewCreate) => {
     const response = await api.post<Review>('/reviews/create/', data);
     return response.data;
@@ -392,7 +453,7 @@ export const reviewApi = {
     return response.data;
   },
 
-  // Update review
+  // Update review (UPDATED: no time restrictions now)
   update: async (id: number, data: ReviewUpdate) => {
     const response = await api.patch<Review>(`/reviews/${id}/`, data);
     return response.data;
@@ -405,8 +466,39 @@ export const reviewApi = {
 
   // Get user's reviews
   getMyReviews: async () => {
-    const response = await api.get<Review[]>('/reviews/me/');
-    return response.data;
+    const response = await api.get<PaginatedResponse<Review>>('/reviews/me/');
+    return response.data.results;
+  },
+
+  // NEW: Check if user has a review for a specific cafe
+  getUserCafeReview: async (cafeId: number): Promise<Review | null> => {
+    try {
+      const response = await api.get<Review>('/reviews/for-cafe/', {
+        params: { cafe: cafeId }
+      });
+      return response.data;
+    } catch (error: any) {
+      // Return null if 404 (no review found)
+      if (error.response?.status === 404) {
+        return null;
+      }
+      // Re-throw other errors
+      throw error;
+    }
+  },
+
+  // NEW: Bulk get reviews for multiple cafes (prevents 429 errors)
+  getUserCafeReviews: async (cafeIds: number[]): Promise<Record<number, Review | null>> => {
+    const response = await api.post<Record<string, Review | null>>('/reviews/bulk/', {
+      cafe_ids: cafeIds
+    });
+
+    // Convert string keys back to numbers
+    const result: Record<number, Review | null> = {};
+    for (const [key, value] of Object.entries(response.data)) {
+      result[parseInt(key)] = value;
+    }
+    return result;
   },
 
   // Mark review as helpful (toggle - marks or unmarks)
@@ -436,35 +528,30 @@ export default api;
 // Error Handler Utility
 // ===========================
 
-export const handleApiError = (error: any) => {
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<any>;
-    
-    if (axiosError.response) {
-      // Server responded with error
-      const { status, data } = axiosError.response;
-      
-      switch (status) {
-        case 400:
-          return data.message || 'Invalid request';
-        case 401:
-          return 'Unauthorized. Please login again.';
-        case 403:
-          return 'You do not have permission to perform this action.';
-        case 404:
-          return 'Resource not found';
-        case 429:
-          return 'Too many requests. Please try again later.';
-        case 500:
-          return 'Server error. Please try again later.';
-        default:
-          return data.message || 'An error occurred';
-      }
-    } else if (axiosError.request) {
-      // Request made but no response
-      return 'Network error. Please check your connection.';
-    }
+/**
+ * Handle API error and return user-friendly message.
+ * Uses centralized error extraction utility.
+ */
+export const handleApiError = (error: any): string => {
+  const apiError = extractApiError(error);
+
+  // Log in development
+  if (import.meta.env.DEV) {
+    console.error('API Error:', {
+      code: apiError.code,
+      message: apiError.message,
+      details: apiError.details,
+      status: apiError.status,
+    });
   }
-  
-  return 'An unexpected error occurred';
+
+  return apiError.message;
+};
+
+/**
+ * Get full API error info (code, message, details).
+ * Useful for programmatic error handling.
+ */
+export const getApiError = (error: any): ApiError => {
+  return extractApiError(error);
 };

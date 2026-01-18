@@ -12,6 +12,8 @@ export interface User {
   is_anonymous_display: boolean;
   total_reviews: number;
   total_visits: number;
+  followers_count?: number;
+  following_count?: number;
   date_joined: string;
   account_age_hours?: number;
 }
@@ -38,6 +40,125 @@ export interface UserUpdate {
   bio?: string;
   avatar_url?: string;
   is_anonymous_display?: boolean;
+}
+
+// ===========================
+// API Response Types
+// ===========================
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+// ===========================
+// User Settings & Profile Types (Phase 1: Social Features)
+// ===========================
+
+export interface UserSettings {
+  profile_visibility: 'public' | 'private';
+  show_activity_dates: boolean;
+  show_followers: boolean;
+  show_following: boolean;
+  activity_visibility: 'public' | 'followers' | 'private';
+}
+
+export interface UserProfile {
+  id: number;
+  username: string;
+  display_name: string;
+  bio: string;
+  avatar_url?: string;
+  total_reviews: number;
+  total_visits: number;
+  followers_count: number;
+  following_count: number;
+  date_joined: string;
+  settings?: UserSettings;
+  is_own_profile?: boolean;
+  is_following?: boolean;
+  is_followed_by?: boolean;
+  // For private profiles
+  profile_visibility?: 'private';
+  message?: string;
+}
+
+export interface UserActivityItem {
+  id: number;
+  type: 'visit' | 'review';
+  cafe_id: number;
+  cafe_name: string;
+  cafe_google_place_id: string | null;
+  date: string | null; // Hidden if show_activity_dates=false
+  created_at: string;
+  // Review-specific fields (null for visits)
+  wfc_rating?: number | null;
+  comment?: string | null;
+  // Visit-specific fields (null for reviews)
+  visit_time?: number | null;
+  amount_spent?: number | null;
+  currency?: string | null;
+}
+
+export interface UserActivityResponse {
+  user_id: number;
+  username: string;
+  activity: UserActivityItem[];
+  message?: string; // For private profiles
+}
+
+export type ActivityType =
+  | 'own_visit'
+  | 'own_review'
+  | 'following_visit'
+  | 'following_review'
+  | 'new_follower'
+  | 'following_followed';
+
+export interface ActivityItem {
+  id: string;
+  type: ActivityType;
+  created_at: string;
+
+  // Actor (who did the action)
+  actor_username?: string;
+  actor_display_name?: string;
+  actor_avatar_url?: string;
+
+  // Target (for follows)
+  target_username?: string;
+  target_display_name?: string;
+  target_avatar_url?: string;
+
+  // Cafe (for cafe activities)
+  cafe_id?: number;
+  cafe_name?: string;
+  cafe_google_place_id?: string | null;
+
+  // Activity details
+  wfc_rating?: number | null;
+  comment?: string | null;
+  visit_time?: number | null;
+  amount_spent?: number | null;
+  currency?: string | null;
+}
+
+export interface ActivityFeedResponse {
+  activities: ActivityItem[];
+  count: number;
+}
+
+export interface FollowUser {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  bio: string;
+  total_visits: number;
+  total_reviews: number;
+  is_following?: boolean;
 }
 
 // ===========================
@@ -83,7 +204,7 @@ export interface Cafe {
   created_by?: User;
   created_at?: string;  // Optional - null for unregistered cafes
   updated_at?: string;  // Optional - null for unregistered cafes
-  distance?: string;
+  distance?: number | string;  // Numeric from API, string for backward compat
   is_favorited?: boolean;
 
   // NEW: Registration status
@@ -143,9 +264,8 @@ export interface Visit {
   check_in_longitude?: string;
   created_at: string;
   updated_at: string;
-  has_review: boolean;
-  can_review: boolean;
-  days_until_review_deadline?: number;
+  // REMOVED: has_review, can_review, days_until_review_deadline
+  // Reviews are now independent of visits
 }
 
 export interface VisitCreate {
@@ -206,7 +326,7 @@ export interface CombinedVisitReviewCreate {
 
 export interface Review {
   id: number;
-  visit: Visit;
+  // REMOVED: visit field - reviews are now independent of visits
   user: User;
   cafe: Cafe;
 
@@ -253,7 +373,7 @@ export interface Review {
 }
 
 export interface ReviewCreate {
-  visit_id: number;
+  cafe_id: number;  // UPDATED: Changed from visit_id to cafe_id
 
   // WFC Ratings (1-5)
   wifi_quality: number;

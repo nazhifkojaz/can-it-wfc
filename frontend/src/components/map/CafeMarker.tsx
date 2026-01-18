@@ -2,6 +2,7 @@ import React from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import { Icon, LatLngExpression } from 'leaflet';
 import { Cafe } from '../../types';
+import { formatDistance } from '../../utils/formatters';
 
 interface CafeMarkerProps {
   cafe: Cafe;
@@ -79,8 +80,8 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
             )}
           </div>
 
-          {cafe.distance && (
-            <p className="popup-distance">{cafe.distance} away</p>
+          {cafe.distance !== undefined && (
+            <p className="popup-distance">{formatDistance(cafe.distance)} away</p>
           )}
 
           {cafe.is_registered ? (

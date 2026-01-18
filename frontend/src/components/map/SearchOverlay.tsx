@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, MapPin, Star, Navigation, Map } from 'lucide-react';
 import api from '../../api/client';
+import { formatDistance } from '../../utils/formatters';
 import styles from './SearchOverlay.module.css';
 
 interface SearchResult {
@@ -11,7 +12,7 @@ interface SearchResult {
   address: string;
   latitude: string;
   longitude: string;
-  distance?: string;
+  distance?: number | string;
   rating?: number;
   average_wfc_rating?: number;
   total_reviews?: number;
@@ -238,10 +239,10 @@ function SearchResultItem({
         <p className={styles.resultAddress}>{result.address}</p>
 
         <div className={styles.resultMeta}>
-          {result.distance && (
+          {result.distance !== undefined && (
             <span className={styles.resultMetaItem}>
               <Navigation size={12} />
-              {result.distance}
+              {formatDistance(result.distance)}
             </span>
           )}
 

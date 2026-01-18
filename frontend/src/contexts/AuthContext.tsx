@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, UserLogin, UserRegistration } from '../types';
 import { authApi, userApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
+import { extractApiError } from '../utils/errorUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -9,7 +10,7 @@ interface AuthContextType {
   error: string | null;
   login: (credentials: UserLogin | { user: User; access: string; refresh: string }) => Promise<void>;
   register: (data: UserRegistration) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;  // Changed to async
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
 }
@@ -31,13 +32,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('access_token');
-    
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
+    // With cookie-based auth, we don't check localStorage
+    // Instead, we try to fetch user data - cookies are sent automatically
     try {
       const userData = await authApi.getCurrentUser();
       setUser(userData);
@@ -46,10 +42,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (import.meta.env.DEV) {
         console.error('Auth check failed:', err);
       }
-      // Token is invalid, clear it
+      // User not authenticated (cookies expired/invalid)
+      setUser(null);
+
+      // Clean up any old localStorage tokens
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -73,9 +71,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userData);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Login failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const apiError = extractApiError(err);
+      setError(apiError.message);
+      throw new Error(apiError.message);
     } finally {
       setLoading(false);
     }
@@ -100,21 +98,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password: data.password,
       });
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Registration failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const apiError = extractApiError(err);
+      setError(apiError.message);
+      throw new Error(apiError.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    authApi.logout();
-    setUser(null);
-    setError(null);
-    
-    // Redirect to home page
-    window.location.href = buildAppPath('/');
+  const logout = async () => {
+    try {
+      // Wait for backend to clear cookies
+      await authApi.logout();
+      setUser(null);
+      setError(null);
+
+      // Redirect to home page after cookies are cleared
+      window.location.href = buildAppPath('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Clear local state and redirect even if API call fails
+      setUser(null);
+      setError(null);
+      window.location.href = buildAppPath('/');
+    }
   };
 
   const updateUser = (updatedUser: User) => {

@@ -1,17 +1,21 @@
 from rest_framework import serializers
 from django.db import transaction
+from apps.core.constants import MAX_CHECKIN_DISTANCE_KM
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
 
 
 class VisitSerializer(serializers.ModelSerializer):
-    """Serializer for Visit model with auto-cafe-registration support."""
+    """
+    Serializer for Visit model with auto-cafe-registration support.
+
+    UPDATED: Removed has_review field - reviews are now independent of visits.
+    """
 
     cafe = CafeListSerializer(read_only=True)
     cafe_id = serializers.IntegerField(write_only=True, required=False)
     user = UserSerializer(read_only=True)
-    has_review = serializers.SerializerMethodField()
 
     check_in_latitude = serializers.DecimalField(
         max_digits=10, decimal_places=8, write_only=True, required=False,
@@ -45,7 +49,6 @@ class VisitSerializer(serializers.ModelSerializer):
             'visit_time',
             'check_in_latitude',
             'check_in_longitude',
-            'has_review',
             'created_at',
             'google_place_id',
             'cafe_name',
@@ -54,10 +57,6 @@ class VisitSerializer(serializers.ModelSerializer):
             'cafe_longitude',
         ]
         read_only_fields = ['id', 'user', 'created_at']
-    
-    def get_has_review(self, obj):
-        """Check if visit has a review."""
-        return hasattr(obj, 'review') and obj.review is not None
     
     def validate(self, attrs):
         """Validate visit data and handle cafe creation if needed."""
@@ -80,38 +79,38 @@ class VisitSerializer(serializers.ModelSerializer):
         elif 'google_place_id' in attrs:
             google_place_id = attrs['google_place_id']
 
-            existing_cafe = Cafe.objects.filter(
-                google_place_id=google_place_id
-            ).first()
+            # Validate required fields for new cafe
+            required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
+            missing_fields = [f for f in required_fields if f not in attrs]
 
-            if existing_cafe:
-                attrs['cafe_id'] = existing_cafe
-            else:
-                required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
-                missing_fields = [f for f in required_fields if f not in attrs]
+            if missing_fields:
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        f'Missing required fields for new cafe: {", ".join(missing_fields)}'
+                    ]
+                })
 
-                if missing_fields:
-                    raise serializers.ValidationError({
-                        'non_field_errors': [
-                            f'Missing required fields for new cafe: {", ".join(missing_fields)}'
-                        ]
-                    })
+            # Use CafeService to get or create cafe with complete Google data
+            from apps.cafes.services import CafeService
 
-                from apps.cafes.services import GooglePlacesService
-                place_details = GooglePlacesService.get_place_details(google_place_id)
+            cafe_data = {
+                'name': attrs['cafe_name'],
+                'address': attrs['cafe_address'],
+                'latitude': attrs['cafe_latitude'],
+                'longitude': attrs['cafe_longitude'],
+            }
 
-                new_cafe = Cafe.objects.create(
-                    name=attrs['cafe_name'],
-                    address=attrs['cafe_address'],
-                    latitude=attrs['cafe_latitude'],
-                    longitude=attrs['cafe_longitude'],
+            try:
+                cafe, created = CafeService.get_or_create_from_google(
                     google_place_id=google_place_id,
-                    price_range=place_details.get('price_level') if place_details else None,
-                    created_by=request.user,
-                    is_verified=False
+                    cafe_data=cafe_data,
+                    created_by=request.user
                 )
-
-                attrs['cafe_id'] = new_cafe
+                attrs['cafe_id'] = cafe
+            except ValueError as e:
+                raise serializers.ValidationError({
+                    'non_field_errors': [str(e)]
+                })
 
         else:
             raise serializers.ValidationError({
@@ -151,17 +150,22 @@ class VisitSerializer(serializers.ModelSerializer):
             cafe.longitude
         )
 
-        if distance > 1.0:
+        if distance > MAX_CHECKIN_DISTANCE_KM:
             raise serializers.ValidationError({
                 'check_in_latitude': [
-                    f'You are {distance:.2f}km away from {cafe.name}. You must be within 1km to log a visit.'
+                    f'You are {distance:.2f}km away from {cafe.name}. '
+                    f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
                 ]
             })
 
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
-        """Create visit with current user."""
+        """
+        Create visit with current user and update cafe stats atomically.
+        Uses @transaction.atomic to ensure visit creation and stats update succeed together.
+        """
         validated_data.pop('google_place_id', None)
         validated_data.pop('cafe_name', None)
         validated_data.pop('cafe_address', None)
@@ -180,7 +184,7 @@ class VisitSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update visit within 7-day window."""
-        from datetime import date, timedelta
+        from datetime import date
 
         # Check 7-day window
         days_since_visit = (date.today() - instance.visit_date).days
@@ -264,11 +268,14 @@ class ReviewListSerializer(serializers.ModelSerializer):
 
 
 class ReviewDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for review."""
+    """
+    Detailed serializer for review.
+
+    UPDATED: Removed visit field - reviews are now independent of visits.
+    """
 
     user = UserSerializer(read_only=True)
     cafe = CafeListSerializer(read_only=True)
-    visit = VisitSerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
     average_rating = serializers.ReadOnlyField()
     is_helpful = serializers.SerializerMethodField()
@@ -279,7 +286,6 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'id',
             'user',
             'cafe',
-            'visit',
             'wifi_quality',
             'power_outlets_rating',
             'noise_level',
@@ -313,14 +319,19 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating a review."""
+    """
+    Serializer for creating a review.
 
-    visit_id = serializers.IntegerField(write_only=True)
-    
+    UPDATED: Reviews are now created per cafe (not per visit).
+    One user can only have one review per cafe.
+    """
+
+    cafe_id = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Review
         fields = [
-            'visit_id',
+            'cafe_id',
             'wifi_quality',
             'power_outlets_rating',
             'noise_level',
@@ -335,30 +346,23 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             'visit_time',
             'comment'
         ]
-    
-    def validate_visit_id(self, value):
-        """Validate that user can review this visit."""
-        request = self.context.get('request')
-        
+
+    def validate_cafe_id(self, value):
+        """Validate that cafe exists."""
+        from apps.cafes.models import Cafe
+
         try:
-            visit = Visit.objects.get(id=value)
-        except Visit.DoesNotExist:
-            raise serializers.ValidationError("Visit not found.")
-        
-        # Check if visit belongs to user
-        if visit.user != request.user:
-            raise serializers.ValidationError("You can only review your own visits.")
-        
-        # Check if visit already has a review
-        if hasattr(visit, 'review') and visit.review is not None:
-            raise serializers.ValidationError("This visit already has a review.")
-        
-        return visit
-    
+            cafe = Cafe.objects.get(id=value, is_closed=False)
+        except Cafe.DoesNotExist:
+            raise serializers.ValidationError("Cafe not found or is closed.")
+
+        return cafe
+
     def validate(self, attrs):
         """Additional validation."""
         request = self.context.get('request')
-        
+        cafe = attrs.get('cafe_id')
+
         # Check if user can review (account age)
         if not request.user.can_review():
             raise serializers.ValidationError({
@@ -366,36 +370,47 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
                     'Your account must be at least 24 hours old to post reviews.'
                 ]
             })
-        
+
+        # IMPORTANT: Check if user already has a review for this cafe
+        existing_review = Review.objects.filter(
+            user=request.user,
+            cafe=cafe
+        ).first()
+
+        if existing_review:
+            raise serializers.ValidationError({
+                'cafe_id': f'You have already reviewed this cafe. Use PATCH /api/reviews/{existing_review.id}/ to update your review.'
+            })
+
         # Check spam
-        visit = attrs.get('visit_id')
-        # Create temporary review object for spam check
         temp_review = Review(
             user=request.user,
-            cafe=visit.cafe,
-            visit=visit
+            cafe=cafe
         )
         is_spam, reason = temp_review.check_spam()
         if is_spam:
             raise serializers.ValidationError({
                 'non_field_errors': [f'Review blocked: {reason}']
             })
-        
+
         return attrs
-    
+
+    @transaction.atomic
     def create(self, validated_data):
-        """Create review with user and cafe from visit."""
-        visit = validated_data.pop('visit_id')
-        validated_data['visit'] = visit
+        """
+        Create review with user and cafe, and update stats atomically.
+        Uses @transaction.atomic to ensure review creation and stats updates succeed together.
+        """
+        cafe = validated_data.pop('cafe_id')
         validated_data['user'] = self.context['request'].user
-        validated_data['cafe'] = visit.cafe
-        
+        validated_data['cafe'] = cafe
+
         review = super().create(validated_data)
-        
+
         # Update cafe and user stats
-        visit.cafe.update_stats()
+        cafe.update_stats()
         self.context['request'].user.update_stats()
-        
+
         return review
 
 
@@ -611,7 +626,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         If any step fails, all changes are rolled back to maintain data integrity.
         """
         from apps.cafes.models import Cafe
-        from apps.cafes.services import GooglePlacesService
 
         request = self.context['request']
         user = request.user
@@ -634,24 +648,22 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
             # Create cafe from Google Places data
             google_place_id = validated_data.pop('google_place_id')
 
-            # Check if cafe already exists
-            existing_cafe = Cafe.objects.filter(google_place_id=google_place_id).first()
-            if existing_cafe:
-                cafe = existing_cafe
-            else:
-                # Fetch Google Places details for additional data
-                place_details = GooglePlacesService.get_place_details(google_place_id)
+            # Use CafeService to get or create cafe with complete Google data
+            # This fixes the bug where Google rating fields were missing
+            from apps.cafes.services import CafeService
 
-                cafe = Cafe.objects.create(
-                    name=validated_data.pop('cafe_name'),
-                    address=validated_data.pop('cafe_address'),
-                    latitude=validated_data.pop('cafe_latitude'),
-                    longitude=validated_data.pop('cafe_longitude'),
-                    google_place_id=google_place_id,
-                    price_range=place_details.get('price_level') if place_details else None,
-                    created_by=user,
-                    is_verified=False
-                )
+            cafe_data = {
+                'name': validated_data.pop('cafe_name'),
+                'address': validated_data.pop('cafe_address'),
+                'latitude': validated_data.pop('cafe_latitude'),
+                'longitude': validated_data.pop('cafe_longitude'),
+            }
+
+            cafe, created = CafeService.get_or_create_from_google(
+                google_place_id=google_place_id,
+                cafe_data=cafe_data,
+                created_by=user
+            )
 
         validated_data['cafe'] = cafe
         validated_data['user'] = user
@@ -659,31 +671,45 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         visit = Visit.objects.create(**validated_data)
 
         review = None
+        message = None
+
         if include_review and review_data.get('wfc_rating'):
-            # Copy visit_time from Visit to Review for backward compatibility
-            review_data['visit_time'] = visit.visit_time
-
-            wfc_rating = review_data['wfc_rating']
-            review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
-            review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
-            review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
-            review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
-            review_data.setdefault('space_availability', wfc_rating)
-            review_data.setdefault('coffee_quality', wfc_rating)
-            review_data.setdefault('menu_options', wfc_rating)
-            review_data.setdefault('bathroom_quality', wfc_rating)
-
-            review = Review.objects.create(
-                visit=visit,
+            # Check if user already has a review for this cafe
+            existing_review = Review.objects.filter(
                 user=user,
-                cafe=cafe,
-                **review_data
-            )
+                cafe=cafe
+            ).first()
 
-            cafe.update_stats()
-            user.update_stats()
+            if existing_review:
+                # User already has a review - don't create duplicate
+                review = existing_review
+                message = 'Visit created. You already have a review for this cafe.'
+            else:
+                # Create new review
+                # Copy visit_time from Visit to Review for backward compatibility
+                review_data['visit_time'] = visit.visit_time
+
+                wfc_rating = review_data['wfc_rating']
+                review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
+                review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
+                review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
+                review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
+                review_data.setdefault('space_availability', wfc_rating)
+                review_data.setdefault('coffee_quality', wfc_rating)
+                review_data.setdefault('menu_options', wfc_rating)
+                review_data.setdefault('bathroom_quality', wfc_rating)
+
+                review = Review.objects.create(
+                    user=user,
+                    cafe=cafe,
+                    **review_data
+                )
+
+                cafe.update_stats()
+                user.update_stats()
 
         return {
             'visit': visit,
-            'review': review
+            'review': review,
+            'message': message
         }
