@@ -13,10 +13,10 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from apps.reviews.models import Review
 from apps.accounts.models import Follow
+from core.logging import get_logger
 from .services import ActivityService
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # PRIVACY FIX: Visit activities removed from social feed

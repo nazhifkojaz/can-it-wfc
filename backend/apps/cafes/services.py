@@ -1,7 +1,7 @@
 import requests
 from django.conf import settings
 from typing import List, Dict, Optional
-import logging
+from core.logging import get_logger
 from apps.core.constants import (
     GOOGLE_PAGINATION_DELAY_SECONDS,
     GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS,
@@ -9,7 +9,7 @@ from apps.core.constants import (
     MAX_AUTOCOMPLETE_PREDICTIONS
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GooglePlacesService:

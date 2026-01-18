@@ -39,6 +39,9 @@ from .serializers import (
     FollowUserSerializer,
 )
 from .models import Follow
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 User = get_user_model()
 
@@ -237,10 +240,13 @@ class GoogleLoginView(APIView):
             return response
 
         except ValueError as e:
-            # Invalid token
-            raise GoogleAuthError(detail=f'Invalid Google token: {str(e)}')
+            # Log full error for debugging, return generic message to client
+            logger.warning(f'Google auth - invalid token: {str(e)}')
+            raise GoogleAuthError(detail='Authentication failed. Please try again.')
         except Exception as e:
-            raise GoogleAuthError(detail=f'Google login failed: {str(e)}')
+            # Log full error with stack trace for debugging
+            logger.error(f'Google auth failed: {str(e)}', exc_info=True)
+            raise GoogleAuthError(detail='Authentication failed. Please try again.')
 
 
 class LogoutView(APIView):

@@ -250,24 +250,29 @@ GOOGLE_PLACES_TIMEOUT = env.int('GOOGLE_PLACES_TIMEOUT', default=10)  # seconds
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Development
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Production
 
-# Logging
+# Centralized Logging Configuration
+# Uses structured JSON format in production for log aggregation tools
+# Uses verbose human-readable format in development
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '[{asctime}] {levelname} {name} {module}.{funcName}:{lineno} - {message}',
             'style': '{',
         },
         'simple': {
-            'format': '{levelname} {message}',
+            'format': '[{levelname}] {name}: {message}',
             'style': '{',
+        },
+        'structured': {
+            '()': 'core.logging.StructuredFormatter',
         },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'verbose' if DEBUG else 'structured',
         },
     },
     'root': {
@@ -277,27 +282,23 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'WARNING',
             'propagate': False,
         },
         'django.db.backends': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Only log SQL warnings/errors
+            'level': 'WARNING',
             'propagate': False,
         },
-        'apps.cafes': {
+        # App-specific loggers with DEBUG level in development
+        'apps': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
-        'apps.reviews': {
+        'core': {
             'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'apps.accounts': {
-            'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
     },

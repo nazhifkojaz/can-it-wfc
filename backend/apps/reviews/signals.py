@@ -2,13 +2,13 @@
 Signal handlers for Review and Visit models.
 Handles stats updates when visits/reviews are deleted.
 """
-import logging
 from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+from core.logging import get_logger
 from .models import Visit, Review
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @receiver(post_delete, sender=Visit)

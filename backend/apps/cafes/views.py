@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
 from core.exceptions import CafeNotFound, AlreadyFavorited
+from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from .serializers import (
     CafeListSerializer,
@@ -21,6 +22,8 @@ from core.permissions import IsOwnerOrReadOnly
 from apps.core.constants import MAX_NEARBY_CAFES
 from django.conf import settings
 from .services import GooglePlacesService
+
+logger = get_logger(__name__)
 
 
 # Custom throttle classes for expensive Google Places API endpoints
@@ -238,8 +241,6 @@ class MergedNearbyCafesView(APIView):
                 radius_meters=int(params['radius_km'] * 1000)
             )
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(f"Google Places API error: {e}")
             return []
 
@@ -409,9 +410,6 @@ class CafeSearchView(APIView):
     def get(self, request):
         from django.core.cache import cache
         from .serializers import CafeSearchQuerySerializer
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         # Validate query parameters
         query_serializer = CafeSearchQuerySerializer(data=request.query_params)

@@ -1,8 +1,11 @@
 from rest_framework import serializers
 from apps.core.constants import GOOGLE_RATING_FRESHNESS_HOURS
+from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
+
+logger = get_logger(__name__)
 
 
 class CafeStatsMixin:
@@ -170,9 +173,6 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         """
         from django.utils import timezone
         from datetime import timedelta
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         # Only refresh if cafe has Google Place ID
         if not obj.google_place_id:
