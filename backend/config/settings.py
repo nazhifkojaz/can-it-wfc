@@ -196,7 +196,7 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SECURE': not DEBUG,         # HTTPS only in production
     'AUTH_COOKIE_HTTP_ONLY': True,           # Prevent JavaScript access (XSS protection)
     'AUTH_COOKIE_PATH': '/',                 # Available on all paths
-    'AUTH_COOKIE_SAMESITE': 'Lax',          # CSRF protection (Lax allows navigation)
+    'AUTH_COOKIE_SAMESITE': 'None' if not DEBUG else 'Lax',  # None for cross-site in production
     'AUTH_COOKIE_DOMAIN': None,              # Current domain only
 }
 

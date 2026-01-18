@@ -220,7 +220,7 @@ class GoogleLoginView(APIView):
                 max_age=3600,  # 1 hour
                 httponly=True,  # Prevent JavaScript access
                 secure=not settings.DEBUG,  # HTTPS only in production
-                samesite='Lax',  # CSRF protection
+                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
                 path='/',
             )
 
@@ -230,7 +230,7 @@ class GoogleLoginView(APIView):
                 max_age=604800,  # 7 days
                 httponly=True,
                 secure=not settings.DEBUG,
-                samesite='Lax',
+                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
                 path='/',
             )
 
@@ -264,7 +264,7 @@ class LogoutView(APIView):
             max_age=0,  # Expire immediately
             expires='Thu, 01 Jan 1970 00:00:00 GMT',  # Past date
             path='/',
-            samesite='Lax',
+            samesite='None' if not settings.DEBUG else 'Lax',
             secure=not settings.DEBUG,
             httponly=True,
         )
@@ -275,7 +275,7 @@ class LogoutView(APIView):
             max_age=0,  # Expire immediately
             expires='Thu, 01 Jan 1970 00:00:00 GMT',  # Past date
             path='/',
-            samesite='Lax',
+            samesite='None' if not settings.DEBUG else 'Lax',
             secure=not settings.DEBUG,
             httponly=True,
         )
