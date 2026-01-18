@@ -27,6 +27,10 @@ class RegistrationThrottle(AnonRateThrottle):
     scope = 'registration'
 
 
+class PublicApiThrottle(AnonRateThrottle):
+    scope = 'public_api'
+
+
 from .serializers import (
     UserSerializer,
     UserDetailSerializer,
@@ -98,6 +102,7 @@ class UserPublicProfileView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
     lookup_field = 'username'
 
     def get_object(self):
@@ -297,6 +302,7 @@ class UserActivityView(APIView):
     GET /api/users/{id}/activity/
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
 
     def get(self, request, username=None):
         """Fetch recent activity combining visits and reviews."""
@@ -330,7 +336,10 @@ class UserActivityView(APIView):
             })
 
         # Get limit from query params (default 20, max 50)
-        limit = min(int(request.query_params.get('limit', 20)), 50)
+        try:
+            limit = min(int(request.query_params.get('limit', 20)), 50)
+        except (ValueError, TypeError):
+            limit = 20  # Default fallback for invalid input
 
         # Fetch visits and reviews
         visits = Visit.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
@@ -513,6 +522,7 @@ class UserFollowersListView(generics.ListAPIView):
     """
     serializer_class = FollowUserSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
 
     def get_queryset(self):
         """Return followers of specified user, respecting privacy settings."""
@@ -550,6 +560,7 @@ class UserFollowingListView(generics.ListAPIView):
     """
     serializer_class = FollowUserSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
 
     def get_queryset(self):
         """Return users followed by specified user, respecting privacy settings."""
@@ -603,7 +614,10 @@ class ActivityFeedView(APIView):
         from apps.activity.serializers import ActivitySerializer
 
         user = request.user
-        limit = min(int(request.query_params.get('limit', 50)), 100)
+        try:
+            limit = min(int(request.query_params.get('limit', 50)), 100)
+        except (ValueError, TypeError):
+            limit = 50  # Default fallback for invalid input
 
         # Use ActivityService - single optimized query
         activities = ActivityService.get_user_feed(user, limit=limit)

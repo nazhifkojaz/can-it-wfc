@@ -178,6 +178,7 @@ REST_FRAMEWORK = {
         'registration': '3/hour',  # Account creation (very strict)
         'nearby_anon': '5/min',  # Expensive Google Places API calls (anon)
         'nearby_auth': '20/min',  # Expensive Google Places API calls (auth)
+        'public_api': '60/min',  # Public list endpoints (profiles, followers, etc.)
     }
 }
 
