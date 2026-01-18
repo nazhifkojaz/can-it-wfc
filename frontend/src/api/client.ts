@@ -27,6 +27,9 @@ import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('ApiClient');
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -95,7 +98,7 @@ export const authApi = {
       // Call backend to clear httpOnly cookies
       await api.post('/auth/logout/');
     } catch (error) {
-      console.error('Logout error:', error);
+      log.error('Logout failed', error);
     }
     // Also clear any old localStorage tokens (migration cleanup)
     tokenStorage.clearTokens();
@@ -535,15 +538,14 @@ export default api;
 export const handleApiError = (error: any): string => {
   const apiError = extractApiError(error);
 
-  // Log in development
-  if (import.meta.env.DEV) {
-    console.error('API Error:', {
-      code: apiError.code,
-      message: apiError.message,
-      details: apiError.details,
-      status: apiError.status,
-    });
-  }
+  // Log error details (logger handles dev/prod filtering)
+  log.error('API Error', new Error(apiError.message));
+  log.debug('API Error details', {
+    code: apiError.code,
+    message: apiError.message,
+    details: apiError.details,
+    status: apiError.status,
+  });
 
   return apiError.message;
 };

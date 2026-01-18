@@ -8,3 +8,4 @@ export * from './calculations';
 export * from './storage';
 export * from './visit';
 export * from './date';
+export * from './logger';
