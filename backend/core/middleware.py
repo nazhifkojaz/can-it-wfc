@@ -32,4 +32,30 @@ class SecurityHeadersMiddleware:
         # Permissions policy - restrict browser features
         response['Permissions-Policy'] = 'geolocation=(self), microphone=(), camera=()'
 
+        # Content Security Policy (CSP)
+        # Restricts which resources can be loaded to prevent XSS attacks
+        csp_directives = [
+            "default-src 'self'",
+            # Scripts: self + Google OAuth + Google Maps
+            "script-src 'self' https://accounts.google.com https://maps.googleapis.com",
+            # Styles: self + inline (for CSS-in-JS) + Google Fonts
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            # Images: self + data URIs + blob + any HTTPS (for avatars, map tiles, Cloudinary)
+            "img-src 'self' data: blob: https: http:",
+            # Fonts: self + data URIs + Google Fonts
+            "font-src 'self' data: https://fonts.gstatic.com",
+            # Connect: self + Google APIs + Cloudinary
+            "connect-src 'self' https://maps.googleapis.com https://places.googleapis.com "
+            "https://api.cloudinary.com https://res.cloudinary.com",
+            # Frames: Google OAuth popup
+            "frame-src https://accounts.google.com",
+            # Base URI restriction
+            "base-uri 'self'",
+            # Form submission restriction
+            "form-action 'self'",
+            # Block object/embed/applet
+            "object-src 'none'",
+        ]
+        response['Content-Security-Policy'] = '; '.join(csp_directives)
+
         return response
