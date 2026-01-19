@@ -117,6 +117,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+    {
+        'NAME': 'validators.ComplexityValidator',
+    },
 ]
 
 # Cache Configuration (required for DRF throttling)
