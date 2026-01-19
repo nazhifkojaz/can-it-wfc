@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Check, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+
+// Password validation requirements (must match backend validators.py)
+const passwordRequirements = [
+  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { id: 'uppercase', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'lowercase', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'number', label: 'One number', test: (p: string) => /\d/.test(p) },
+  { id: 'special', label: 'One special character', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'`~]/.test(p) },
+];
 
 const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -13,6 +23,11 @@ const RegisterPage: React.FC = () => {
 
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  // Check if all password requirements are met
+  const isPasswordValid = useMemo(() => {
+    return passwordRequirements.every(req => req.test(password));
+  }, [password]);
 
   // Redirect if already logged in
   // NOTE: Commented out to allow Google OAuth username modal to show
@@ -33,9 +48,9 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    // Validate password length
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    // Validate password meets all requirements
+    if (!isPasswordValid) {
+      setError('Password does not meet all requirements');
       return;
     }
 
@@ -106,7 +121,21 @@ const RegisterPage: React.FC = () => {
               minLength={8}
               autoComplete="new-password"
             />
-            <span className="hint">At least 8 characters</span>
+            {/* Password requirements checklist */}
+            {password && (
+              <div className="password-requirements">
+                {passwordRequirements.map(req => {
+                  const isMet = req.test(password);
+                  return (
+                    <div key={req.id} className={`requirement ${isMet ? 'met' : 'unmet'}`}>
+                      {isMet ? <Check size={14} /> : <X size={14} />}
+                      <span>{req.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {!password && <span className="hint">Must include uppercase, lowercase, number & special character</span>}
           </div>
 
           <div className="form-group">
@@ -225,6 +254,37 @@ const RegisterPage: React.FC = () => {
           color: var(--neo-gray-600);
           margin-top: 6px;
           font-weight: 500;
+        }
+
+        .password-requirements {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 8px;
+          padding: 8px 12px;
+          background: var(--neo-gray-100);
+          border-radius: var(--neo-border-radius);
+          border: 1px solid var(--neo-gray-300);
+        }
+
+        .requirement {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 500;
+        }
+
+        .requirement.met {
+          color: var(--neo-success);
+        }
+
+        .requirement.unmet {
+          color: var(--neo-gray-500);
+        }
+
+        .requirement svg {
+          flex-shrink: 0;
         }
 
         .error-message {
