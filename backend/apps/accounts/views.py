@@ -321,7 +321,7 @@ class UserActivityView(APIView):
                 raise UserNotFound()
 
         # Check privacy settings
-        settings = user.settings
+        user_settings = user.settings
 
         is_own_profile = (
             request.user.is_authenticated and
@@ -329,7 +329,7 @@ class UserActivityView(APIView):
         )
 
         # If profile is private and not own profile, return empty
-        if settings.profile_visibility == 'private' and not is_own_profile:
+        if user_settings.profile_visibility == 'private' and not is_own_profile:
             return Response({
                 'message': 'This profile is private',
                 'activity': []
