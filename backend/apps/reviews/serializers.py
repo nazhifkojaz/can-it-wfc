@@ -1,9 +1,12 @@
 from rest_framework import serializers
 from django.db import transaction
 from apps.core.constants import MAX_CHECKIN_DISTANCE_KM
+from core.logging import get_logger
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
+
+logger = get_logger(__name__)
 
 
 class VisitSerializer(serializers.ModelSerializer):
@@ -108,8 +111,9 @@ class VisitSerializer(serializers.ModelSerializer):
                 )
                 attrs['cafe_id'] = cafe
             except ValueError as e:
+                logger.error(f'Cafe validation error: {str(e)}', exc_info=True)
                 raise serializers.ValidationError({
-                    'non_field_errors': [str(e)]
+                    'non_field_errors': ['An error occurred while processing the cafe data. Please try again.']
                 })
 
         else:
