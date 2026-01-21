@@ -34,21 +34,20 @@ def update_stats_after_visit_deletion(sender, instance, **kwargs):
 @transaction.atomic
 def update_stats_after_review_deletion(sender, instance, **kwargs):
     """
-    Update cafe and user stats after a review is deleted independently.
-    This only fires when a review is deleted WITHOUT deleting the visit.
+    Update cafe and user stats after a review is deleted.
+
+    After the Review model refactor, Review has direct foreign keys to cafe and user
+    (no longer depends on visit). This handler updates denormalized stats on both
+    cafe and user when a review is deleted.
+
     Uses @transaction.atomic to ensure both cafe and user stats are updated together.
     """
     try:
-        # Get the visit (if it still exists)
-        # The visit might be deleted too (cascade), in which case this won't run
-        if instance.visit_id:
-            visit = instance.visit
+        # Update cafe stats (total_reviews, average_wfc_rating)
+        instance.cafe.update_stats()
 
-            # Update cafe stats (total_reviews, average_wfc_rating)
-            visit.cafe.update_stats()
-
-            # Update user stats (total_reviews)
-            visit.user.update_stats()
+        # Update user stats (total_reviews)
+        instance.user.update_stats()
     except Exception as e:
         # Log error but don't raise to avoid blocking deletion
         logger.error(f"Error updating stats after review deletion: {e}", exc_info=True)
