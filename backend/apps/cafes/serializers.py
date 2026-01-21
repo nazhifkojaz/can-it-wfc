@@ -1,9 +1,15 @@
 from rest_framework import serializers
+from django.core.validators import MaxLengthValidator
 from apps.core.constants import GOOGLE_RATING_FRESHNESS_HOURS
 from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
+
+# Constants for TextField max length validation (SEC-15)
+MAX_CAFE_ADDRESS_LENGTH = 500
+MAX_FLAG_DESCRIPTION_LENGTH = 1000
+MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
 
 logger = get_logger(__name__)
 
@@ -231,6 +237,14 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
 class CafeCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a new cafe."""
 
+    # SEC-15: Add max_length validation for TextField
+    address = serializers.CharField(
+        max_length=MAX_CAFE_ADDRESS_LENGTH,
+        error_messages={
+            'max_length': f'Address cannot exceed {MAX_CAFE_ADDRESS_LENGTH} characters.'
+        }
+    )
+
     class Meta:
         model = Cafe
         fields = [
@@ -270,7 +284,16 @@ class CafeCreateSerializer(serializers.ModelSerializer):
 
 class CafeUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating cafe information."""
-    
+
+    # SEC-15: Add max_length validation for TextField
+    address = serializers.CharField(
+        max_length=MAX_CAFE_ADDRESS_LENGTH,
+        required=False,
+        error_messages={
+            'max_length': f'Address cannot exceed {MAX_CAFE_ADDRESS_LENGTH} characters.'
+        }
+    )
+
     class Meta:
         model = Cafe
         fields = [
@@ -309,6 +332,16 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 class CafeFlagCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating cafe flags (user reports)."""
+
+    # SEC-15: Add max_length validation for TextField
+    description = serializers.CharField(
+        max_length=MAX_FLAG_DESCRIPTION_LENGTH,
+        required=False,
+        allow_blank=True,
+        error_messages={
+            'max_length': f'Description cannot exceed {MAX_FLAG_DESCRIPTION_LENGTH} characters.'
+        }
+    )
 
     class Meta:
         model = CafeFlag

@@ -1,12 +1,61 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
+from django import forms
 from .models import Cafe, Favorite, CafeFlag
+
+
+# SEC-15: Add max_length validation for TextField fields in admin
+MAX_CAFE_ADDRESS_LENGTH = 500
+MAX_FLAG_DESCRIPTION_LENGTH = 1000
+MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
+
+
+class CafeAdminForm(forms.ModelForm):
+    """Admin form with TextField length validation."""
+
+    class Meta:
+        model = Cafe
+        fields = '__all__'
+
+    def clean_address(self):
+        address = self.cleaned_data.get('address', '')
+        if len(address) > MAX_CAFE_ADDRESS_LENGTH:
+            raise forms.ValidationError(
+                f'Address cannot exceed {MAX_CAFE_ADDRESS_LENGTH} characters.'
+            )
+        return address
+
+
+class CafeFlagAdminForm(forms.ModelForm):
+    """Admin form with TextField length validation."""
+
+    class Meta:
+        model = CafeFlag
+        fields = '__all__'
+
+    def clean_description(self):
+        description = self.cleaned_data.get('description', '')
+        if len(description) > MAX_FLAG_DESCRIPTION_LENGTH:
+            raise forms.ValidationError(
+                f'Description cannot exceed {MAX_FLAG_DESCRIPTION_LENGTH} characters.'
+            )
+        return description
+
+    def clean_resolution_notes(self):
+        resolution_notes = self.cleaned_data.get('resolution_notes', '')
+        if len(resolution_notes) > MAX_FLAG_RESOLUTION_NOTES_LENGTH:
+            raise forms.ValidationError(
+                f'Resolution notes cannot exceed {MAX_FLAG_RESOLUTION_NOTES_LENGTH} characters.'
+            )
+        return resolution_notes
 
 
 @admin.register(Cafe)
 class CafeAdmin(admin.ModelAdmin):
     """Admin interface for Cafe model with detailed information."""
+
+    form = CafeAdminForm  # SEC-15: Use form with TextField validation
     
     list_display = [
         'name',
@@ -152,6 +201,8 @@ class FavoriteAdmin(admin.ModelAdmin):
 @admin.register(CafeFlag)
 class CafeFlagAdmin(admin.ModelAdmin):
     """Admin interface for cafe flags (user reports)."""
+
+    form = CafeFlagAdminForm  # SEC-15: Use form with TextField validation
 
     list_display = [
         'cafe',
