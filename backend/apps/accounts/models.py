@@ -8,18 +8,36 @@ class User(AbstractUser):
     Custom user model.
     Adds support for anonymous username display and tracking.
     """
+    # Username change cooldown configuration
+    USERNAME_CHANGE_COOLDOWN_DAYS = 30
+
     # Additional fields beyond Django's default User
     is_anonymous_display = models.BooleanField(
         default=False,
-        help_text="If True, username will be displayed as masked (e.g., 'joh***')"
+        help_text="If True, username/display_name will be displayed as masked (e.g., 'joh***')"
     )
-    
+
     date_joined = models.DateTimeField(default=timezone.now)
-    
+
+    # Customizable display name (shown in UI instead of username)
+    display_name = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Custom display name. If not set, username is used."
+    )
+
+    # Track last username change for cooldown enforcement
+    username_changed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of last username change, for cooldown tracking"
+    )
+
     # Profile information
     bio = models.TextField(blank=True, max_length=500)
     avatar_url = models.URLField(blank=True, null=True)
-    
+
     # Statistics (denormalized for performance)
     total_reviews = models.IntegerField(default=0)
     total_visits = models.IntegerField(default=0)
@@ -34,18 +52,28 @@ class User(AbstractUser):
         indexes = [
             models.Index(fields=['email'], name='user_email_idx'),
         ]
-    
+
     def __str__(self):
         return self.username
-    
+
     @property
-    def display_name(self):
+    def effective_display_name(self):
         """
-        Returns the display name for the user.
-        If anonymous display is enabled, masks the username.
+        Returns the display name to show in UI.
+
+        Priority:
+        1. Custom display_name field (if set)
+        2. Masked display_name if anonymous mode is on
+        3. Username as fallback
         """
+        # If user has a custom display_name, use it (with masking if anonymous)
+        if self.display_name:
+            if self.is_anonymous_display and len(self.display_name) > 3:
+                return f"{self.display_name[:3]}{'*' * (len(self.display_name) - 3)}"
+            return self.display_name
+
+        # Fall back to username (with masking if anonymous)
         if self.is_anonymous_display and len(self.username) > 3:
-            # Mask username: show first 3 chars + asterisks
             return f"{self.username[:3]}{'*' * (len(self.username) - 3)}"
         return self.username
     
