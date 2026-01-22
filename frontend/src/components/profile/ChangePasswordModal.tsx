@@ -4,6 +4,7 @@ import { Modal, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './ChangePasswordModal.module.css';
 
 interface ChangePasswordModalProps {
@@ -85,9 +86,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       onSuccess();
       onClose();
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Change password error:', error);
-      }
+      logger.error('Change password error', error, 'ChangePasswordModal');
 
       // Check for field-specific errors first, then fall back to general message
       const oldPasswordError = getFieldError(error, 'old_password');

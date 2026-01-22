@@ -12,6 +12,7 @@ import { formatCurrency, CURRENCIES } from '../../utils/currency';
 import { VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review } from '../../types';
 import { format } from 'date-fns';
+import { logger } from '../../utils/logger';
 import './VisitsPanel.css';
 
 const VisitsPanel: React.FC = () => {
@@ -84,9 +85,7 @@ const VisitsPanel: React.FC = () => {
         );
         setCafeReviews(new Map(reviewEntries));
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('Error loading review statuses:', error);
-        }
+        logger.error('Error loading review statuses', error, 'VisitsPanel');
       } finally {
         setLoadingReviews(false);
       }
@@ -186,9 +185,7 @@ const VisitsPanel: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error updating visit:', error);
-      }
+      logger.error('Error updating visit', error, 'VisitsPanel');
 
       resultModal.showResultModal({
         type: 'error',
@@ -223,9 +220,7 @@ const VisitsPanel: React.FC = () => {
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error deleting visit:', error);
-      }
+      logger.error('Error deleting visit', error, 'VisitsPanel');
 
       resultModal.showResultModal({
         type: 'error',

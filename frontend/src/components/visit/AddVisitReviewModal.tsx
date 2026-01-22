@@ -9,6 +9,7 @@ import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../..
 import { VISIT_TIME_OPTIONS } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './AddVisitReviewModal.module.css';
 
 /**
@@ -144,9 +145,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             setExistingVisit(null);
           }
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error checking duplicate visit:', error);
-          }
+          logger.error('Error checking duplicate visit', error, 'AddVisitReviewModal');
           setShowDuplicateInfo(false);
         }
       } else {
@@ -162,9 +161,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           const review = await reviewApi.getUserCafeReview(selectedCafe.id);
           setHasExistingReview(!!review);
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error checking existing review:', error);
-          }
+          logger.error('Error checking existing review', error, 'AddVisitReviewModal');
           setHasExistingReview(false);
         } finally {
           setExistingReviewLoading(false);
@@ -380,9 +377,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         }
       });
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error logging visit:', error);
-      }
+      logger.error('Error logging visit', error, 'AddVisitReviewModal');
 
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;

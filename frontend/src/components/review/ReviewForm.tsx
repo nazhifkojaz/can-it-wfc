@@ -7,6 +7,7 @@ import { reviewApi } from '../../api/client';
 import { isValidReviewComment } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
+import { logger } from '../../utils/logger';
 import styles from './ReviewForm.module.css';
 
 /**
@@ -151,9 +152,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         });
       }
     } catch (err: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error submitting review:', err);
-      }
+      logger.error('Error submitting review', err, 'ReviewForm');
 
       // Check for field-specific errors first (e.g., duplicate review)
       const cafeIdError = getFieldError(err, 'cafe_id');

@@ -8,6 +8,7 @@ import { ActivityItem } from '../../types';
 import { Loading } from '../common';
 import { formatDistanceToNow } from 'date-fns';
 import { formatVisitTime } from '../../utils/visit';
+import { logger } from '../../utils/logger';
 import './ActivityPanel.css';
 
 const ActivityPanel: React.FC = () => {
@@ -29,7 +30,7 @@ const ActivityPanel: React.FC = () => {
         const data = await userApi.getActivityFeed(50);
         setActivities(data.activities);
       } catch (err: any) {
-        console.error('Failed to load feed:', err);
+        logger.error('Failed to load feed', err, 'ActivityPanel');
         setError('Failed to load your activity');
       } finally {
         setLoading(false);

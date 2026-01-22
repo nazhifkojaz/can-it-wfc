@@ -37,6 +37,7 @@ import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
+import { logger } from '../../utils/logger';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
@@ -142,7 +143,7 @@ const ProfilePanel: React.FC = () => {
         );
         setCafeReviews(new Map(reviewEntries));
       } catch (error) {
-        console.error('Error loading review statuses:', error);
+        logger.error('Error loading review statuses', error, 'ProfilePanel');
       } finally {
         setReviewsLoading(false);
       }

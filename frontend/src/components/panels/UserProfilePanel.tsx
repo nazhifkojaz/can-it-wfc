@@ -9,6 +9,7 @@ import FollowButton from '../social/FollowButton';
 import FollowersModal from '../social/FollowersModal';
 import { formatVisitTime } from '../../utils/visit';
 import { formatRelativeDate } from '../../utils/date';
+import { logger } from '../../utils/logger';
 import './UserProfilePanel.css';
 
 const UserProfilePanel: React.FC = () => {
@@ -102,7 +103,7 @@ const UserProfilePanel: React.FC = () => {
           setActivity(mergedActivity);
         }
       } catch (err: any) {
-        console.error('Failed to load profile:', err);
+        logger.error('Failed to load profile', err, 'UserProfilePanel');
         setError(err.response?.data?.detail || 'Failed to load profile');
       } finally {
         setLoading(false);

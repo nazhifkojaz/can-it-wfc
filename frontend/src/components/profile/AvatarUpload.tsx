@@ -4,6 +4,7 @@ import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
 import { CLOUDINARY_CONFIG, validateAvatarFile } from '../../config/cloudinary';
 import { extractApiError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './AvatarUpload.module.css';
 
 interface AvatarUploadProps {
@@ -76,9 +77,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        if (import.meta.env.DEV) {
-          console.error('Cloudinary error:', data);
-        }
+        logger.error('Cloudinary error', { data }, 'AvatarUpload');
         const errorMessage = data.error?.message || 'Upload failed';
         throw new Error(errorMessage);
       }
@@ -103,9 +102,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
 
       setPreview(null);
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Avatar upload error:', error);
-      }
+      logger.error('Avatar upload error', error, 'AvatarUpload');
 
       // More detailed error message
       let errorMessage = 'Failed to upload avatar. Please try again.';

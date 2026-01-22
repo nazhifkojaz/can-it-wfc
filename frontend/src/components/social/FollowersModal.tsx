@@ -4,6 +4,7 @@ import { Modal, Loading } from '../common';
 import { userApi } from '../../api/client';
 import { FollowUser } from '../../types';
 import FollowButton from './FollowButton';
+import { logger } from '../../utils/logger';
 import styles from './FollowersModal.module.css';
 
 interface FollowersModalProps {
@@ -37,7 +38,7 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
           : await userApi.getUserFollowing(username);
         setUsers(data);
       } catch (err) {
-        console.error('Failed to load users:', err);
+        logger.error('Failed to load users', err, 'FollowersModal');
         setError(`Failed to load ${type}. Please try again.`);
       } finally {
         setLoading(false);

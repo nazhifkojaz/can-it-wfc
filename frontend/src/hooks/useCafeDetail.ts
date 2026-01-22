@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Cafe } from '../types';
 import { cafeApi } from '../api/client';
 import { calculateDistance } from '../utils/calculations';
+import { logger } from '../utils/logger';
 
 interface UseCafeDetailOptions {
   /** Initial cafe data (from parent component) */
@@ -66,9 +67,7 @@ export const useCafeDetail = ({
           distance: prev.distance,
         }));
       } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error('Error refreshing cafe data:', err);
-        }
+        logger.error('Error refreshing cafe data', err, 'useCafeDetail');
         setError('Failed to refresh cafe data');
         // Keep using existing cafe data on error
       } finally {
@@ -111,9 +110,7 @@ export const useCafeDetail = ({
         distance: prev.distance,
       }));
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('Error refreshing cafe:', err);
-      }
+      logger.error('Error refreshing cafe', err, 'useCafeDetail');
       setError('Failed to refresh');
     } finally {
       setIsRefreshing(false);

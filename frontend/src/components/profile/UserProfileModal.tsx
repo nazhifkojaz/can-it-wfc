@@ -6,6 +6,7 @@ import { UserProfile } from '../../types';
 import { Modal, Loading } from '../common';
 import { usePanel } from '../../contexts/PanelContext';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../../utils/logger';
 import styles from './UserProfileModal.module.css';
 
 interface UserProfileModalProps {
@@ -40,9 +41,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
           setUser(userData);
         }
       } catch (err: any) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to fetch user profile:', err);
-        }
+        logger.error('Failed to fetch user profile', err, 'UserProfileModal');
         if (err.response?.status === 404) {
           setError('User not found');
         } else {

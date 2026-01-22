@@ -14,6 +14,7 @@ import QuickInfo from './QuickInfo';
 import ActionButtons from './ActionButtons';
 import FacilitiesStats from './FacilitiesStats';
 import { formatDistance } from '../../utils/formatters';
+import { logger } from '../../utils/logger';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -88,9 +89,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     try {
       await toggleFavorite(cafe.id);
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error toggling favorite:', error);
-      }
+      logger.error('Error toggling favorite', error, 'CafeDetailSheet');
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Toggle Favorite',
