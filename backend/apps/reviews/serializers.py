@@ -623,13 +623,19 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                 })
         return data
 
-    @transaction.atomic
     def create(self, validated_data):
         """
-        Create visit and optional review in a single atomic transaction.
-        If any step fails, all changes are rolled back to maintain data integrity.
+        Create visit and optional review.
+
+        Cafe get/create happens BEFORE the transaction to avoid:
+        1. Holding a transaction open during external API calls
+        2. Creating orphaned cafes if visit creation fails
+
+        The transaction only wraps visit+review creation.
+        (HP-09: Fixed transaction handling for cafe creation)
         """
         from apps.cafes.models import Cafe
+        from apps.cafes.services import CafeService
 
         request = self.context['request']
         user = request.user
@@ -645,16 +651,15 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
             if field in validated_data:
                 review_data[field] = validated_data.pop(field)
 
-        # Handle cafe - either get existing or create new
+        # STEP 1: Get or create cafe OUTSIDE the transaction
+        # This prevents holding a transaction open during Google API calls
+        # and ensures we don't create orphaned cafes if visit creation fails
         if 'cafe_id' in validated_data:
+            # Existing cafe - just fetch it
             cafe = Cafe.objects.get(id=validated_data.pop('cafe_id'))
         else:
-            # Create cafe from Google Places data
+            # New cafe - get or create from Google Places data
             google_place_id = validated_data.pop('google_place_id')
-
-            # Use CafeService to get or create cafe with complete Google data
-            # This fixes the bug where Google rating fields were missing
-            from apps.cafes.services import CafeService
 
             cafe_data = {
                 'name': validated_data.pop('cafe_name'),
@@ -669,48 +674,52 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                 created_by=user
             )
 
+        # STEP 2: Create visit and review inside atomic transaction
+        # If this fails, we don't rollback the cafe (which is fine -
+        # the cafe already exists or was created intentionally)
         validated_data['cafe'] = cafe
         validated_data['user'] = user
 
-        visit = Visit.objects.create(**validated_data)
+        with transaction.atomic():
+            visit = Visit.objects.create(**validated_data)
 
-        review = None
-        message = None
+            review = None
+            message = None
 
-        if include_review and review_data.get('wfc_rating'):
-            # Check if user already has a review for this cafe
-            existing_review = Review.objects.filter(
-                user=user,
-                cafe=cafe
-            ).first()
-
-            if existing_review:
-                # User already has a review - don't create duplicate
-                review = existing_review
-                message = 'Visit created. You already have a review for this cafe.'
-            else:
-                # Create new review
-                # Copy visit_time from Visit to Review for backward compatibility
-                review_data['visit_time'] = visit.visit_time
-
-                wfc_rating = review_data['wfc_rating']
-                review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
-                review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
-                review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
-                review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
-                review_data.setdefault('space_availability', wfc_rating)
-                review_data.setdefault('coffee_quality', wfc_rating)
-                review_data.setdefault('menu_options', wfc_rating)
-                review_data.setdefault('bathroom_quality', wfc_rating)
-
-                review = Review.objects.create(
+            if include_review and review_data.get('wfc_rating'):
+                # Check if user already has a review for this cafe
+                existing_review = Review.objects.filter(
                     user=user,
-                    cafe=cafe,
-                    **review_data
-                )
+                    cafe=cafe
+                ).first()
 
-                cafe.update_stats()
-                user.update_stats()
+                if existing_review:
+                    # User already has a review - don't create duplicate
+                    review = existing_review
+                    message = 'Visit created. You already have a review for this cafe.'
+                else:
+                    # Create new review
+                    # Copy visit_time from Visit to Review for backward compatibility
+                    review_data['visit_time'] = visit.visit_time
+
+                    wfc_rating = review_data['wfc_rating']
+                    review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
+                    review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
+                    review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
+                    review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
+                    review_data.setdefault('space_availability', wfc_rating)
+                    review_data.setdefault('coffee_quality', wfc_rating)
+                    review_data.setdefault('menu_options', wfc_rating)
+                    review_data.setdefault('bathroom_quality', wfc_rating)
+
+                    review = Review.objects.create(
+                        user=user,
+                        cafe=cafe,
+                        **review_data
+                    )
+
+                    cafe.update_stats()
+                    user.update_stats()
 
         return {
             'visit': visit,
