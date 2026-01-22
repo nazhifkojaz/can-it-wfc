@@ -175,7 +175,7 @@ const UserProfilePanel: React.FC = () => {
         <div className="profile-card">
           <div className="profile-avatar">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.display_name} />
+              <img src={profile.avatar_url} alt={profile.effective_display_name || profile.display_name} />
             ) : (
               <div className="avatar-placeholder">
                 <UserIcon size={48} />
@@ -184,7 +184,7 @@ const UserProfilePanel: React.FC = () => {
           </div>
 
           <div className="profile-info">
-            <h1 className="display-name">{profile.display_name}</h1>
+            <h1 className="display-name">{profile.effective_display_name || profile.display_name}</h1>
             <p className="username">@{profile.username}</p>
             {profile.bio && <p className="bio">{profile.bio}</p>}
 
@@ -260,7 +260,7 @@ const UserProfilePanel: React.FC = () => {
         {isPrivate && (
           <div className="private-message">
             <h3>🔒 This profile is private</h3>
-            <p>Only {profile.display_name} can see their activity and details.</p>
+            <p>Only {profile.effective_display_name || profile.display_name} can see their activity and details.</p>
           </div>
         )}
 

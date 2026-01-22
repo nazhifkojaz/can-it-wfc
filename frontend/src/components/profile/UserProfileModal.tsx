@@ -56,7 +56,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     fetchUser();
   }, [isOpen, username]);
 
-  const displayName = user?.display_name || user?.username || 'Anonymous';
+  const displayName = user?.effective_display_name || user?.display_name || user?.username || 'Anonymous';
   const memberSince = user?.date_joined
     ? formatDistanceToNow(new Date(user.date_joined), { addSuffix: true })
     : 'Unknown';

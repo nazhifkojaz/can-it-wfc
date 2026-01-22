@@ -577,6 +577,39 @@
   box-shadow: 1px 1px 0 var(--neo-black);
 }
 
+.username-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.username-label {
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-600);
+  margin: 0;
+}
+
+.edit-username-secondary-button {
+  background: transparent;
+  border: var(--neo-border-width-thin) solid var(--neo-gray-400);
+  border-radius: var(--neo-border-radius);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all var(--neo-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neo-gray-600);
+}
+
+.edit-username-secondary-button:hover {
+  background: var(--neo-gray-100);
+  color: var(--neo-black);
+  border-color: var(--neo-black);
+}
+
 .username-edit-form {
   display: flex;
   flex-direction: column;

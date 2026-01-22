@@ -74,13 +74,13 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
               >
                 <div className={styles.avatar}>
                   {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.display_name} />
+                    <img src={user.avatar_url} alt={user.effective_display_name || user.display_name} />
                   ) : (
                     <User size={24} />
                   )}
                 </div>
                 <div className={styles.userDetails}>
-                  <h3>{user.display_name}</h3>
+                  <h3>{user.effective_display_name || user.display_name}</h3>
                   <p>@{user.username}</p>
                   <p className={styles.stats}>
                     {user.total_visits} visits · {user.total_reviews} reviews

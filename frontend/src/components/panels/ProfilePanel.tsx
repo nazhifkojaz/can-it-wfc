@@ -53,9 +53,12 @@ const ProfilePanel: React.FC = () => {
 
   // Settings tab state
   const [isEditing, setIsEditing] = useState(false);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [bio, setBio] = useState(user?.bio || '');
+  const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [isAnonymous, setIsAnonymous] = useState(user?.is_anonymous_display || false);
   const [loading, setLoading] = useState(false);
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [savingUsername, setSavingUsername] = useState(false);
@@ -193,7 +196,7 @@ const ProfilePanel: React.FC = () => {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      const updatedUser = await authApi.updateProfile({ bio });
+      const updatedUser = await authApi.updateProfile({ bio, display_name: displayName });
       // Merge with existing user to preserve all fields (like date_joined)
       updateUser({ ...user, ...updatedUser });
       setIsEditing(false);
@@ -201,19 +204,47 @@ const ProfilePanel: React.FC = () => {
       resultModal.showResultModal({
         type: 'success',
         title: 'Profile Updated',
-        message: 'Your bio has been updated successfully!',
+        message: 'Your profile has been updated successfully!',
         autoClose: true,
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
       const bioError = getFieldError(error, 'bio');
+      const displayNameError = getFieldError(error, 'display_name');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: bioError || extractApiError(error).message,
+        message: displayNameError || bioError || extractApiError(error).message,
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    try {
+      setSavingDisplayName(true);
+      const updatedUser = await authApi.updateProfile({ display_name: displayName });
+      // Merge with existing user to preserve all fields (like date_joined)
+      updateUser({ ...user, ...updatedUser });
+      setEditingDisplayName(false);
+
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Display Name Updated',
+        message: 'Your display name has been updated successfully!',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
+    } catch (error: any) {
+      const displayNameError = getFieldError(error, 'display_name');
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Update Failed',
+        message: displayNameError || extractApiError(error).message,
+      });
+    } finally {
+      setSavingDisplayName(false);
     }
   };
 
@@ -566,6 +597,54 @@ const ProfilePanel: React.FC = () => {
           }}
         />
 
+        {/* Display Name Section - Always Editable */}
+        {editingDisplayName ? (
+          <div className="username-edit-form">
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Display name (optional)"
+              className="username-input"
+              maxLength={50}
+            />
+            <div className="username-edit-actions">
+              <button
+                className="button-secondary-small"
+                onClick={() => {
+                  setDisplayName(user?.display_name || '');
+                  setEditingDisplayName(false);
+                }}
+                disabled={savingDisplayName}
+              >
+                Cancel
+              </button>
+              <button
+                className="button-primary-small"
+                onClick={handleSaveDisplayName}
+                disabled={savingDisplayName}
+              >
+                {savingDisplayName ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="username-display">
+            <h1 className="username">
+              {user.effective_display_name || user.display_name || user.username}
+            </h1>
+            <button
+              className="edit-username-button"
+              onClick={() => setEditingDisplayName(true)}
+              aria-label="Edit display name"
+              title="Edit display name"
+            >
+              <Edit size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Username Section - Editable with 30-day cooldown */}
         {editingUsername ? (
           <div className="username-edit-form">
             <input
@@ -597,14 +676,15 @@ const ProfilePanel: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="username-display">
-            <h1 className="username">{user.username}</h1>
+          <div className="username-secondary">
+            <p className="username-label">@{user.username}</p>
             <button
-              className="edit-username-button"
+              className="edit-username-secondary-button"
               onClick={() => setEditingUsername(true)}
               aria-label="Edit username"
+              title="Edit username (30-day cooldown applies)"
             >
-              <Edit size={16} />
+              <Edit size={14} />
             </button>
           </div>
         )}
@@ -967,7 +1047,10 @@ const ProfilePanel: React.FC = () => {
                   <div>
                     <p className="setting-label">Anonymous Display</p>
                     <p className="setting-description">
-                      Show as {isAnonymous ? `***${user.username.slice(-4)}` : user.username} in reviews
+                      Show as {isAnonymous
+                        ? (user.display_name || user.username || 'Use').substring(0, 3) + '***'
+                        : (user.effective_display_name || user.display_name || user.username)
+                      } in reviews
                     </p>
                   </div>
                 </div>

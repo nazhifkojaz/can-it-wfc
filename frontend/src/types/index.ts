@@ -7,6 +7,7 @@ export interface User {
   username: string;
   email: string;
   display_name: string;
+  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
   bio: string;
   avatar_url?: string;
   is_anonymous_display: boolean;
@@ -37,6 +38,7 @@ export interface AuthTokens {
 
 export interface UserUpdate {
   username?: string;
+  display_name?: string; // Customizable display name (always editable)
   bio?: string;
   avatar_url?: string;
   is_anonymous_display?: boolean;
@@ -69,6 +71,7 @@ export interface UserProfile {
   id: number;
   username: string;
   display_name: string;
+  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
   bio: string;
   avatar_url?: string;
   total_reviews: number;
@@ -154,6 +157,7 @@ export interface FollowUser {
   id: number;
   username: string;
   display_name: string;
+  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
   avatar_url?: string;
   bio: string;
   total_visits: number;

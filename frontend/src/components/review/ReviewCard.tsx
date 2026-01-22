@@ -36,7 +36,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   const [avatarError, setAvatarError] = useState(false);
   const resultModal = useResultModal();
 
-  const displayName = review.user?.display_name || review.user?.username || 'Anonymous';
+  const displayName = review.user?.effective_display_name || review.user?.display_name || review.user?.username || 'Anonymous';
   const overallRating = typeof review.wfc_rating === 'number' ? review.wfc_rating : (review.average_rating || 0);
   const roundedStars = Math.round(overallRating);
   const ratingColor = getRatingColor(overallRating);
