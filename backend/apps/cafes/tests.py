@@ -292,3 +292,154 @@ class TestCafeAPITextFieldValidation:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         # Error response has nested structure
         assert 'description' in response.data.get('error', {}).get('details', {})
+
+
+@pytest.mark.django_db
+class TestCafeGoogleRatingStaleWhileRevalidate:
+    """Test Google rating stale-while-revalidate pattern (HP-08)"""
+
+    def test_cafe_detail_serializer_returns_cached_rating(self, authenticated_client, test_user):
+        """Test that cafe detail returns cached Google rating without API call"""
+        from apps.cafes.models import Cafe
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Create cafe with old Google rating (stale)
+        cafe = Cafe.objects.create(
+            name='Stale Rating Cafe',
+            address='123 Stale St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='stale_place_id',
+            google_rating=4.5,
+            google_ratings_count=100,
+            google_rating_updated_at=timezone.now() - timedelta(hours=25),  # Stale
+            created_by=test_user
+        )
+
+        response = authenticated_client.get(f'/api/cafes/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_200_OK
+        # Should return cached data immediately (no API call)
+        assert response.data['google_rating'] == 4.5
+        assert response.data['google_ratings_count'] == 100
+        # Should include google_rating_updated_at for frontend staleness detection
+        assert 'google_rating_updated_at' in response.data
+
+    def test_cafe_detail_serializer_returns_null_for_no_rating(self, authenticated_client, test_user):
+        """Test that cafe detail returns None when no Google rating exists"""
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='No Rating Cafe',
+            address='123 No Rating St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='no_rating_place_id',
+            google_rating=None,
+            google_ratings_count=None,
+            google_rating_updated_at=None,
+            created_by=test_user
+        )
+
+        response = authenticated_client.get(f'/api/cafes/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['google_rating'] is None
+        assert response.data['google_ratings_count'] is None
+        assert response.data['google_rating_updated_at'] is None
+
+    def test_refresh_google_rating_endpoint_updates_cafe(self, authenticated_client, test_user, monkeypatch):
+        """Test that refresh endpoint updates Google rating (HP-08)"""
+        from apps.cafes.models import Cafe
+        from django.utils import timezone
+        from datetime import timedelta
+
+        cafe = Cafe.objects.create(
+            name='Refresh Test Cafe',
+            address='123 Refresh St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='refresh_test_place',
+            google_rating=4.0,
+            google_ratings_count=50,
+            google_rating_updated_at=timezone.now() - timedelta(hours=25),
+            created_by=test_user
+        )
+
+        # Mock GooglePlacesService.get_place_details to return fresh data
+        def mock_get_place_details(place_id):
+            return {
+                'rating': 4.8,
+                'user_ratings_total': 150,
+                'name': 'Updated Cafe Name'
+            }
+
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            mock_get_place_details
+        )
+
+        response = authenticated_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['google_rating'] == 4.8
+        assert response.data['google_ratings_count'] == 150
+        assert response.data['google_rating_updated_at'] is not None
+
+        # Verify database was updated
+        cafe.refresh_from_db()
+        assert cafe.google_rating == 4.8
+        assert cafe.google_ratings_count == 150
+
+    def test_refresh_endpoint_returns_404_for_nonexistent_cafe(self, authenticated_client):
+        """Test that refresh endpoint returns 404 for non-existent cafe"""
+        response = authenticated_client.post('/api/cafes/99999/refresh-google-rating/')
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_refresh_endpoint_returns_400_for_cafe_without_google_place_id(self, authenticated_client, test_user):
+        """Test that refresh endpoint returns 400 for cafe without Google Place ID"""
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='No Google Place ID Cafe',
+            address='123 No Google St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id=None,  # No Google Place ID
+            created_by=test_user
+        )
+
+        response = authenticated_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'error' in response.data
+
+    def test_refresh_endpoint_handles_google_api_failure(self, authenticated_client, test_user, monkeypatch):
+        """Test that refresh endpoint handles Google API failure gracefully"""
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='API Failure Cafe',
+            address='123 API Failure St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='api_failure_place',
+            google_rating=4.0,
+            google_ratings_count=50,
+            created_by=test_user
+        )
+
+        # Mock GooglePlacesService.get_place_details to return None (API failure)
+        def mock_get_place_details(place_id):
+            return None
+
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            mock_get_place_details
+        )
+
+        response = authenticated_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert 'error' in response.data
