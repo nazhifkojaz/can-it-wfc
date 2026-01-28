@@ -342,6 +342,14 @@ export const cafeApi = {
   // Get user's favorite cafes
   getFavorites: () => getPaginated<Favorite>('/cafes/favorites/'),
 
+  // Refresh Google rating for a cafe (HP-08: stale-while-revalidate)
+  refreshGoogleRating: (cafeId: number) =>
+    post<{
+      google_rating: number | null;
+      google_ratings_count: number | null;
+      google_rating_updated_at: string | null;
+    }>(`/cafes/${cafeId}/refresh-google-rating/`),
+
   // Find potential duplicates (not implemented in backend API yet)
   // findDuplicates: async (name: string, latitude: number, longitude: number) => {
   //   const response = await api.get<Cafe[]>('/cafes/find_duplicates/', {

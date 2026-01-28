@@ -41,6 +41,7 @@
 }
 
 .cardHeader {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -93,5 +94,63 @@
 @media (max-width: 360px) {
   .ratingsGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* HP-08: Staleness indicator styles */
+.freshnessIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--neo-gray-600);
+  margin-top: 4px;
+}
+
+.staleDot {
+  color: #f59e0b; /* Amber/warning color for stale rating */
+}
+
+.refreshingText {
+  color: var(--neo-primary);
+  font-style: italic;
+}
+
+.refreshButton {
+  position: absolute;
+  right: 0;
+  padding: 4px;
+  background: transparent;
+  border: var(--neo-border-width-thin) solid var(--neo-gray-400);
+  border-radius: var(--neo-border-radius);
+  color: var(--neo-gray-600);
+  cursor: pointer;
+  transition: all var(--neo-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refreshButton:hover:not(:disabled) {
+  background: var(--neo-gray-100);
+  color: var(--neo-black);
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refreshButton svg.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

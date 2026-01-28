@@ -34,7 +34,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   const { location } = useGeolocation({ watch: false });
 
   // Use custom hook for cafe state management (replaces 2 useState + 3 useEffect)
-  const { cafe, isRefreshing: refreshingCafe } = useCafeDetail({
+  const { cafe, isRefreshing: refreshingCafe, isRefreshingRating, refreshGoogleRating } = useCafeDetail({
     initialCafe,
     isOpen,
     userLocation: location,
@@ -205,9 +205,13 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       <RatingsComparison
         googleRating={cafe.google_rating}
         googleCount={cafe.google_ratings_count}
+        googleRatingUpdatedAt={cafe.google_rating_updated_at}
+        googlePlaceId={cafe.google_place_id}
+        isRefreshingRating={isRefreshingRating}
         wfcRating={cafe.average_wfc_rating}
         wfcCount={cafe.total_reviews}
         isRegistered={cafe.is_registered}
+        onRefreshRating={refreshGoogleRating}
       />
 
       {/* WFC Detailed Ratings (only if has reviews) */}

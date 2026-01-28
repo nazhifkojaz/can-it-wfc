@@ -218,6 +218,7 @@ export interface Cafe {
   // NEW: Google Places data (only for unregistered cafes)
   google_rating?: number;
   google_ratings_count?: number;
+  google_rating_updated_at?: string | null;  // ISO timestamp for staleness detection
   is_open_now?: boolean;
 
   // NEW: Average ratings breakdown (only for registered cafes with reviews)
