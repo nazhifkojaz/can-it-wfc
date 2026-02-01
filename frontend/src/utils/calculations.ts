@@ -104,7 +104,7 @@ export const roundToDecimal = (value: number, decimals: number = 2): number => {
 };
 
 // ===========================
-// Google Rating Staleness Detection (HP-08)
+// Google Rating Staleness Detection
 // ===========================
 
 /**

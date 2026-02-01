@@ -97,7 +97,7 @@
   }
 }
 
-/* HP-08: Staleness indicator styles */
+/* Staleness indicator styles */
 .freshnessIndicator {
   display: flex;
   align-items: center;

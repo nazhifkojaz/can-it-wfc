@@ -5,7 +5,7 @@ from django import forms
 from .models import Cafe, Favorite, CafeFlag
 
 
-# SEC-15: Add max_length validation for TextField fields in admin
+# Constants for TextField max length validation in admin
 MAX_CAFE_ADDRESS_LENGTH = 500
 MAX_FLAG_DESCRIPTION_LENGTH = 1000
 MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
@@ -55,8 +55,7 @@ class CafeFlagAdminForm(forms.ModelForm):
 class CafeAdmin(admin.ModelAdmin):
     """Admin interface for Cafe model with detailed information."""
 
-    form = CafeAdminForm  # SEC-15: Use form with TextField validation
-    
+    form = CafeAdminForm    
     list_display = [
         'name',
         'address_short',
@@ -202,8 +201,7 @@ class FavoriteAdmin(admin.ModelAdmin):
 class CafeFlagAdmin(admin.ModelAdmin):
     """Admin interface for cafe flags (user reports)."""
 
-    form = CafeFlagAdminForm  # SEC-15: Use form with TextField validation
-
+    form = CafeFlagAdminForm
     list_display = [
         'cafe',
         'user',

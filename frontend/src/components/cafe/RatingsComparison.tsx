@@ -5,13 +5,13 @@ import styles from './RatingsComparison.module.css';
 interface RatingsComparisonProps {
   googleRating?: number | null;
   googleCount?: number | null;
-  googleRatingUpdatedAt?: string | null;  // HP-08: For staleness detection
-  googlePlaceId?: string | null;  // HP-08: Required for refresh to work
-  isRefreshingRating?: boolean;  // HP-08: Show refresh spinner
+  googleRatingUpdatedAt?: string | null;
+  googlePlaceId?: string | null;
+  isRefreshingRating?: boolean;
   wfcRating?: string | null;
   wfcCount: number;
   isRegistered: boolean;
-  onRefreshRating?: () => void;  // HP-08: Manual refresh callback
+  onRefreshRating?: () => void;
 }
 
 const RatingsComparison: React.FC<RatingsComparisonProps> = ({
@@ -30,12 +30,12 @@ const RatingsComparison: React.FC<RatingsComparisonProps> = ({
   // Handle null/undefined googleCount from database
   const safeGoogleCount = googleCount ?? 0;
 
-  // HP-08: Safely convert googleRating to number (handle string/number/null/undefined)
+  // Safely convert googleRating to number
   const googleRatingNumber: number | null = googleRating != null
     ? (typeof googleRating === 'number' ? googleRating : parseFloat(String(googleRating)))
     : null;
 
-  // HP-08: Calculate staleness text and determine if should show stale indicator
+  // Calculate staleness text and determine if should show stale indicator
   const getFreshnessText = () => {
     if (!googleRatingUpdatedAt) {
       return null;
@@ -70,7 +70,7 @@ const RatingsComparison: React.FC<RatingsComparisonProps> = ({
           <div className={styles.cardHeader}>
             <Star size={20} fill="#FBBC04" color="#FBBC04" />
             <span className={styles.cardTitle}>Google Maps</span>
-            {/* HP-08: Refresh button for stale ratings */}
+            {/* Refresh button for stale ratings */}
             {googlePlaceId && googleRatingNumber && onRefreshRating && (
               <button
                 className={styles.refreshButton}
@@ -90,7 +90,7 @@ const RatingsComparison: React.FC<RatingsComparisonProps> = ({
               <div className={styles.ratingCount}>
                 {safeGoogleCount.toLocaleString()} {safeGoogleCount === 1 ? 'review' : 'reviews'}
               </div>
-              {/* HP-08: Staleness indicator */}
+              {/* Staleness indicator */}
               {freshnessText && (
                 <div className={styles.freshnessIndicator} data-testid="freshness-indicator">
                   {isStale && <span className={styles.staleDot} data-testid="stale-dot">•</span>}

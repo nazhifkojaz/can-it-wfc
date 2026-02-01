@@ -101,14 +101,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating user profile.
 
-    Features:
+    Fields:
     - display_name: Customizable display name (always editable)
     - username: Changeable with 30-day cooldown
-    - avatar_url: SSRF protection with domain whitelist
-
-    Security (SEC-19):
-    - avatar_url only accepts whitelisted domains (Cloudinary, Google)
-    - Private IP addresses are rejected to prevent SSRF attacks
+    - avatar_url: Only accepts whitelisted domains (Cloudinary, Google)
     """
 
     # Explicit avatar_url field with validation
@@ -177,12 +173,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     def validate_avatar_url(self, value):
         """
-        Validate avatar_url to prevent SSRF attacks.
+        Validate avatar_url against a domain whitelist.
 
-        Only allow URLs from trusted domains (Cloudinary, Google).
+        Only allows URLs from trusted domains (Cloudinary, Google).
         Rejects private IP addresses and internal URLs.
-
-        Security: Prevents SSRF attacks via avatar_url field.
         """
         # Allow null/empty values (user can clear their avatar)
         if not value or value.strip() == '':

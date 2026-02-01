@@ -448,7 +448,7 @@ class TestCafeStatistics:
 
 @pytest.mark.django_db
 class TestTransactionRollbackHandling:
-    """Test transaction handling for cafe creation (HP-09)"""
+    """Test transaction handling for cafe creation."""
 
     def test_visit_creation_with_existing_cafe_succeeds(self, authenticated_client, test_cafe, test_user):
         """Test that creating a visit with existing cafe works correctly"""

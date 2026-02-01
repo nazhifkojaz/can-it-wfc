@@ -2,7 +2,6 @@
 Cafe Tests
 
 Tests for cafe model validation, serializers, and API endpoints.
-SEC-15: Input length validation tests.
 """
 import pytest
 from decimal import Decimal
@@ -20,7 +19,7 @@ from apps.cafes.admin import CafeAdminForm, CafeFlagAdminForm
 User = get_user_model()
 
 
-# Constants for validation (SEC-15)
+# Constants for validation
 MAX_CAFE_ADDRESS_LENGTH = 500
 MAX_FLAG_DESCRIPTION_LENGTH = 1000
 MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
@@ -63,7 +62,7 @@ def authenticated_client(api_client, test_user):
 
 @pytest.mark.django_db
 class TestCafeAddressValidation:
-    """Test cafe address length validation (SEC-15)"""
+    """Test cafe address length validation."""
 
     def test_address_within_limit_succeeds(self):
         """Test that address within 500 characters is accepted"""
@@ -124,7 +123,7 @@ class TestCafeAddressValidation:
 
 @pytest.mark.django_db
 class TestCafeFlagDescriptionValidation:
-    """Test cafe flag description length validation (SEC-15)"""
+    """Test cafe flag description length validation."""
 
     def test_description_within_limit_succeeds(self):
         """Test that description within 1000 characters is accepted"""
@@ -202,7 +201,7 @@ class TestCafeFlagDescriptionValidation:
 
 @pytest.mark.django_db
 class TestCafeAdminFormValidation:
-    """Test admin form validation for TextField length (SEC-15)"""
+    """Test admin form validation for TextField length."""
 
     def test_admin_address_exceeds_limit_fails(self, test_user):
         """Test that admin form rejects address over limit"""
@@ -219,7 +218,7 @@ class TestCafeAdminFormValidation:
 
 @pytest.mark.django_db
 class TestCafeFlagAdminFormValidation:
-    """Test admin form validation for flag TextField length (SEC-15)"""
+    """Test admin form validation for flag TextField length."""
 
     def test_admin_description_exceeds_limit_fails(self, test_user):
         """Test that admin form rejects description over limit"""
@@ -247,7 +246,7 @@ class TestCafeFlagAdminFormValidation:
 
 @pytest.mark.django_db
 class TestCafeAPITextFieldValidation:
-    """Integration tests for TextField validation via API (SEC-15)"""
+    """Integration tests for TextField validation via API."""
 
     def test_create_cafe_with_long_address_returns_400(self, authenticated_client):
         """Test that API returns 400 for cafe with address exceeding limit"""
@@ -296,7 +295,7 @@ class TestCafeAPITextFieldValidation:
 
 @pytest.mark.django_db
 class TestCafeGoogleRatingStaleWhileRevalidate:
-    """Test Google rating stale-while-revalidate pattern (HP-08)"""
+    """Test Google rating stale-while-revalidate pattern."""
 
     def test_cafe_detail_serializer_returns_cached_rating(self, authenticated_client, test_user):
         """Test that cafe detail returns cached Google rating without API call"""
@@ -350,7 +349,7 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
         assert response.data['google_rating_updated_at'] is None
 
     def test_refresh_google_rating_endpoint_updates_cafe(self, authenticated_client, test_user, monkeypatch):
-        """Test that refresh endpoint updates Google rating (HP-08)"""
+        """Test that refresh endpoint updates Google rating."""
         from apps.cafes.models import Cafe
         from django.utils import timezone
         from datetime import timedelta

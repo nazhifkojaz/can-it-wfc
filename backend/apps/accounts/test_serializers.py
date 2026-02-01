@@ -1,5 +1,5 @@
 """
-User serializer tests - display_name, username cooldown, SSRF prevention.
+User serializer tests - display_name, username cooldown, avatar URL validation.
 """
 import pytest
 from django.contrib.auth import get_user_model
@@ -13,7 +13,7 @@ User = get_user_model()
 
 @pytest.mark.django_db
 class TestUserUpdateSerializer:
-    """Test UserUpdateSerializer - display_name, username cooldown, SEC-19 SSRF protection"""
+    """Test UserUpdateSerializer - display_name, username cooldown, avatar URL validation."""
 
     def test_display_name_is_editable(self):
         """
@@ -222,7 +222,7 @@ class TestUserUpdateSerializer:
         # username_changed_at should still be None
         assert user.username_changed_at is None
 
-    # ===== SEC-19 SSRF Tests (kept from before) =====
+    # ===== Avatar URL validation tests =====
 
     def test_avatar_url_allows_cloudinary(self):
         """Test avatar_url accepts Cloudinary URLs"""

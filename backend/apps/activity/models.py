@@ -4,9 +4,8 @@ Activity stream models.
 This module implements a fan-out on write activity stream pattern,
 similar to Twitter, Instagram, and LinkedIn.
 
-PRIVACY NOTE:
-Visit activities have been removed from the social feed for privacy/safety.
 Only reviews and follows appear in the social feed.
+Visits are private and not shown in activity feeds.
 """
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -17,12 +16,8 @@ User = get_user_model()
 
 
 class ActivityType(models.TextChoices):
-    """
-    Activity types enum.
-
-    PRIVACY NOTE: VISIT type deprecated - visits are now private.
-    """
-    VISIT = 'visit', 'Visit (DEPRECATED - privacy fix)'
+    """Activity types enum."""
+    VISIT = 'visit', 'Visit (deprecated)'
     REVIEW = 'review', 'Review'
     FOLLOW = 'follow', 'Follow'
 
@@ -42,9 +37,8 @@ class Activity(models.Model):
 
     Performance: 10-50x faster than aggregating from multiple tables.
 
-    PRIVACY NOTE:
-    Visit activities are no longer created (privacy fix).
     Only reviews and follows appear in social feeds.
+    Visits are private and not distributed to followers.
     """
 
     # === WHO SEES THIS ===

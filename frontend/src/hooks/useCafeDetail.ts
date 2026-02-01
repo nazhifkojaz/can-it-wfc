@@ -5,7 +5,7 @@
  * - Syncing with initial cafe prop
  * - Refreshing data for registered cafes
  * - Distance calculation from user location
- * - Staleness detection and background refresh for Google ratings (HP-08)
+ * - Staleness detection and background refresh for Google ratings
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -97,7 +97,7 @@ export const useCafeDetail = ({
     refreshCafeData();
   }, [isOpen, initialCafe.id, initialCafe.is_registered]);
 
-  // HP-08: Background refresh for stale Google ratings
+  // Background refresh for stale Google ratings
   useEffect(() => {
     const refreshGoogleRatingInBackground = async () => {
       // Only refresh if cafe has Google Place ID, is registered, and rating is stale

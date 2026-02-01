@@ -632,7 +632,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         2. Creating orphaned cafes if visit creation fails
 
         The transaction only wraps visit+review creation.
-        (HP-09: Fixed transaction handling for cafe creation)
         """
         from apps.cafes.models import Cafe
         from apps.cafes.services import CafeService

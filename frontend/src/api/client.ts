@@ -147,12 +147,9 @@ const getWithSignal = async <T>(
   return response.data;
 };
 
-// Request interceptor - no longer needed for auth tokens (handled by cookies)
-// Kept for backward compatibility and custom headers
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Tokens now sent automatically via httpOnly cookies
-    // No need to add Authorization header from localStorage
     return config;
   },
   (error) => {
@@ -167,7 +164,7 @@ api.interceptors.response.use(
     // If error is 401 (Unauthorized), cookies may have expired
     // Redirect to login page
     if (error.response?.status === 401) {
-      // Clear any old localStorage tokens (migration cleanup)
+      // Clear legacy localStorage tokens
       tokenStorage.clearTokens();
 
       // Redirect to login only if not already on login page
@@ -199,13 +196,11 @@ export const authApi = {
     } catch (error) {
       log.error('Logout failed', error);
     }
-    // Also clear any old localStorage tokens (migration cleanup)
+    // Clear legacy localStorage tokens
     tokenStorage.clearTokens();
   },
 
-  // Refresh access token
-  // NOTE: This function is deprecated with httpOnly cookie authentication
-  // Tokens are now automatically refreshed by the backend via cookies
+  // Refresh access token (deprecated; tokens are refreshed via httpOnly cookies)
   refreshToken: (refreshToken: string) =>
     post<{ access: string }>('/auth/refresh/', { refresh: refreshToken }),
 
@@ -216,8 +211,7 @@ export const authApi = {
   googleLogin: async (accessToken: string): Promise<{ user: User }> => {
     const { user } = await post<{ user: User }>('/auth/google/', { access_token: accessToken });
 
-    // Tokens now set as httpOnly cookies by backend
-    // Clear any old localStorage tokens (migration cleanup)
+    // Clear legacy localStorage tokens
     tokenStorage.clearTokens();
 
     return { user };
@@ -342,7 +336,7 @@ export const cafeApi = {
   // Get user's favorite cafes
   getFavorites: () => getPaginated<Favorite>('/cafes/favorites/'),
 
-  // Refresh Google rating for a cafe (HP-08: stale-while-revalidate)
+  // Refresh Google rating for a cafe
   refreshGoogleRating: (cafeId: number) =>
     post<{
       google_rating: number | null;
@@ -415,7 +409,7 @@ export const visitApi = {
 // ===========================
 
 export const reviewApi = {
-  // Create new review (UPDATED: now uses cafe_id)
+  // Create new review
   create: (data: ReviewCreate) => post<Review>('/reviews/create/', data),
 
   // Get reviews for a cafe
@@ -430,7 +424,7 @@ export const reviewApi = {
   // Get review by ID
   getById: (id: number) => get<Review>(`/reviews/${id}/`),
 
-  // Update review (UPDATED: no time restrictions now)
+  // Update review
   update: (id: number, data: ReviewUpdate) => patch<Review>(`/reviews/${id}/`, data),
 
   // Delete review

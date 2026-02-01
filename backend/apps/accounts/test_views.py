@@ -12,19 +12,12 @@ User = get_user_model()
 
 @pytest.mark.django_db
 class TestUserActivityView:
-    """Test UserActivityView for SEC-18 regression"""
+    """Test UserActivityView correctness."""
 
     def test_activity_view_code_path_uses_user_settings(self):
         """
-        Regression test for SEC-18.
-
-        The bug: views.py:359,376 used `settings.show_activity_dates`
-            (Django's global settings module)
-        The fix: Should use `user_settings.show_activity_dates`
-            (the user's settings object)
-
-        This test verifies the view code doesn't crash with AttributeError
-        when accessing the activity feed.
+        Verify the view uses user_settings.show_activity_dates (not Django's
+        global settings module, which would cause an AttributeError).
         """
         # Read the views.py file and check it uses user_settings not settings
         from apps.accounts import views
@@ -34,8 +27,7 @@ class TestUserActivityView:
         # Get the source code of UserActivityView.get method
         source = inspect.getsource(views.UserActivityView.get)
 
-        # The bug was patterns like 'if settings.show_activity_dates' or ' settings.show_activity_dates'
-        # We need to check for 'settings.show_activity_dates' NOT preceded by 'user_'
+        # Ensure no bare 'settings.show_activity_dates' (should always be 'user_settings.')
 
         # Find all occurrences of 'settings.show_activity_dates'
         # We want to ensure NONE of them are just 'settings.' (not 'user_settings.')

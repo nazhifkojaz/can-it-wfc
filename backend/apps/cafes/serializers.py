@@ -5,7 +5,7 @@ from .models import Cafe, Favorite, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
 
-# Constants for TextField max length validation (SEC-15)
+# Constants for TextField max length validation
 MAX_CAFE_ADDRESS_LENGTH = 500
 MAX_FLAG_DESCRIPTION_LENGTH = 1000
 MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
@@ -178,7 +178,6 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
 class CafeCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a new cafe."""
 
-    # SEC-15: Add max_length validation for TextField
     address = serializers.CharField(
         max_length=MAX_CAFE_ADDRESS_LENGTH,
         error_messages={
@@ -226,7 +225,6 @@ class CafeCreateSerializer(serializers.ModelSerializer):
 class CafeUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating cafe information."""
 
-    # SEC-15: Add max_length validation for TextField
     address = serializers.CharField(
         max_length=MAX_CAFE_ADDRESS_LENGTH,
         required=False,
@@ -274,7 +272,6 @@ class FavoriteSerializer(serializers.ModelSerializer):
 class CafeFlagCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating cafe flags (user reports)."""
 
-    # SEC-15: Add max_length validation for TextField
     description = serializers.CharField(
         max_length=MAX_FLAG_DESCRIPTION_LENGTH,
         required=False,

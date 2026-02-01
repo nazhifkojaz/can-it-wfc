@@ -64,12 +64,10 @@ export const clearStorage = (): void => {
 };
 
 // Token-specific utilities
-// NOTE: Tokens are now stored in httpOnly cookies for security (XSS protection)
-// This utility is kept only for cleaning up legacy localStorage tokens
+// Tokens are stored in httpOnly cookies; this utility clears any legacy localStorage tokens
 export const tokenStorage = {
   /**
-   * Clear old tokens from localStorage (migration cleanup)
-   * Safe to call - removes any legacy tokens left from previous authentication implementation
+   * Clear legacy tokens from localStorage.
    */
   clearTokens: (): void => {
     removeStorageItem(STORAGE_KEYS.ACCESS_TOKEN);

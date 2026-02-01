@@ -60,7 +60,7 @@ const VisitsPanel: React.FC = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // UPDATED: Load review status for all cafes when visits change
+  // Load review status for all cafes when visits change
   // Memoize cafe IDs to prevent unnecessary refetches
   const cafeIds = useMemo(() => {
     if (visits.length === 0) return [];
@@ -112,7 +112,7 @@ const VisitsPanel: React.FC = () => {
     return VISIT_TIME_LABELS[numValue as 1 | 2 | 3] || 'Not specified';
   };
 
-  // UPDATED: Cafe-level review actions
+  // Cafe-level review actions
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {
     setSelectedCafeId(cafeId);
     setSelectedCafeName(cafeName);
@@ -391,7 +391,7 @@ const VisitsPanel: React.FC = () => {
                         Edit Visit Details
                       </button>
 
-                      {/* UPDATED: Review Status - Cafe-level, not visit-level */}
+                      {/* Review Status */}
                       <div className="review-section">
                         {loadingReviews ? (
                           <div className="review-loading">
@@ -455,7 +455,7 @@ const VisitsPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* UPDATED: Review Form Modal - Now cafe-based */}
+      {/* Review Form Modal */}
       {selectedCafeId && showReviewForm && (
         <ReviewForm
           cafeId={selectedCafeId}

@@ -34,7 +34,6 @@ const UserProfilePanel: React.FC = () => {
     }
   }, [activePanel]);
 
-  // UPDATED (Review Refactor): Reviews are now cafe-based, not visit-based
   // Merge visits with reviews for same cafe into single entries
   const mergeActivities = (activities: UserActivityItem[]): UserActivityItem[] => {
     const merged: UserActivityItem[] = [];

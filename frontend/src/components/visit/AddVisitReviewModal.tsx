@@ -15,11 +15,9 @@ import styles from './AddVisitReviewModal.module.css';
 /**
  * AddVisitReviewModal Component
  *
- * UPDATED (Review Refactor):
  * - Checks if user already has a review for the cafe before showing review toggle
  * - Prevents duplicate reviews (one review per user per cafe)
  * - Directs users to edit existing reviews from visits page
- * - Reviews can be edited anytime (no time restrictions)
  */
 
 // Client-side validation schema
@@ -97,7 +95,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const [showDuplicateInfo, setShowDuplicateInfo] = useState(false);
   const [existingVisit, setExistingVisit] = useState<Visit | null>(null);
 
-  // Existing review detection (UPDATED: Review Refactor)
+  // Existing review detection
   const [hasExistingReview, setHasExistingReview] = useState(false);
   const [existingReviewLoading, setExistingReviewLoading] = useState(false);
 
@@ -614,7 +612,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           </select>
         </div>
 
-        {/* UPDATED (Review Refactor): Show review toggle only if no existing review */}
+        {/* Show review toggle only if no existing review */}
         {existingReviewLoading ? (
           <div className={styles.reviewToggle}>
             <p>Checking review status...</p>

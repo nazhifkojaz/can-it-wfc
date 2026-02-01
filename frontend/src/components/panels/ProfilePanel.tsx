@@ -81,7 +81,7 @@ const ProfilePanel: React.FC = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
 
-  // UPDATED (Review Refactor): Track reviews per cafe, not per visit
+  // Track reviews per cafe
   const [cafeReviews, setCafeReviews] = useState<Map<number, Review | null>>(new Map());
   const [selectedCafeId, setSelectedCafeId] = useState<number | null>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -101,7 +101,7 @@ const ProfilePanel: React.FC = () => {
   const [showAddVisit, setShowAddVisit] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
 
-  // UPDATED (Review Refactor): Cafe-level review state
+  // Cafe-level review state
   const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
   const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
@@ -118,7 +118,7 @@ const ProfilePanel: React.FC = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // UPDATED (Review Refactor): Load review statuses for all cafes
+  // Load review statuses for all cafes
   // Memoize cafe IDs to prevent unnecessary refetches
   const cafeIds = React.useMemo(() => {
     if (!visits || visits.length === 0) return [];
@@ -159,7 +159,7 @@ const ProfilePanel: React.FC = () => {
     return cafeReviews.get(cafeId) ?? null;
   };
 
-  // UPDATED (Review Refactor): Visit edit is independent of review timing
+  // Check if visit is still editable
   const canEditVisit = (visit: Visit): boolean => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
@@ -340,7 +340,7 @@ const ProfilePanel: React.FC = () => {
     });
   };
 
-  // UPDATED (Review Refactor): Cafe-level review handlers
+  // Cafe-level review handlers
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {
     setSelectedCafeId(cafeId);
     setReviewCafeId(cafeId);
@@ -531,7 +531,7 @@ const ProfilePanel: React.FC = () => {
     });
   };
 
-  // UPDATED (Review Refactor): No longer need visitId for reviews
+  // Add review from favorites tab
   const handleAddReviewFromFavorites = (visitId: number, cafeId: number, cafeName: string) => {
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
@@ -857,7 +857,7 @@ const ProfilePanel: React.FC = () => {
                           </button>
                         )}
 
-                        {/* UPDATED: Cafe-level Review Status */}
+                        {/* Review Status */}
                         {(() => {
                           const review = getReviewForCafe(visit.cafe.id);
 
@@ -1220,7 +1220,7 @@ const ProfilePanel: React.FC = () => {
         preselectedCafe={visitCafe}
       />
 
-      {/* Review Form Modal (shared) - UPDATED: Cafe-based reviews */}
+      {/* Review Form Modal (shared) */}
       {showReviewForm && reviewCafeId !== null && (
         <ReviewForm
           cafeId={reviewCafeId}
