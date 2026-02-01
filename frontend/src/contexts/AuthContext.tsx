@@ -3,6 +3,9 @@ import { User, UserLogin, UserRegistration } from '../types';
 import { authApi, userApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
 import { extractApiError } from '../utils/errorUtils';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('AuthContext');
 
 interface AuthContextType {
   user: User | null;
@@ -39,9 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       setError(null);
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('Auth check failed:', err);
-      }
+      log.debug('Auth check failed - user not authenticated', { error: String(err) });
       // User not authenticated (cookies expired/invalid)
       setUser(null);
 
@@ -116,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Redirect to home page after cookies are cleared
       window.location.href = buildAppPath('/');
     } catch (error) {
-      console.error('Logout error:', error);
+      log.error('Logout failed', error);
       // Clear local state and redirect even if API call fails
       setUser(null);
       setError(null);
@@ -133,9 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await userApi.getProfile();
       setUser(userData);
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to refresh user:', err);
-      }
+      log.error('Failed to refresh user', err);
     }
   };
 

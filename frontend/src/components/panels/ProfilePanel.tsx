@@ -37,6 +37,7 @@ import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
+import { logger } from '../../utils/logger';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
@@ -53,9 +54,12 @@ const ProfilePanel: React.FC = () => {
 
   // Settings tab state
   const [isEditing, setIsEditing] = useState(false);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [bio, setBio] = useState(user?.bio || '');
+  const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [isAnonymous, setIsAnonymous] = useState(user?.is_anonymous_display || false);
   const [loading, setLoading] = useState(false);
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [savingUsername, setSavingUsername] = useState(false);
@@ -77,7 +81,7 @@ const ProfilePanel: React.FC = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
 
-  // UPDATED (Review Refactor): Track reviews per cafe, not per visit
+  // Track reviews per cafe
   const [cafeReviews, setCafeReviews] = useState<Map<number, Review | null>>(new Map());
   const [selectedCafeId, setSelectedCafeId] = useState<number | null>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -97,7 +101,7 @@ const ProfilePanel: React.FC = () => {
   const [showAddVisit, setShowAddVisit] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
 
-  // UPDATED (Review Refactor): Cafe-level review state
+  // Cafe-level review state
   const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
   const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
@@ -114,7 +118,7 @@ const ProfilePanel: React.FC = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // UPDATED (Review Refactor): Load review statuses for all cafes
+  // Load review statuses for all cafes
   // Memoize cafe IDs to prevent unnecessary refetches
   const cafeIds = React.useMemo(() => {
     if (!visits || visits.length === 0) return [];
@@ -139,7 +143,7 @@ const ProfilePanel: React.FC = () => {
         );
         setCafeReviews(new Map(reviewEntries));
       } catch (error) {
-        console.error('Error loading review statuses:', error);
+        logger.error('Error loading review statuses', error, 'ProfilePanel');
       } finally {
         setReviewsLoading(false);
       }
@@ -155,7 +159,7 @@ const ProfilePanel: React.FC = () => {
     return cafeReviews.get(cafeId) ?? null;
   };
 
-  // UPDATED (Review Refactor): Visit edit is independent of review timing
+  // Check if visit is still editable
   const canEditVisit = (visit: Visit): boolean => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
@@ -193,7 +197,7 @@ const ProfilePanel: React.FC = () => {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      const updatedUser = await authApi.updateProfile({ bio });
+      const updatedUser = await authApi.updateProfile({ bio, display_name: displayName });
       // Merge with existing user to preserve all fields (like date_joined)
       updateUser({ ...user, ...updatedUser });
       setIsEditing(false);
@@ -201,19 +205,47 @@ const ProfilePanel: React.FC = () => {
       resultModal.showResultModal({
         type: 'success',
         title: 'Profile Updated',
-        message: 'Your bio has been updated successfully!',
+        message: 'Your profile has been updated successfully!',
         autoClose: true,
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
       const bioError = getFieldError(error, 'bio');
+      const displayNameError = getFieldError(error, 'display_name');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: bioError || extractApiError(error).message,
+        message: displayNameError || bioError || extractApiError(error).message,
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    try {
+      setSavingDisplayName(true);
+      const updatedUser = await authApi.updateProfile({ display_name: displayName });
+      // Merge with existing user to preserve all fields (like date_joined)
+      updateUser({ ...user, ...updatedUser });
+      setEditingDisplayName(false);
+
+      resultModal.showResultModal({
+        type: 'success',
+        title: 'Display Name Updated',
+        message: 'Your display name has been updated successfully!',
+        autoClose: true,
+        autoCloseDelay: 2000,
+      });
+    } catch (error: any) {
+      const displayNameError = getFieldError(error, 'display_name');
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Update Failed',
+        message: displayNameError || extractApiError(error).message,
+      });
+    } finally {
+      setSavingDisplayName(false);
     }
   };
 
@@ -308,7 +340,7 @@ const ProfilePanel: React.FC = () => {
     });
   };
 
-  // UPDATED (Review Refactor): Cafe-level review handlers
+  // Cafe-level review handlers
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {
     setSelectedCafeId(cafeId);
     setReviewCafeId(cafeId);
@@ -499,7 +531,7 @@ const ProfilePanel: React.FC = () => {
     });
   };
 
-  // UPDATED (Review Refactor): No longer need visitId for reviews
+  // Add review from favorites tab
   const handleAddReviewFromFavorites = (visitId: number, cafeId: number, cafeName: string) => {
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
@@ -566,6 +598,54 @@ const ProfilePanel: React.FC = () => {
           }}
         />
 
+        {/* Display Name Section - Always Editable */}
+        {editingDisplayName ? (
+          <div className="username-edit-form">
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Display name (optional)"
+              className="username-input"
+              maxLength={50}
+            />
+            <div className="username-edit-actions">
+              <button
+                className="button-secondary-small"
+                onClick={() => {
+                  setDisplayName(user?.display_name || '');
+                  setEditingDisplayName(false);
+                }}
+                disabled={savingDisplayName}
+              >
+                Cancel
+              </button>
+              <button
+                className="button-primary-small"
+                onClick={handleSaveDisplayName}
+                disabled={savingDisplayName}
+              >
+                {savingDisplayName ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="username-display">
+            <h1 className="username">
+              {user.effective_display_name || user.display_name || user.username}
+            </h1>
+            <button
+              className="edit-username-button"
+              onClick={() => setEditingDisplayName(true)}
+              aria-label="Edit display name"
+              title="Edit display name"
+            >
+              <Edit size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Username Section - Editable with 30-day cooldown */}
         {editingUsername ? (
           <div className="username-edit-form">
             <input
@@ -597,14 +677,15 @@ const ProfilePanel: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="username-display">
-            <h1 className="username">{user.username}</h1>
+          <div className="username-secondary">
+            <p className="username-label">@{user.username}</p>
             <button
-              className="edit-username-button"
+              className="edit-username-secondary-button"
               onClick={() => setEditingUsername(true)}
               aria-label="Edit username"
+              title="Edit username (30-day cooldown applies)"
             >
-              <Edit size={16} />
+              <Edit size={14} />
             </button>
           </div>
         )}
@@ -776,7 +857,7 @@ const ProfilePanel: React.FC = () => {
                           </button>
                         )}
 
-                        {/* UPDATED: Cafe-level Review Status */}
+                        {/* Review Status */}
                         {(() => {
                           const review = getReviewForCafe(visit.cafe.id);
 
@@ -967,7 +1048,10 @@ const ProfilePanel: React.FC = () => {
                   <div>
                     <p className="setting-label">Anonymous Display</p>
                     <p className="setting-description">
-                      Show as {isAnonymous ? `***${user.username.slice(-4)}` : user.username} in reviews
+                      Show as {isAnonymous
+                        ? (user.display_name || user.username || 'Use').substring(0, 3) + '***'
+                        : (user.effective_display_name || user.display_name || user.username)
+                      } in reviews
                     </p>
                   </div>
                 </div>
@@ -1136,7 +1220,7 @@ const ProfilePanel: React.FC = () => {
         preselectedCafe={visitCafe}
       />
 
-      {/* Review Form Modal (shared) - UPDATED: Cafe-based reviews */}
+      {/* Review Form Modal (shared) */}
       {showReviewForm && reviewCafeId !== null && (
         <ReviewForm
           cafeId={reviewCafeId}

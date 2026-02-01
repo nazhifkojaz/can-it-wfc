@@ -8,6 +8,7 @@ import { ResultModal } from '../common';
 import UsernameSetupModal from './UsernameSetupModal';
 import { User } from '../../types';
 import { extractApiError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './GoogleLoginButton.module.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || '';
@@ -52,9 +53,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin' }
         navigate('/map');
       }
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Google login error:', error);
-      }
+      logger.error('Google login error', error, 'GoogleLoginButton');
       const apiError = extractApiError(error);
       resultModal.showResultModal({
         type: 'error',

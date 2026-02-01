@@ -1,8 +1,16 @@
 from rest_framework import serializers
-from apps.core.constants import GOOGLE_RATING_FRESHNESS_HOURS
+from django.core.validators import MaxLengthValidator
+from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
+
+# Constants for TextField max length validation
+MAX_CAFE_ADDRESS_LENGTH = 500
+MAX_FLAG_DESCRIPTION_LENGTH = 1000
+MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
+
+logger = get_logger(__name__)
 
 
 class CafeStatsMixin:
@@ -80,7 +88,13 @@ class CafeListSerializer(CafeStatsMixin, serializers.ModelSerializer):
 
 
 class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
-    """Detailed serializer for cafe detail view."""
+    """
+    Detailed serializer for cafe detail view.
+
+    Google ratings are returned from cache (stale-while-revalidate pattern).
+    The frontend can detect stale ratings via google_rating_updated_at and
+    trigger a background refresh via the refresh endpoint.
+    """
 
     created_by = UserSerializer(read_only=True)
     distance = serializers.DecimalField(
@@ -92,8 +106,6 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
     is_favorited = serializers.SerializerMethodField()
     is_registered = serializers.SerializerMethodField()
     source = serializers.SerializerMethodField()
-    google_rating = serializers.SerializerMethodField()
-    google_ratings_count = serializers.SerializerMethodField()
     average_ratings = serializers.SerializerMethodField()
     facility_stats = serializers.SerializerMethodField()
 
@@ -124,6 +136,7 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'facility_stats',
             'google_rating',
             'google_ratings_count',
+            'google_rating_updated_at',  # For frontend staleness detection
         ]
         read_only_fields = [
             'id',
@@ -161,75 +174,16 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         """Source is always database for cafes retrieved from DB."""
         return 'database'
 
-    def _refresh_google_rating_if_stale(self, obj):
-        """
-        Check if Google rating needs refresh and update if needed.
-        Considered stale if: older than 24 hours OR never fetched.
-
-        Returns True if refreshed, False otherwise.
-        """
-        from django.utils import timezone
-        from datetime import timedelta
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-        # Only refresh if cafe has Google Place ID
-        if not obj.google_place_id:
-            return False
-
-        # Check if rating is stale
-        is_stale = (
-            not obj.google_rating_updated_at or
-            (timezone.now() - obj.google_rating_updated_at) > timedelta(hours=GOOGLE_RATING_FRESHNESS_HOURS)
-        )
-
-        if not is_stale:
-            return False
-
-        # Refresh from Google Places API
-        try:
-            from apps.cafes.services import GooglePlacesService
-
-            place_details = GooglePlacesService.get_place_details(obj.google_place_id)
-
-            # Update fields
-            obj.google_rating = place_details.get('rating')
-            obj.google_ratings_count = place_details.get('user_ratings_total')
-            obj.google_rating_updated_at = timezone.now()
-
-            # Save only these fields (efficient update)
-            obj.save(update_fields=[
-                'google_rating',
-                'google_ratings_count',
-                'google_rating_updated_at'
-            ])
-
-            logger.info(f"Refreshed Google rating for cafe {obj.id}: {obj.google_rating}")
-            return True
-
-        except Exception as e:
-            logger.warning(f"Failed to refresh Google rating for cafe {obj.id}: {e}")
-            return False
-
-    def get_google_rating(self, obj):
-        """
-        Return Google rating from database, refreshing if stale.
-        Rating is considered stale if older than 24 hours.
-        """
-        self._refresh_google_rating_if_stale(obj)
-        return float(obj.google_rating) if obj.google_rating else None
-
-    def get_google_ratings_count(self, obj):
-        """
-        Return Google ratings count from database.
-        Already refreshed by get_google_rating if needed.
-        """
-        return obj.google_ratings_count
-
 
 class CafeCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a new cafe."""
+
+    address = serializers.CharField(
+        max_length=MAX_CAFE_ADDRESS_LENGTH,
+        error_messages={
+            'max_length': f'Address cannot exceed {MAX_CAFE_ADDRESS_LENGTH} characters.'
+        }
+    )
 
     class Meta:
         model = Cafe
@@ -270,7 +224,15 @@ class CafeCreateSerializer(serializers.ModelSerializer):
 
 class CafeUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating cafe information."""
-    
+
+    address = serializers.CharField(
+        max_length=MAX_CAFE_ADDRESS_LENGTH,
+        required=False,
+        error_messages={
+            'max_length': f'Address cannot exceed {MAX_CAFE_ADDRESS_LENGTH} characters.'
+        }
+    )
+
     class Meta:
         model = Cafe
         fields = [
@@ -309,6 +271,15 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 class CafeFlagCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating cafe flags (user reports)."""
+
+    description = serializers.CharField(
+        max_length=MAX_FLAG_DESCRIPTION_LENGTH,
+        required=False,
+        allow_blank=True,
+        error_messages={
+            'max_length': f'Description cannot exceed {MAX_FLAG_DESCRIPTION_LENGTH} characters.'
+        }
+    )
 
     class Meta:
         model = CafeFlag

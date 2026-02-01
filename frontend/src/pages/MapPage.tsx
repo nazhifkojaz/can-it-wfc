@@ -13,6 +13,7 @@ import { Cafe } from '../types';
 import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
+import { logger } from '../utils/logger';
 import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
@@ -88,9 +89,7 @@ const MapPage: React.FC = () => {
           // Clear query param
           setSearchParams({});
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Failed to jump to cafe from activity:', error);
-          }
+          logger.error('Failed to jump to cafe from activity', error, 'MapPage');
           resultModal.showResultModal({
             type: 'error',
             title: 'Cafe Not Found',

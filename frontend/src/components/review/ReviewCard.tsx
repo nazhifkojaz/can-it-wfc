@@ -7,6 +7,7 @@ import { ConfirmDialog, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { extractApiError } from '../../utils/errorUtils';
 import FlagReviewModal from './FlagReviewModal';
+import { logger } from '../../utils/logger';
 import styles from './ReviewCard.module.css';
 
 interface ReviewCardProps {
@@ -36,7 +37,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   const [avatarError, setAvatarError] = useState(false);
   const resultModal = useResultModal();
 
-  const displayName = review.user?.display_name || review.user?.username || 'Anonymous';
+  const displayName = review.user?.effective_display_name || review.user?.display_name || review.user?.username || 'Anonymous';
   const overallRating = typeof review.wfc_rating === 'number' ? review.wfc_rating : (review.average_rating || 0);
   const roundedStars = Math.round(overallRating);
   const ratingColor = getRatingColor(overallRating);
@@ -81,9 +82,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         autoCloseDelay: 2000,
       });
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to delete review:', error);
-      }
+      logger.error('Failed to delete review', error, 'ReviewCard');
       setShowDeleteConfirm(false);
 
       resultModal.showResultModal({
@@ -110,9 +109,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       setIsTogglingHelpful(true);
       await onToggleHelpful(review.id);
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to toggle helpful:', error);
-      }
+      logger.error('Failed to toggle helpful', error, 'ReviewCard');
 
       // Revert on error
       setIsHelpful(previousIsHelpful);
@@ -145,9 +142,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         autoCloseDelay: 3000,
       });
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to flag review:', error);
-      }
+      logger.error('Failed to flag review', error, 'ReviewCard');
 
       resultModal.showResultModal({
         type: 'error',

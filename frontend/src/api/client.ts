@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import {
   User,
   UserRegistration,
@@ -27,6 +27,9 @@ import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('ApiClient');
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -38,12 +41,115 @@ const api: AxiosInstance = axios.create({
   withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
 });
 
-// Request interceptor - no longer needed for auth tokens (handled by cookies)
-// Kept for backward compatibility and custom headers
+// ===========================
+// HTTP Helper Functions (MP-04)
+// Reduces boilerplate by wrapping common axios patterns
+// ===========================
+
+/**
+ * Generic GET request helper
+ * @param url - The endpoint URL
+ * @param params - Query parameters
+ * @param config - Additional axios config
+ * @returns The response data
+ */
+const get = async <T>(
+  url: string,
+  params?: Record<string, any>,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  const response = await api.get<T>(url, { ...config, params });
+  return response.data;
+};
+
+/**
+ * Generic POST request helper
+ * @param url - The endpoint URL
+ * @param data - Request body data
+ * @param config - Additional axios config
+ * @returns The response data
+ */
+const post = async <T>(
+  url: string,
+  data?: any,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  const response = await api.post<T>(url, data, config);
+  return response.data;
+};
+
+/**
+ * Generic PATCH request helper
+ * @param url - The endpoint URL
+ * @param data - Request body data
+ * @param config - Additional axios config
+ * @returns The response data
+ */
+const patch = async <T>(
+  url: string,
+  data?: any,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  const response = await api.patch<T>(url, data, config);
+  return response.data;
+};
+
+/**
+ * Generic PUT request helper
+ * @param url - The endpoint URL
+ * @param data - Request body data
+ * @param config - Additional axios config
+ * @returns The response data
+ */
+const put = async <T>(
+  url: string,
+  data?: any,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  const response = await api.put<T>(url, data, config);
+  return response.data;
+};
+
+/**
+ * Generic DELETE request helper
+ * @param url - The endpoint URL
+ * @param config - Additional axios config
+ */
+const del = async (url: string, config?: AxiosRequestConfig): Promise<void> => {
+  await api.delete(url, config);
+};
+
+/**
+ * Paginated GET request helper
+ * Automatically unwraps the `results` array from paginated responses
+ * @param url - The endpoint URL
+ * @param params - Query parameters
+ * @returns The unwrapped results array
+ */
+const getPaginated = async <T>(
+  url: string,
+  params?: Record<string, any>
+): Promise<T[]> => {
+  const response = await api.get<PaginatedResponse<T>>(url, { params });
+  return response.data.results;
+};
+
+/**
+ * GET request with AbortSignal support
+ * Useful for cancellable requests (e.g., search-as-you-type)
+ */
+const getWithSignal = async <T>(
+  url: string,
+  params?: Record<string, any>,
+  signal?: AbortSignal
+): Promise<T> => {
+  const response = await api.get<T>(url, { params, signal });
+  return response.data;
+};
+
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Tokens now sent automatically via httpOnly cookies
-    // No need to add Authorization header from localStorage
     return config;
   },
   (error) => {
@@ -58,7 +164,7 @@ api.interceptors.response.use(
     // If error is 401 (Unauthorized), cookies may have expired
     // Redirect to login page
     if (error.response?.status === 401) {
-      // Clear any old localStorage tokens (migration cleanup)
+      // Clear legacy localStorage tokens
       tokenStorage.clearTokens();
 
       // Redirect to login only if not already on login page
@@ -77,79 +183,49 @@ api.interceptors.response.use(
 
 export const authApi = {
   // Register new user
-  register: async (data: UserRegistration) => {
-    const response = await api.post<User>('/auth/register/', data);
-    return response.data;
-  },
+  register: (data: UserRegistration) => post<User>('/auth/register/', data),
 
   // Login user (JWT)
-  login: async (data: UserLogin) => {
-    const response = await api.post<AuthTokens>('/auth/login/', data);
-    // Tokens now set as httpOnly cookies by backend
-    return response.data;
-  },
+  login: (data: UserLogin) => post<AuthTokens>('/auth/login/', data),
 
   // Logout user
   logout: async () => {
     try {
       // Call backend to clear httpOnly cookies
-      await api.post('/auth/logout/');
+      await post('/auth/logout/');
     } catch (error) {
-      console.error('Logout error:', error);
+      log.error('Logout failed', error);
     }
-    // Also clear any old localStorage tokens (migration cleanup)
+    // Clear legacy localStorage tokens
     tokenStorage.clearTokens();
   },
 
-  // Refresh access token
-  // NOTE: This function is deprecated with httpOnly cookie authentication
-  // Tokens are now automatically refreshed by the backend via cookies
-  refreshToken: async (refreshToken: string) => {
-    const response = await api.post<{ access: string }>('/auth/refresh/', {
-      refresh: refreshToken,
-    });
-
-    // Tokens now managed via httpOnly cookies - no localStorage needed
-    return response.data;
-  },
+  // Refresh access token (deprecated; tokens are refreshed via httpOnly cookies)
+  refreshToken: (refreshToken: string) =>
+    post<{ access: string }>('/auth/refresh/', { refresh: refreshToken }),
 
   // Get current user
-  getCurrentUser: async () => {
-    const response = await api.get<User>('/auth/me/');
-    return response.data;
-  },
+  getCurrentUser: () => get<User>('/auth/me/'),
 
   // Google OAuth login
   googleLogin: async (accessToken: string): Promise<{ user: User }> => {
-    const response = await api.post('/auth/google/', { access_token: accessToken });
-    const { user } = response.data;
+    const { user } = await post<{ user: User }>('/auth/google/', { access_token: accessToken });
 
-    // Tokens now set as httpOnly cookies by backend
-    // Clear any old localStorage tokens (migration cleanup)
+    // Clear legacy localStorage tokens
     tokenStorage.clearTokens();
 
     return { user };
   },
 
   // Update profile (for username, bio, etc.)
-  updateProfile: async (data: UserUpdate): Promise<User> => {
-    const response = await api.patch<User>('/auth/me/', data);
-    return response.data;
-  },
+  updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
 
   // Change password
-  changePassword: async (data: {
-    old_password: string;
-    new_password: string;
-  }): Promise<void> => {
-    await api.post('/auth/change-password/', data);
-  },
+  changePassword: (data: { old_password: string; new_password: string }) =>
+    post('/auth/change-password/', data),
 
   // Get public profile by username
-  getUserByUsername: async (username: string): Promise<User> => {
-    const response = await api.get<User>(`/auth/users/${username}/`);
-    return response.data;
-  },
+  getUserByUsername: (username: string) => get<User>(`/auth/users/${username}/`),
 };
 
 // ===========================
@@ -158,97 +234,49 @@ export const authApi = {
 
 export const userApi = {
   // Get user profile
-  getProfile: async () => {
-    const response = await api.get<User>('/auth/me/');
-    return response.data;
-  },
+  getProfile: () => get<User>('/auth/me/'),
 
   // Update user profile
-  updateProfile: async (data: UserUpdate) => {
-    const response = await api.patch<User>('/auth/me/', data);
-    return response.data;
-  },
+  updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
 
   // Change password
-  changePassword: async (oldPassword: string, newPassword: string) => {
-    const response = await api.post('/auth/change-password/', {
-      old_password: oldPassword,
-      new_password: newPassword,
-    });
-    return response.data;
-  },
+  changePassword: (oldPassword: string, newPassword: string) =>
+    post('/auth/change-password/', { old_password: oldPassword, new_password: newPassword }),
 
   // Get user by ID
-  getById: async (userId: number) => {
-    const response = await api.get<User>(`/auth/users/${userId}/`);
-    return response.data;
-  },
+  getById: (userId: number) => get<User>(`/auth/users/${userId}/`),
 
   // Get user profile by username or ID (Phase 1: Social Features)
-  getUserProfile: async (usernameOrId: string | number): Promise<UserProfile> => {
-    const response = await api.get<UserProfile>(`/auth/users/${usernameOrId}/profile/`);
-    return response.data;
-  },
+  getUserProfile: (usernameOrId: string | number) =>
+    get<UserProfile>(`/auth/users/${usernameOrId}/profile/`),
 
   // Get user activity by username or ID (Phase 1: Social Features)
-  getUserActivity: async (usernameOrId: string | number, limit: number = 20): Promise<UserActivityResponse> => {
-    const response = await api.get<UserActivityResponse>(`/auth/users/${usernameOrId}/activity/`, {
-      params: { limit },
-    });
-    return response.data;
-  },
+  getUserActivity: (usernameOrId: string | number, limit: number = 20) =>
+    get<UserActivityResponse>(`/auth/users/${usernameOrId}/activity/`, { limit }),
 
   // Get current user's settings (Phase 1: Social Features)
-  getSettings: async (): Promise<UserSettings> => {
-    const response = await api.get<UserSettings>('/auth/me/settings/');
-    return response.data;
-  },
+  getSettings: () => get<UserSettings>('/auth/me/settings/'),
 
   // Update current user's settings (Phase 1: Social Features)
-  updateSettings: async (data: Partial<UserSettings>): Promise<UserSettings> => {
-    const response = await api.patch<UserSettings>('/auth/me/settings/', data);
-    return response.data;
-  },
+  updateSettings: (data: Partial<UserSettings>) =>
+    patch<UserSettings>('/auth/me/settings/', data),
 
   // Follow Management
-  followUser: async (username: string) => {
-    const response = await api.post(`/auth/follow/${username}/`);
-    return response.data;
-  },
+  followUser: (username: string) => post(`/auth/follow/${username}/`),
 
-  unfollowUser: async (username: string) => {
-    const response = await api.delete(`/auth/unfollow/${username}/`);
-    return response.data;
-  },
+  unfollowUser: (username: string) => del(`/auth/unfollow/${username}/`),
 
   // Followers/Following Lists
-  getMyFollowers: async (): Promise<FollowUser[]> => {
-    const response = await api.get<PaginatedResponse<FollowUser>>('/auth/me/followers/');
-    return response.data.results;
-  },
+  getMyFollowers: () => getPaginated<FollowUser>('/auth/me/followers/'),
 
-  getMyFollowing: async (): Promise<FollowUser[]> => {
-    const response = await api.get<PaginatedResponse<FollowUser>>('/auth/me/following/');
-    return response.data.results;
-  },
+  getMyFollowing: () => getPaginated<FollowUser>('/auth/me/following/'),
 
-  getUserFollowers: async (username: string): Promise<FollowUser[]> => {
-    const response = await api.get<PaginatedResponse<FollowUser>>(`/auth/users/${username}/followers/`);
-    return response.data.results;
-  },
+  getUserFollowers: (username: string) => getPaginated<FollowUser>(`/auth/users/${username}/followers/`),
 
-  getUserFollowing: async (username: string): Promise<FollowUser[]> => {
-    const response = await api.get<PaginatedResponse<FollowUser>>(`/auth/users/${username}/following/`);
-    return response.data.results;
-  },
+  getUserFollowing: (username: string) => getPaginated<FollowUser>(`/auth/users/${username}/following/`),
 
   // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
-  getActivityFeed: async (limit: number = 50): Promise<ActivityFeedResponse> => {
-    const response = await api.get<ActivityFeedResponse>('/activity/feed/', {
-      params: { limit },
-    });
-    return response.data;
-  },
+  getActivityFeed: (limit: number = 50) => get<ActivityFeedResponse>('/activity/feed/', { limit }),
 };
 
 // ===========================
@@ -257,87 +285,64 @@ export const userApi = {
 
 export const cafeApi = {
   // Get nearby cafes (database only)
-  getNearby: async (params: NearbyCafesParams, signal?: AbortSignal) => {
-    const response = await api.get<Cafe[]>('/cafes/nearby/', { params, signal });
-    return response.data;
-  },
+  getNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
+    getWithSignal<Cafe[]>('/cafes/nearby/', params, signal),
 
   // NEW: Get all nearby cafes (database + Google Places)
-  getAllNearby: async (params: NearbyCafesParams, signal?: AbortSignal) => {
-    const response = await api.get<{
+  getAllNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
+    getWithSignal<{
       count: number;
       registered_count: number;
       unregistered_count: number;
       results: Cafe[];
-    }>('/cafes/nearby/all/', { params, signal });
-    return response.data;
-  },
+    }>('/cafes/nearby/all/', params, signal),
 
   // Search cafes
-  search: async (query: string) => {
-    const response = await api.get<PaginatedResponse<Cafe>>('/cafes/', {
-      params: { search: query },
-    });
-    return response.data.results;
-  },
+  search: (query: string) => getPaginated<Cafe>('/cafes/', { search: query }),
 
   // Get all cafes (with optional filters)
-  getAll: async (params?: {
+  getAll: (params?: {
     search?: string;
     ordering?: string;
     limit?: number;
     offset?: number;
-  }) => {
-    const response = await api.get<PaginatedResponse<Cafe>>('/cafes/', { params });
-    return response.data.results;
-  },
+  }) => getPaginated<Cafe>('/cafes/', params),
 
   // Get cafe by ID
-  getById: async (id: number) => {
-    const response = await api.get<Cafe>(`/cafes/${id}/`);
-    return response.data;
-  },
+  getById: (id: number) => get<Cafe>(`/cafes/${id}/`),
 
   // Create new cafe
-  create: async (data: CafeCreate) => {
-    const response = await api.post<Cafe>('/cafes/', data);
-    return response.data;
-  },
+  create: (data: CafeCreate) => post<Cafe>('/cafes/', data),
 
   // Update cafe
-  update: async (id: number, data: CafeUpdate) => {
-    const response = await api.patch<Cafe>(`/cafes/${id}/`, data);
-    return response.data;
-  },
+  update: (id: number, data: CafeUpdate) => patch<Cafe>(`/cafes/${id}/`, data),
 
   toggleFavorite: async (cafeId: number | undefined) => {
     if (cafeId === undefined || cafeId === null) {
       throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
     }
 
-    const favoritesResponse = await api.get('/cafes/favorites/');
-
-    const favoritesList = Array.isArray(favoritesResponse.data)
-      ? favoritesResponse.data
-      : (favoritesResponse.data as any).results || [];
-
+    const favoritesList = await get<Favorite[]>('/cafes/favorites/');
     const existing = favoritesList.find((fav: any) => fav.cafe.id === cafeId);
 
     if (existing) {
-      await api.delete(`/cafes/favorites/${existing.id}/`);
+      await del(`/cafes/favorites/${existing.id}/`);
       return { is_favorited: false };
     } else {
-      const payload = { cafe_id: cafeId };
-      const response = await api.post('/cafes/favorites/', payload);
-      return { is_favorited: true, ...response.data };
+      return post<{ is_favorited: boolean } & Favorite>('/cafes/favorites/', { cafe_id: cafeId });
     }
   },
 
   // Get user's favorite cafes
-  getFavorites: async () => {
-    const response = await api.get<PaginatedResponse<Favorite>>('/cafes/favorites/');
-    return response.data.results;
-  },
+  getFavorites: () => getPaginated<Favorite>('/cafes/favorites/'),
+
+  // Refresh Google rating for a cafe
+  refreshGoogleRating: (cafeId: number) =>
+    post<{
+      google_rating: number | null;
+      google_ratings_count: number | null;
+      google_rating_updated_at: string | null;
+    }>(`/cafes/${cafeId}/refresh-google-rating/`),
 
   // Find potential duplicates (not implemented in backend API yet)
   // findDuplicates: async (name: string, latitude: number, longitude: number) => {
@@ -354,73 +359,49 @@ export const cafeApi = {
 
 export const visitApi = {
   // Create new visit
-  create: async (data: VisitCreate) => {
-    const response = await api.post<Visit>('/visits/', data);
-    return response.data;
-  },
+  create: (data: VisitCreate) => post<Visit>('/visits/', data),
 
   // NEW: Create visit with optional review in one request
-  createWithReview: async (data: CombinedVisitReviewCreate) => {
-    const response = await api.post<{
+  createWithReview: (data: CombinedVisitReviewCreate) =>
+    post<{
       visit: Visit;
       review: Review | null;
       message: string;
-    }>('/visits/create-with-review/', data);
-    return response.data;
-  },
+    }>('/visits/create-with-review/', data),
 
   // Get user's visits (backend filters by current user automatically)
-  getMyVisits: async (page: number = 1) => {
-    const response = await api.get<{
+  getMyVisits: (page: number = 1) =>
+    get<{
       count: number;
       next: string | null;
       previous: string | null;
       results: Visit[];
-    }>('/visits/', {
-      params: { page },
-    });
-    return response.data;
-  },
+    }>('/visits/', { page }),
 
   // Get visits with filters (for duplicate checking, etc.)
-  getVisits: async (filters?: { cafe?: number; visit_date?: string; page?: number }) => {
-    const response = await api.get<{
+  getVisits: (filters?: { cafe?: number; visit_date?: string; page?: number }) =>
+    get<{
       count: number;
       next: string | null;
       previous: string | null;
       results: Visit[];
-    }>('/visits/', {
-      params: filters,
-    });
-    return response.data;
-  },
+    }>('/visits/', filters),
 
   // Get visit by ID
-  getById: async (id: number) => {
-    const response = await api.get<Visit>(`/visits/${id}/`);
-    return response.data;
-  },
+  getById: (id: number) => get<Visit>(`/visits/${id}/`),
 
   // Get all visits (admin/filtered)
-  getAll: async (params?: {
+  getAll: (params?: {
     cafe?: string;
     user?: number;
     ordering?: string;
-  }) => {
-    const response = await api.get<PaginatedResponse<Visit>>('/visits/', { params });
-    return response.data.results;
-  },
+  }) => getPaginated<Visit>('/visits/', params),
 
   // Update visit
-  update: async (id: number, data: Partial<VisitCreate>) => {
-    const response = await api.patch<Visit>(`/visits/${id}/`, data);
-    return response.data;
-  },
+  update: (id: number, data: Partial<VisitCreate>) => patch<Visit>(`/visits/${id}/`, data),
 
   // Delete visit
-  delete: async (id: number) => {
-    await api.delete(`/visits/${id}/`);
-  },
+  delete: (id: number) => del(`/visits/${id}/`),
 };
 
 // ===========================
@@ -428,55 +409,34 @@ export const visitApi = {
 // ===========================
 
 export const reviewApi = {
-  // Create new review (UPDATED: now uses cafe_id)
-  create: async (data: ReviewCreate) => {
-    const response = await api.post<Review>('/reviews/create/', data);
-    return response.data;
-  },
+  // Create new review
+  create: (data: ReviewCreate) => post<Review>('/reviews/create/', data),
 
   // Get reviews for a cafe
-  getByCafe: async (cafeId: number, page: number = 1) => {
-    const response = await api.get<{
+  getByCafe: (cafeId: number, page: number = 1) =>
+    get<{
       count: number;
       next: string | null;
       previous: string | null;
       results: Review[];
-    }>('/reviews/', {
-      params: { cafe: cafeId, page },
-    });
-    return response.data;
-  },
+    }>('/reviews/', { cafe: cafeId, page }),
 
   // Get review by ID
-  getById: async (id: number) => {
-    const response = await api.get<Review>(`/reviews/${id}/`);
-    return response.data;
-  },
+  getById: (id: number) => get<Review>(`/reviews/${id}/`),
 
-  // Update review (UPDATED: no time restrictions now)
-  update: async (id: number, data: ReviewUpdate) => {
-    const response = await api.patch<Review>(`/reviews/${id}/`, data);
-    return response.data;
-  },
+  // Update review
+  update: (id: number, data: ReviewUpdate) => patch<Review>(`/reviews/${id}/`, data),
 
   // Delete review
-  delete: async (id: number) => {
-    await api.delete(`/reviews/${id}/`);
-  },
+  delete: (id: number) => del(`/reviews/${id}/`),
 
   // Get user's reviews
-  getMyReviews: async () => {
-    const response = await api.get<PaginatedResponse<Review>>('/reviews/me/');
-    return response.data.results;
-  },
+  getMyReviews: () => getPaginated<Review>('/reviews/me/'),
 
   // NEW: Check if user has a review for a specific cafe
   getUserCafeReview: async (cafeId: number): Promise<Review | null> => {
     try {
-      const response = await api.get<Review>('/reviews/for-cafe/', {
-        params: { cafe: cafeId }
-      });
-      return response.data;
+      return await get<Review>('/reviews/for-cafe/', { cafe: cafeId });
     } catch (error: any) {
       // Return null if 404 (no review found)
       if (error.response?.status === 404) {
@@ -489,33 +449,28 @@ export const reviewApi = {
 
   // NEW: Bulk get reviews for multiple cafes (prevents 429 errors)
   getUserCafeReviews: async (cafeIds: number[]): Promise<Record<number, Review | null>> => {
-    const response = await api.post<Record<string, Review | null>>('/reviews/bulk/', {
-      cafe_ids: cafeIds
+    const response = await post<Record<string, Review | null>>('/reviews/bulk/', {
+      cafe_ids: cafeIds,
     });
 
     // Convert string keys back to numbers
     const result: Record<number, Review | null> = {};
-    for (const [key, value] of Object.entries(response.data)) {
+    for (const [key, value] of Object.entries(response)) {
       result[parseInt(key)] = value;
     }
     return result;
   },
 
   // Mark review as helpful (toggle - marks or unmarks)
-  markHelpful: async (reviewId: number) => {
-    const response = await api.post(`/reviews/${reviewId}/mark_helpful/`);
-    return response.data;
-  },
+  markHelpful: (reviewId: number) => post(`/reviews/${reviewId}/mark_helpful/`),
 
   // Flag review
-  flagReview: async (reviewId: number, reason: string, description?: string) => {
-    const response = await api.post('/reviews/flags/', {
+  flagReview: (reviewId: number, reason: string, description?: string) =>
+    post('/reviews/flags/', {
       review_id: reviewId,
       reason,
-      comment: description || ''
-    });
-    return response.data;
-  },
+      comment: description || '',
+    }),
 };
 
 // ===========================
@@ -535,15 +490,14 @@ export default api;
 export const handleApiError = (error: any): string => {
   const apiError = extractApiError(error);
 
-  // Log in development
-  if (import.meta.env.DEV) {
-    console.error('API Error:', {
-      code: apiError.code,
-      message: apiError.message,
-      details: apiError.details,
-      status: apiError.status,
-    });
-  }
+  // Log error details (logger handles dev/prod filtering)
+  log.error('API Error', new Error(apiError.message));
+  log.debug('API Error details', {
+    code: apiError.code,
+    message: apiError.message,
+    details: apiError.details,
+    status: apiError.status,
+  });
 
   return apiError.message;
 };

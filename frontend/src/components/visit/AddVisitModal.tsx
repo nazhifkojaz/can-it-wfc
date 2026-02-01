@@ -5,6 +5,7 @@ import { Modal, ResultModal } from '../common';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './AddVisitModal.module.css';
 
 interface AddVisitModalProps {
@@ -156,9 +157,7 @@ const AddVisitModal: React.FC<AddVisitModalProps> = ({
         });
       }
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error logging visit:', error);
-      }
+      logger.error('Error logging visit', error, 'AddVisitModal');
 
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;

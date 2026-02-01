@@ -8,6 +8,7 @@ import { useFavorites, useResultModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
 import { formatPriceRange, formatRating, formatDistance } from '../../utils';
 import { Cafe } from '../../types';
+import { logger } from '../../utils/logger';
 import './FavoritesPanel.css';
 
 const FavoritesPanel: React.FC = () => {
@@ -34,10 +35,8 @@ const FavoritesPanel: React.FC = () => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
-    } catch (error: any) { 
-      if (import.meta.env.DEV) {
-        console.error('Error removing favorite:', error);
-      }
+    } catch (error: any) {
+      logger.error('Error removing favorite', error, 'FavoritesPanel');
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',

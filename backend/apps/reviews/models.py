@@ -115,9 +115,7 @@ class Review(models.Model):
     """
     WFC-focused cafe reviews.
 
-    UPDATED (Review Refactor):
-    Reviews are now independent of visits. One user can only have one review per cafe.
-    Users can update their review at any time (no time restrictions).
+    Reviews are independent of visits. One user can only have one review per cafe.
 
     - Visits are for personal tracking (private, multiple visits allowed)
     - Reviews are for sharing opinions (public, one per user per cafe)
@@ -204,7 +202,7 @@ class Review(models.Model):
     )
     
     # Visit time (1=morning, 2=afternoon, 3=evening)
-    # DEPRECATED: Now stored in Visit model, kept here for backward compatibility
+    # Deprecated: now stored in Visit model
     VISIT_TIME_CHOICES = [
         (1, 'Morning (Open - 1pm)'),
         (2, 'Afternoon (1pm - 6pm)'),
@@ -215,7 +213,7 @@ class Review(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(3)],
         null=True,
         blank=True,
-        help_text="Time of visit (deprecated - now stored in Visit model)"
+        help_text="Time of visit (deprecated, now stored in Visit model)"
     )
     
     # Text review (Twitter-style, 160 chars)

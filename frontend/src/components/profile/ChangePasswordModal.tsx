@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Eye, EyeOff, Check, X } from 'lucide-react';
 import { Modal, ResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './ChangePasswordModal.module.css';
 
 interface ChangePasswordModalProps {
@@ -12,40 +13,14 @@ interface ChangePasswordModalProps {
   onSuccess: () => void;
 }
 
-interface PasswordStrength {
-  score: number; // 0-4
-  label: string;
-  color: string;
-}
-
-const calculatePasswordStrength = (password: string): PasswordStrength => {
-  if (!password) {
-    return { score: 0, label: '', color: '' };
-  }
-
-  let score = 0;
-
-  // Length check
-  if (password.length >= 8) score++;
-  if (password.length >= 12) score++;
-
-  // Character variety checks
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++; // Mixed case
-  if (/\d/.test(password)) score++; // Has numbers
-  if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++; // Has special chars
-
-  // Cap at 4
-  score = Math.min(score, 4);
-
-  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-  const colors = ['', 'var(--neo-danger)', 'var(--neo-warning)', 'var(--neo-info)', 'var(--neo-success)'];
-
-  return {
-    score,
-    label: labels[score],
-    color: colors[score],
-  };
-};
+// Password validation requirements (must match backend validators.py)
+const passwordRequirements = [
+  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { id: 'uppercase', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'lowercase', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'number', label: 'One number', test: (p: string) => /\d/.test(p) },
+  { id: 'special', label: 'One special character', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'`~]/.test(p) },
+];
 
 const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
@@ -61,29 +36,20 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const resultModal = useResultModal();
 
-  const passwordStrength = calculatePasswordStrength(newPassword);
-
-  // Check if password is strong enough (at least "Fair" = score 2)
-  const isPasswordStrongEnough = passwordStrength.score >= 2;
+  // Check if all password requirements are met
+  const isPasswordValid = useMemo(() => {
+    return passwordRequirements.every(req => req.test(newPassword));
+  }, [newPassword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (newPassword.length < 8) {
+    // Validation - check all requirements are met
+    if (!isPasswordValid) {
       resultModal.showResultModal({
         type: 'error',
-        title: 'Password Too Short',
-        message: 'Password must be at least 8 characters',
-      });
-      return;
-    }
-
-    if (!isPasswordStrongEnough) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Password Too Weak',
-        message: 'Please use a stronger password with a mix of letters, numbers, and symbols',
+        title: 'Password Requirements Not Met',
+        message: 'Please ensure your password meets all requirements',
       });
       return;
     }
@@ -120,9 +86,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       onSuccess();
       onClose();
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Change password error:', error);
-      }
+      logger.error('Change password error', error, 'ChangePasswordModal');
 
       // Check for field-specific errors first, then fall back to general message
       const oldPasswordError = getFieldError(error, 'old_password');
@@ -207,34 +171,26 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               </button>
             </div>
 
-            {/* Password Strength Indicator */}
+            {/* Password Requirements Checklist */}
             {newPassword && (
-              <div className={styles.strengthIndicator}>
-                <div className={styles.strengthBar}>
-                  <div
-                    className={styles.strengthBarFill}
-                    style={{
-                      width: `${(passwordStrength.score / 4) * 100}%`,
-                      backgroundColor: passwordStrength.color,
-                    }}
-                  />
-                </div>
-                <p className={styles.strengthLabel} style={{ color: passwordStrength.color }}>
-                  {passwordStrength.label}
-                </p>
+              <div className={styles.requirements}>
+                {passwordRequirements.map(req => {
+                  const isMet = req.test(newPassword);
+                  return (
+                    <div key={req.id} className={`${styles.requirement} ${isMet ? styles.met : styles.unmet}`}>
+                      {isMet ? <Check size={14} /> : <X size={14} />}
+                      <span>{req.label}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* Show warning if password is too weak */}
-            {newPassword && !isPasswordStrongEnough && (
-              <p className={styles.warningHint}>
-                ⚠️ Password is too weak. Add more variety to continue.
+            {!newPassword && (
+              <p className={styles.hint}>
+                Must include uppercase, lowercase, number & special character
               </p>
             )}
-
-            <p className={styles.hint}>
-              Use 8+ characters with a mix of letters, numbers & symbols
-            </p>
           </div>
 
           {/* Confirm Password */}
@@ -283,7 +239,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 !oldPassword ||
                 !newPassword ||
                 !confirmPassword ||
-                !isPasswordStrongEnough ||
+                !isPasswordValid ||
                 newPassword !== confirmPassword
               }
             >

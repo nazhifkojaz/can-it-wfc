@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, X, MapPin, Star, Navigation, Map } from 'lucide-react';
 import api from '../../api/client';
 import { formatDistance } from '../../utils/formatters';
+import { logger } from '../../utils/logger';
 import styles from './SearchOverlay.module.css';
 
 interface SearchResult {
@@ -88,9 +89,7 @@ export function SearchOverlay({
         if (error.name === 'AbortError' || error.name === 'CanceledError') {
           return;
         }
-        if (import.meta.env.DEV) {
-          console.error('Search error:', error);
-        }
+        logger.error('Search error', error, 'SearchOverlay');
       } finally {
         setIsLoading(false);
       }

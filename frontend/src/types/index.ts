@@ -7,6 +7,7 @@ export interface User {
   username: string;
   email: string;
   display_name: string;
+  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
   bio: string;
   avatar_url?: string;
   is_anonymous_display: boolean;
@@ -37,6 +38,7 @@ export interface AuthTokens {
 
 export interface UserUpdate {
   username?: string;
+  display_name?: string; // Customizable display name (always editable)
   bio?: string;
   avatar_url?: string;
   is_anonymous_display?: boolean;
@@ -69,6 +71,7 @@ export interface UserProfile {
   id: number;
   username: string;
   display_name: string;
+  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
   bio: string;
   avatar_url?: string;
   total_reviews: number;
@@ -154,6 +157,7 @@ export interface FollowUser {
   id: number;
   username: string;
   display_name: string;
+  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
   avatar_url?: string;
   bio: string;
   total_visits: number;
@@ -214,6 +218,7 @@ export interface Cafe {
   // NEW: Google Places data (only for unregistered cafes)
   google_rating?: number;
   google_ratings_count?: number;
+  google_rating_updated_at?: string | null;  // ISO timestamp for staleness detection
   is_open_now?: boolean;
 
   // NEW: Average ratings breakdown (only for registered cafes with reviews)
@@ -264,8 +269,6 @@ export interface Visit {
   check_in_longitude?: string;
   created_at: string;
   updated_at: string;
-  // REMOVED: has_review, can_review, days_until_review_deadline
-  // Reviews are now independent of visits
 }
 
 export interface VisitCreate {
@@ -326,7 +329,6 @@ export interface CombinedVisitReviewCreate {
 
 export interface Review {
   id: number;
-  // REMOVED: visit field - reviews are now independent of visits
   user: User;
   cafe: Cafe;
 
@@ -373,7 +375,7 @@ export interface Review {
 }
 
 export interface ReviewCreate {
-  cafe_id: number;  // UPDATED: Changed from visit_id to cafe_id
+  cafe_id: number;
 
   // WFC Ratings (1-5)
   wifi_quality: number;

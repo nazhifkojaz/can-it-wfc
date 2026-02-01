@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home } from 'lucide-react';
+import { z } from 'zod';
 import { Cafe, CombinedVisitReviewCreate, Visit } from '../../types';
 import { Modal, ResultModal } from '../common';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
@@ -8,17 +9,67 @@ import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../..
 import { VISIT_TIME_OPTIONS } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './AddVisitReviewModal.module.css';
 
 /**
  * AddVisitReviewModal Component
  *
- * UPDATED (Review Refactor):
  * - Checks if user already has a review for the cafe before showing review toggle
  * - Prevents duplicate reviews (one review per user per cafe)
  * - Directs users to edit existing reviews from visits page
- * - Reviews can be edited anytime (no time restrictions)
  */
+
+// Client-side validation schema
+const visitReviewValidation = {
+  validateVisitDate: (date: string): string | null => {
+    const visitDate = new Date(date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    if (visitDate > today) {
+      return 'Visit date cannot be in the future';
+    }
+    return null;
+  },
+
+  validateAmountSpent: (amount: string): string | null => {
+    if (!amount) return null; // Optional field
+
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount)) {
+      return 'Amount must be a valid number';
+    }
+    if (numAmount <= 0) {
+      return 'Amount must be greater than 0';
+    }
+    if (numAmount > 999999) {
+      return 'Amount seems too large';
+    }
+    return null;
+  },
+
+  validateRating: (rating: number, fieldName: string): string | null => {
+    if (rating < 1 || rating > 5) {
+      return `${fieldName} must be between 1 and 5`;
+    }
+    return null;
+  },
+
+  validateComment: (comment: string): string | null => {
+    if (comment.length > 160) {
+      return 'Comment must be 160 characters or less';
+    }
+    return null;
+  },
+
+  validateReviewFields: (includeReview: boolean, wfcRating: number): string | null => {
+    if (includeReview && (!wfcRating || wfcRating < 1 || wfcRating > 5)) {
+      return 'Overall WFC rating is required when adding a review';
+    }
+    return null;
+  }
+};
 
 interface AddVisitReviewModalProps {
   isOpen: boolean;
@@ -44,7 +95,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const [showDuplicateInfo, setShowDuplicateInfo] = useState(false);
   const [existingVisit, setExistingVisit] = useState<Visit | null>(null);
 
-  // Existing review detection (UPDATED: Review Refactor)
+  // Existing review detection
   const [hasExistingReview, setHasExistingReview] = useState(false);
   const [existingReviewLoading, setExistingReviewLoading] = useState(false);
 
@@ -92,9 +143,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             setExistingVisit(null);
           }
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error checking duplicate visit:', error);
-          }
+          logger.error('Error checking duplicate visit', error, 'AddVisitReviewModal');
           setShowDuplicateInfo(false);
         }
       } else {
@@ -110,9 +159,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           const review = await reviewApi.getUserCafeReview(selectedCafe.id);
           setHasExistingReview(!!review);
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error checking existing review:', error);
-          }
+          logger.error('Error checking existing review', error, 'AddVisitReviewModal');
           setHasExistingReview(false);
         } finally {
           setExistingReviewLoading(false);
@@ -181,6 +228,56 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             <p>💡 Please enable location access in your browser settings and try again.</p>
           </div>
         ),
+      });
+      return;
+    }
+
+    // Client-side validation before API call
+    const validationErrors: string[] = [];
+
+    // Validate visit date
+    const dateError = visitReviewValidation.validateVisitDate(visitDate);
+    if (dateError) validationErrors.push(dateError);
+
+    // Validate amount spent
+    const amountError = visitReviewValidation.validateAmountSpent(amountSpent);
+    if (amountError) validationErrors.push(amountError);
+
+    // Validate review fields if review is included
+    if (includeReview) {
+      const reviewError = visitReviewValidation.validateReviewFields(includeReview, wfcRating);
+      if (reviewError) validationErrors.push(reviewError);
+
+      const commentError = visitReviewValidation.validateComment(comment);
+      if (commentError) validationErrors.push(commentError);
+
+      // Validate all rating fields
+      const ratingErrors = [
+        visitReviewValidation.validateRating(wfcRating, 'Overall WFC rating'),
+        visitReviewValidation.validateRating(wifiQuality, 'WiFi quality'),
+        visitReviewValidation.validateRating(powerOutlets, 'Power outlets'),
+        visitReviewValidation.validateRating(seatingComfort, 'Seating comfort'),
+        visitReviewValidation.validateRating(noiseLevel, 'Noise level'),
+      ].filter(Boolean);
+
+      validationErrors.push(...ratingErrors as string[]);
+    }
+
+    // Show validation errors if any
+    if (validationErrors.length > 0) {
+      resultModal.showResultModal({
+        type: 'error',
+        title: 'Validation Error',
+        message: validationErrors[0],
+        details: validationErrors.length > 1 ? (
+          <div className={styles.errorTip}>
+            <ul>
+              {validationErrors.slice(1).map((error, idx) => (
+                <li key={idx}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        ) : undefined,
       });
       return;
     }
@@ -278,9 +375,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         }
       });
     } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error('Error logging visit:', error);
-      }
+      logger.error('Error logging visit', error, 'AddVisitReviewModal');
 
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;
@@ -517,7 +612,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           </select>
         </div>
 
-        {/* UPDATED (Review Refactor): Show review toggle only if no existing review */}
+        {/* Show review toggle only if no existing review */}
         {existingReviewLoading ? (
           <div className={styles.reviewToggle}>
             <p>Checking review status...</p>

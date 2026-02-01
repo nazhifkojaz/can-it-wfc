@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { User, MapPin, Calendar, Star } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { userApi } from '../../api/client';
 import { UserProfile } from '../../types';
 import { Modal, Loading } from '../common';
 import { usePanel } from '../../contexts/PanelContext';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../../utils/logger';
 import styles from './UserProfileModal.module.css';
 
 interface UserProfileModalProps {
@@ -39,9 +41,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
           setUser(userData);
         }
       } catch (err: any) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to fetch user profile:', err);
-        }
+        logger.error('Failed to fetch user profile', err, 'UserProfileModal');
         if (err.response?.status === 404) {
           setError('User not found');
         } else {
@@ -55,7 +55,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     fetchUser();
   }, [isOpen, username]);
 
-  const displayName = user?.display_name || user?.username || 'Anonymous';
+  const displayName = user?.effective_display_name || user?.display_name || user?.username || 'Anonymous';
   const memberSince = user?.date_joined
     ? formatDistanceToNow(new Date(user.date_joined), { addSuffix: true })
     : 'Unknown';
@@ -98,7 +98,15 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
               {/* Bio */}
               {user.bio && (
-                <p className={styles.bio}>{user.bio}</p>
+                <p
+                  className={styles.bio}
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(user.bio, {
+                      ALLOWED_TAGS: [],
+                      ALLOWED_ATTR: []
+                    })
+                  }}
+                />
               )}
 
               {/* Member Since */}

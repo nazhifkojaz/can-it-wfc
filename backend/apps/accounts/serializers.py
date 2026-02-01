@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from .models import UserSettings, Follow
 
 User = get_user_model()
@@ -8,15 +9,18 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model (public view)."""
-    
-    display_name = serializers.ReadOnlyField()
-    
+
+    effective_display_name = serializers.ReadOnlyField(
+        help_text="The display name shown in UI (custom display_name or username)"
+    )
+
     class Meta:
         model = User
         fields = [
             'id',
             'username',
             'display_name',
+            'effective_display_name',
             'bio',
             'avatar_url',
             'total_reviews',
@@ -29,7 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for authenticated user (private view)."""
 
-    display_name = serializers.ReadOnlyField()
+    effective_display_name = serializers.ReadOnlyField()
     account_age_hours = serializers.ReadOnlyField()
 
     class Meta:
@@ -39,6 +43,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'display_name',
+            'effective_display_name',
             'bio',
             'avatar_url',
             'is_anonymous_display',
@@ -93,11 +98,131 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating user profile."""
+    """
+    Serializer for updating user profile.
+
+    Fields:
+    - display_name: Customizable display name (always editable)
+    - username: Changeable with 30-day cooldown
+    - avatar_url: Only accepts whitelisted domains (Cloudinary, Google)
+    """
+
+    # Explicit avatar_url field with validation
+    avatar_url = serializers.URLField(
+        required=False,
+        allow_null=True,
+        allow_blank=True
+    )
+
+    # Allow display_name updates
+    display_name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=50
+    )
+
+    # Allow username changes with cooldown validation
+    username = serializers.CharField(required=False)
 
     class Meta:
         model = User
-        fields = ['username', 'bio', 'avatar_url', 'is_anonymous_display']
+        fields = ['username', 'display_name', 'bio', 'avatar_url', 'is_anonymous_display']
+
+    def validate_username(self, value):
+        """
+        Validate username change with cooldown period and uniqueness check.
+        """
+        user = self.instance
+
+        # If same username, allow (no change)
+        if user.username == value:
+            return value
+
+        # Check cooldown period (30 days)
+        if user.username_changed_at:
+            days_since_change = (timezone.now() - user.username_changed_at).days
+            cooldown_days = User.USERNAME_CHANGE_COOLDOWN_DAYS
+
+            if days_since_change < cooldown_days:
+                remaining_days = cooldown_days - days_since_change
+                raise serializers.ValidationError(
+                    {
+                        'username': f"Can only change username every {cooldown_days} days. "
+                                    f"{remaining_days} days remaining."
+                    }
+                )
+
+        # Check uniqueness
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                {'username': 'This username is already taken.'}
+            )
+
+        return value
+
+    def update(self, instance, validated_data):
+        """
+        Update user instance and track username changes.
+        """
+        # Check if username is being changed
+        if 'username' in validated_data and validated_data['username'] != instance.username:
+            instance.username_changed_at = timezone.now()
+
+        # Call parent's update method
+        return super().update(instance, validated_data)
+
+    def validate_avatar_url(self, value):
+        """
+        Validate avatar_url against a domain whitelist.
+
+        Only allows URLs from trusted domains (Cloudinary, Google).
+        Rejects private IP addresses and internal URLs.
+        """
+        # Allow null/empty values (user can clear their avatar)
+        if not value or value.strip() == '':
+            return None
+
+        from urllib.parse import urlparse
+        import ipaddress
+
+        try:
+            parsed = urlparse(value)
+            netloc = parsed.netloc.lower()
+
+            # Remove port if present
+            if ':' in netloc:
+                netloc = netloc.split(':')[0]
+
+            # Allowed domains for avatar hosting
+            allowed_domains = [
+                'res.cloudinary.com',
+                'lh3.googleusercontent.com'
+            ]
+
+            if netloc not in allowed_domains:
+                raise serializers.ValidationError(
+                    f"Avatar URL must be from an approved provider: {', '.join(allowed_domains)}"
+                )
+
+            # Additional safety: reject private IP ranges
+            try:
+                ip = ipaddress.ip_address(netloc)
+                if ip.is_private or ip.is_loopback or ip.is_link_local:
+                    raise serializers.ValidationError(
+                        "Avatar URL cannot use private IP addresses."
+                    )
+            except ValueError:
+                # Not an IP address, that's fine
+                pass
+
+        except serializers.ValidationError:
+            # Re-raise our validation errors
+            raise
+        except Exception:
+            # If URL parsing fails, reject the URL
+            raise serializers.ValidationError("Invalid avatar URL format.")
+
+        return value
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -140,7 +265,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     Serializer for public user profiles.
     Respects privacy settings and shows limited information.
     """
-    display_name = serializers.ReadOnlyField()
+    effective_display_name = serializers.ReadOnlyField()
     settings = UserSettingsSerializer(read_only=True)
     is_own_profile = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
@@ -152,6 +277,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id',
             'username',
             'display_name',
+            'effective_display_name',
             'bio',
             'avatar_url',
             'total_reviews',
@@ -215,6 +341,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'id': ret['id'],
                 'username': ret['username'],
                 'display_name': ret['display_name'],
+                'effective_display_name': ret['effective_display_name'],
                 'profile_visibility': 'private',
                 'message': 'This profile is private'
             }
@@ -249,7 +376,7 @@ class UserActivityItemSerializer(serializers.Serializer):
 class FollowUserSerializer(serializers.ModelSerializer):
     """Serializer for users in follow lists."""
 
-    display_name = serializers.ReadOnlyField()
+    effective_display_name = serializers.ReadOnlyField()
     is_following = serializers.SerializerMethodField()
 
     class Meta:
@@ -258,6 +385,7 @@ class FollowUserSerializer(serializers.ModelSerializer):
             'id',
             'username',
             'display_name',
+            'effective_display_name',
             'avatar_url',
             'bio',
             'total_visits',

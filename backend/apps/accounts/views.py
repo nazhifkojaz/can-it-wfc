@@ -27,6 +27,10 @@ class RegistrationThrottle(AnonRateThrottle):
     scope = 'registration'
 
 
+class PublicApiThrottle(AnonRateThrottle):
+    scope = 'public_api'
+
+
 from .serializers import (
     UserSerializer,
     UserDetailSerializer,
@@ -39,6 +43,9 @@ from .serializers import (
     FollowUserSerializer,
 )
 from .models import Follow
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 User = get_user_model()
 
@@ -95,6 +102,7 @@ class UserPublicProfileView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
     lookup_field = 'username'
 
     def get_object(self):
@@ -220,7 +228,7 @@ class GoogleLoginView(APIView):
                 max_age=3600,  # 1 hour
                 httponly=True,  # Prevent JavaScript access
                 secure=not settings.DEBUG,  # HTTPS only in production
-                samesite='Lax',  # CSRF protection
+                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
                 path='/',
             )
 
@@ -230,17 +238,20 @@ class GoogleLoginView(APIView):
                 max_age=604800,  # 7 days
                 httponly=True,
                 secure=not settings.DEBUG,
-                samesite='Lax',
+                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
                 path='/',
             )
 
             return response
 
         except ValueError as e:
-            # Invalid token
-            raise GoogleAuthError(detail=f'Invalid Google token: {str(e)}')
+            # Log full error for debugging, return generic message to client
+            logger.warning(f'Google auth - invalid token: {str(e)}')
+            raise GoogleAuthError(detail='Authentication failed. Please try again.')
         except Exception as e:
-            raise GoogleAuthError(detail=f'Google login failed: {str(e)}')
+            # Log full error with stack trace for debugging
+            logger.error(f'Google auth failed: {str(e)}', exc_info=True)
+            raise GoogleAuthError(detail='Authentication failed. Please try again.')
 
 
 class LogoutView(APIView):
@@ -264,7 +275,7 @@ class LogoutView(APIView):
             max_age=0,  # Expire immediately
             expires='Thu, 01 Jan 1970 00:00:00 GMT',  # Past date
             path='/',
-            samesite='Lax',
+            samesite='None' if not settings.DEBUG else 'Lax',
             secure=not settings.DEBUG,
             httponly=True,
         )
@@ -275,7 +286,7 @@ class LogoutView(APIView):
             max_age=0,  # Expire immediately
             expires='Thu, 01 Jan 1970 00:00:00 GMT',  # Past date
             path='/',
-            samesite='Lax',
+            samesite='None' if not settings.DEBUG else 'Lax',
             secure=not settings.DEBUG,
             httponly=True,
         )
@@ -291,6 +302,7 @@ class UserActivityView(APIView):
     GET /api/users/{id}/activity/
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
 
     def get(self, request, username=None):
         """Fetch recent activity combining visits and reviews."""
@@ -309,7 +321,7 @@ class UserActivityView(APIView):
                 raise UserNotFound()
 
         # Check privacy settings
-        settings = user.settings
+        user_settings = user.settings
 
         is_own_profile = (
             request.user.is_authenticated and
@@ -317,14 +329,17 @@ class UserActivityView(APIView):
         )
 
         # If profile is private and not own profile, return empty
-        if settings.profile_visibility == 'private' and not is_own_profile:
+        if user_settings.profile_visibility == 'private' and not is_own_profile:
             return Response({
                 'message': 'This profile is private',
                 'activity': []
             })
 
         # Get limit from query params (default 20, max 50)
-        limit = min(int(request.query_params.get('limit', 20)), 50)
+        try:
+            limit = min(int(request.query_params.get('limit', 20)), 50)
+        except (ValueError, TypeError):
+            limit = 20  # Default fallback for invalid input
 
         # Fetch visits and reviews
         visits = Visit.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
@@ -341,7 +356,7 @@ class UserActivityView(APIView):
                 'cafe_id': visit.cafe.id,
                 'cafe_name': visit.cafe.name,
                 'cafe_google_place_id': visit.cafe.google_place_id,
-                'date': visit.visit_date if settings.show_activity_dates else None,
+                'date': visit.visit_date if user_settings.show_activity_dates else None,
                 'created_at': visit.created_at,
                 'wfc_rating': None,
                 'comment': None,
@@ -358,7 +373,7 @@ class UserActivityView(APIView):
                 'cafe_id': review.cafe.id,
                 'cafe_name': review.cafe.name,
                 'cafe_google_place_id': review.cafe.google_place_id,
-                'date': review.created_at.date() if settings.show_activity_dates else None,
+                'date': review.created_at.date() if user_settings.show_activity_dates else None,
                 'created_at': review.created_at,
                 'wfc_rating': review.wfc_rating,
                 'comment': review.comment,
@@ -507,6 +522,7 @@ class UserFollowersListView(generics.ListAPIView):
     """
     serializer_class = FollowUserSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
 
     def get_queryset(self):
         """Return followers of specified user, respecting privacy settings."""
@@ -544,6 +560,7 @@ class UserFollowingListView(generics.ListAPIView):
     """
     serializer_class = FollowUserSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
 
     def get_queryset(self):
         """Return users followed by specified user, respecting privacy settings."""
@@ -597,7 +614,10 @@ class ActivityFeedView(APIView):
         from apps.activity.serializers import ActivitySerializer
 
         user = request.user
-        limit = min(int(request.query_params.get('limit', 50)), 100)
+        try:
+            limit = min(int(request.query_params.get('limit', 50)), 100)
+        except (ValueError, TypeError):
+            limit = 50  # Default fallback for invalid input
 
         # Use ActivityService - single optimized query
         activities = ActivityService.get_user_feed(user, limit=limit)

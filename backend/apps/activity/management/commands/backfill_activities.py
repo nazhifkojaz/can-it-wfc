@@ -11,9 +11,9 @@ from datetime import timedelta
 from apps.reviews.models import Visit, Review
 from apps.accounts.models import Follow
 from apps.activity.services import ActivityService
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Command(BaseCommand):

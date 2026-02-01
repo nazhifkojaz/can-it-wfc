@@ -1,9 +1,5 @@
 """
 Tests for ActivityService.
-
-PRIVACY NOTE:
-Visit activity tests have been removed because visit activities are no longer
-created (privacy fix - visits are now private).
 """
 import pytest
 from django.contrib.auth import get_user_model
@@ -76,7 +72,7 @@ def test_create_review_activity(users, cafe, follows):
         cafe=cafe
     )
 
-    # Create review with all required fields (UPDATED: Review Refactor)
+    # Create review with all required fields
     _review = Review.objects.create(  # noqa: F841
         user=alice,
         cafe=cafe,
@@ -125,7 +121,7 @@ def test_get_user_feed(users, cafe, follows):
     alice = users['alice']
     bob = users['bob']
 
-    # Create some activities (UPDATED: Review Refactor)
+    # Create some activities
     _visit = Visit.objects.create(user=alice, cafe=cafe)  # noqa: F841
     _review = Review.objects.create(  # noqa: F841
         user=alice,
@@ -145,7 +141,7 @@ def test_get_user_feed(users, cafe, follows):
 
     # Bob should see Alice's review (from following Alice)
     # Plus follow activities from setUp
-    # Note: Visits no longer appear in social feed (privacy fix)
+    # Note: Visits are private and don't appear in social feed
     assert len(feed) >= 1
 
     # All activities should have Bob as recipient

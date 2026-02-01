@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserPlus, UserMinus } from 'lucide-react';
 import { userApi } from '../../api/client';
 import { extractApiError } from '../../utils/errorUtils';
+import { logger } from '../../utils/logger';
 import styles from './FollowButton.module.css';
 
 interface FollowButtonProps {
@@ -33,7 +34,7 @@ const FollowButton: React.FC<FollowButtonProps> = ({
         onFollowChange?.(true);
       }
     } catch (error) {
-      console.error('Failed to toggle follow:', error);
+      logger.error('Failed to toggle follow', error, 'FollowButton');
       const apiError = extractApiError(error);
       const errorObj = new Error(apiError.message);
       onError?.(errorObj);

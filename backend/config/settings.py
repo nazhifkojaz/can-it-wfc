@@ -117,6 +117,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+    {
+        'NAME': 'validators.ComplexityValidator',
+    },
 ]
 
 # Cache Configuration (required for DRF throttling)
@@ -178,6 +181,7 @@ REST_FRAMEWORK = {
         'registration': '3/hour',  # Account creation (very strict)
         'nearby_anon': '5/min',  # Expensive Google Places API calls (anon)
         'nearby_auth': '20/min',  # Expensive Google Places API calls (auth)
+        'public_api': '60/min',  # Public list endpoints (profiles, followers, etc.)
     }
 }
 
@@ -196,7 +200,7 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SECURE': not DEBUG,         # HTTPS only in production
     'AUTH_COOKIE_HTTP_ONLY': True,           # Prevent JavaScript access (XSS protection)
     'AUTH_COOKIE_PATH': '/',                 # Available on all paths
-    'AUTH_COOKIE_SAMESITE': 'Lax',          # CSRF protection (Lax allows navigation)
+    'AUTH_COOKIE_SAMESITE': 'None' if not DEBUG else 'Lax',  # None for cross-site in production
     'AUTH_COOKIE_DOMAIN': None,              # Current domain only
 }
 
@@ -250,24 +254,29 @@ GOOGLE_PLACES_TIMEOUT = env.int('GOOGLE_PLACES_TIMEOUT', default=10)  # seconds
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Development
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Production
 
-# Logging
+# Centralized Logging Configuration
+# Uses structured JSON format in production for log aggregation tools
+# Uses verbose human-readable format in development
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '[{asctime}] {levelname} {name} {module}.{funcName}:{lineno} - {message}',
             'style': '{',
         },
         'simple': {
-            'format': '{levelname} {message}',
+            'format': '[{levelname}] {name}: {message}',
             'style': '{',
+        },
+        'structured': {
+            '()': 'core.logging.StructuredFormatter',
         },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'verbose' if DEBUG else 'structured',
         },
     },
     'root': {
@@ -277,27 +286,23 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'WARNING',
             'propagate': False,
         },
         'django.db.backends': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Only log SQL warnings/errors
+            'level': 'WARNING',
             'propagate': False,
         },
-        'apps.cafes': {
+        # App-specific loggers with DEBUG level in development
+        'apps': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
-        'apps.reviews': {
+        'core': {
             'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'apps.accounts': {
-            'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
     },

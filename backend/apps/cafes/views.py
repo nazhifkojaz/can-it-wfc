@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
 from core.exceptions import CafeNotFound, AlreadyFavorited
+from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from .serializers import (
     CafeListSerializer,
@@ -21,6 +22,8 @@ from core.permissions import IsOwnerOrReadOnly
 from apps.core.constants import MAX_NEARBY_CAFES
 from django.conf import settings
 from .services import GooglePlacesService
+
+logger = get_logger(__name__)
 
 
 # Custom throttle classes for expensive Google Places API endpoints
@@ -238,8 +241,6 @@ class MergedNearbyCafesView(APIView):
                 radius_meters=int(params['radius_km'] * 1000)
             )
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(f"Google Places API error: {e}")
             return []
 
@@ -409,9 +410,6 @@ class CafeSearchView(APIView):
     def get(self, request):
         from django.core.cache import cache
         from .serializers import CafeSearchQuerySerializer
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         # Validate query parameters
         query_serializer = CafeSearchQuerySerializer(data=request.query_params)
@@ -559,3 +557,76 @@ class CafeFlagListView(generics.ListAPIView):
         return CafeFlag.objects.filter(
             user=self.request.user
         ).select_related('cafe', 'user')
+
+
+class CafeGoogleRatingRefreshView(APIView):
+    """
+    Refresh Google rating for a cafe.
+
+    POST /api/cafes/{id}/refresh-google-rating/
+
+    This endpoint is called by the frontend to refresh stale Google ratings
+    in the background (stale-while-revalidate pattern). The serializer
+    returns cached data immediately for fast response, then the frontend
+    calls this endpoint to get fresh data.
+
+    Returns updated google_rating, google_ratings_count, and google_rating_updated_at.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk=None):
+        """Refresh Google rating from Google Places API."""
+        try:
+            cafe = Cafe.objects.get(pk=pk)
+        except Cafe.DoesNotExist:
+            return Response(
+                {'error': 'Cafe not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if cafe has a Google Place ID
+        if not cafe.google_place_id:
+            return Response(
+                {'error': 'This cafe does not have a Google Place ID'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Refresh from Google Places API
+        try:
+            from django.utils import timezone
+
+            place_details = GooglePlacesService.get_place_details(cafe.google_place_id)
+
+            if not place_details:
+                return Response(
+                    {'error': 'Failed to fetch data from Google Places API'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+
+            # Update cafe with fresh data
+            cafe.google_rating = place_details.get('rating')
+            cafe.google_ratings_count = place_details.get('user_ratings_total')
+            cafe.google_rating_updated_at = timezone.now()
+
+            # Save only these fields (efficient update)
+            cafe.save(update_fields=[
+                'google_rating',
+                'google_ratings_count',
+                'google_rating_updated_at'
+            ])
+
+            logger.info(f"Refreshed Google rating for cafe {cafe.id}: {cafe.google_rating}")
+
+            # Return updated rating data
+            return Response({
+                'google_rating': cafe.google_rating,
+                'google_ratings_count': cafe.google_ratings_count,
+                'google_rating_updated_at': cafe.google_rating_updated_at.isoformat() if cafe.google_rating_updated_at else None,
+            })
+
+        except Exception as e:
+            logger.warning(f"Failed to refresh Google rating for cafe {cafe.id}: {e}")
+            return Response(
+                {'error': 'Failed to refresh Google rating'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )

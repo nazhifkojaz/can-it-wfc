@@ -21,13 +21,8 @@ class ActivityService:
     """
     Activity creation and distribution service.
 
-    PRIVACY NOTE:
-    Visit activities have been removed from the social feed for privacy/safety.
-    Only the following activities appear in feeds:
-    - Reviews (intentionally public)
-    - Follow actions (social connections)
-
-    Visits are tracked privately for the user's own records.
+    Only reviews and follows appear in feeds.
+    Visits are private and not distributed to followers.
 
     Fan-out Strategy:
     - Users with <1000 followers: Synchronous fan-out (immediate)
@@ -43,14 +38,9 @@ class ActivityService:
     @transaction.atomic
     def create_visit_activity(cls, visit: 'Visit') -> int:
         """
-        DEPRECATED: Visit activities removed from social feed for privacy.
+        DEPRECATED: Visit activities are no longer distributed to followers.
 
-        This method is kept for backward compatibility but is no longer called
-        by signals. Visits can enable location tracking and stalking, so they
-        are now private. Only reviews (intentionally public) appear in followers' feeds.
-
-        If you want to re-enable visit activities in the future (with opt-in),
-        uncomment the signal handler in apps/activity/signals.py.
+        This method is retained but not called by any signal.
 
         Args:
             visit: Visit object

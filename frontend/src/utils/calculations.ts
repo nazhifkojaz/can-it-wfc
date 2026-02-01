@@ -102,3 +102,77 @@ export const roundToDecimal = (value: number, decimals: number = 2): number => {
   const multiplier = Math.pow(10, decimals);
   return Math.round(value * multiplier) / multiplier;
 };
+
+// ===========================
+// Google Rating Staleness Detection
+// ===========================
+
+/**
+ * Hours after which a Google rating is considered stale
+ */
+export const GOOGLE_RATING_STALE_HOURS = 24;
+
+/**
+ * Check if a Google rating is stale (older than 24 hours or never fetched)
+ * @param updatedAt - ISO timestamp of when the rating was last updated
+ * @returns true if the rating is stale
+ */
+export const isGoogleRatingStale = (updatedAt: string | null | undefined): boolean => {
+  if (!updatedAt) {
+    return true; // Never fetched is considered stale
+  }
+
+  const updatedTime = new Date(updatedAt);
+  const now = new Date();
+  const hoursDiff = (now.getTime() - updatedTime.getTime()) / (1000 * 60 * 60);
+
+  return hoursDiff >= GOOGLE_RATING_STALE_HOURS;
+};
+
+/**
+ * Get a human-readable description of how long ago the rating was updated
+ * @param updatedAt - ISO timestamp of when the rating was last updated
+ * @returns Human-readable string like "Updated 2 hours ago" or "Updated today"
+ */
+export const getRatingFreshnessText = (updatedAt: string | null | undefined): string | null => {
+  if (!updatedAt) {
+    return null;
+  }
+
+  const updatedTime = new Date(updatedAt);
+  const now = new Date();
+  const hoursDiff = (now.getTime() - updatedTime.getTime()) / (1000 * 60 * 60);
+
+  if (hoursDiff < 1) {
+    return 'Updated just now';
+  } else if (hoursDiff < 24) {
+    const hours = Math.floor(hoursDiff);
+    return `Updated ${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  } else if (hoursDiff < 48) {
+    return 'Updated yesterday';
+  } else if (hoursDiff < 24 * 7) {
+    const days = Math.floor(hoursDiff / 24);
+    return `Updated ${days} day${days !== 1 ? 's' : ''} ago`;
+  } else if (hoursDiff < 24 * 30) {
+    const weeks = Math.floor(hoursDiff / (24 * 7));
+    return `Updated ${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+  } else {
+    const months = Math.floor(hoursDiff / (24 * 30));
+    return `Updated ${months} month${months !== 1 ? 's' : ''} ago`;
+  }
+};
+
+/**
+ * Get the freshness level for styling purposes
+ * @param updatedAt - ISO timestamp of when the rating was last updated
+ * @returns 'fresh', 'stale', or 'unknown'
+ */
+export const getRatingFreshnessLevel = (
+  updatedAt: string | null | undefined
+): 'fresh' | 'stale' | 'unknown' => {
+  if (!updatedAt) {
+    return 'unknown';
+  }
+
+  return isGoogleRatingStale(updatedAt) ? 'stale' : 'fresh';
+};
