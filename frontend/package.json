@@ -19,6 +19,7 @@
     "dompurify": "^3.3.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
+    "posthog-js": "^1.336.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-intersection-observer": "^10.0.0",
