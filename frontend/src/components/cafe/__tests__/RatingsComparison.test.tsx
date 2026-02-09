@@ -38,7 +38,9 @@ describe('RatingsComparison', () => {
     });
 
     it('should render Google rating when provided as string (type conversion)', () => {
-      render(<RatingsComparison {...defaultProps} googleRating="4.3" as any />);
+      // Testing runtime type coercion - component handles string input gracefully
+      const props = { ...defaultProps, googleRating: "4.3" as any };
+      render(<RatingsComparison {...props} />);
       expect(screen.getByText('4.3')).toBeInTheDocument();
     });
 
@@ -246,7 +248,9 @@ describe('RatingsComparison', () => {
 
   describe('Edge Cases', () => {
     it('should handle string googleRating with decimal', () => {
-      render(<RatingsComparison {...defaultProps} googleRating="3.7" as any />);
+      // Testing runtime type coercion - component handles string input gracefully
+      const props = { ...defaultProps, googleRating: "3.7" as any };
+      render(<RatingsComparison {...props} />);
       expect(screen.getByText('3.7')).toBeInTheDocument();
     });
 
