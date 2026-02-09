@@ -95,22 +95,6 @@ const patch = async <T>(
 };
 
 /**
- * Generic PUT request helper
- * @param url - The endpoint URL
- * @param data - Request body data
- * @param config - Additional axios config
- * @returns The response data
- */
-const put = async <T>(
-  url: string,
-  data?: any,
-  config?: AxiosRequestConfig
-): Promise<T> => {
-  const response = await api.put<T>(url, data, config);
-  return response.data;
-};
-
-/**
  * Generic DELETE request helper
  * @param url - The endpoint URL
  * @param config - Additional axios config
