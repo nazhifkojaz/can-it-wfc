@@ -8,6 +8,7 @@ import { useResultModal } from '../../hooks';
 import { extractApiError } from '../../utils/errorUtils';
 import FlagReviewModal from './FlagReviewModal';
 import { logger } from '../../utils/logger';
+import { trackReviewMarkedHelpful, trackReviewFlagged, trackReviewDeleted } from '../../lib/analytics';
 import styles from './ReviewCard.module.css';
 
 interface ReviewCardProps {
@@ -71,6 +72,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     setIsDeleting(true);
     try {
       await onDelete(review.id);
+
+      // Track analytics after successful deletion
+      trackReviewDeleted({
+        cafeId: review.cafe,
+        cafeName: review.cafe?.name || '',
+      });
+
       setShowDeleteConfirm(false);
 
       // Show success modal
@@ -108,6 +116,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     try {
       setIsTogglingHelpful(true);
       await onToggleHelpful(review.id);
+
+      // Track analytics after successful toggle
+      trackReviewMarkedHelpful({
+        reviewId: review.id,
+        cafeId: review.cafe,
+        action: previousIsHelpful ? 'unmarked' : 'marked',
+      });
     } catch (error: any) {
       logger.error('Failed to toggle helpful', error, 'ReviewCard');
 
@@ -130,6 +145,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
     try {
       await onFlagReview(review.id, reason, description);
+
+      // Track analytics after successful flag
+      trackReviewFlagged({
+        reviewId: review.id,
+        cafeId: review.cafe,
+        reason,
+      });
 
       // Mark as flagged locally
       setHasFlagged(true);

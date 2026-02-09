@@ -10,6 +10,7 @@ import { VISIT_TIME_OPTIONS } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
+import { trackVisitLogged, trackReviewCreated } from '../../lib/analytics';
 import styles from './AddVisitReviewModal.module.css';
 
 /**
@@ -331,6 +332,38 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
 
       await createWithReview(visitReviewData);
+
+      // Track analytics
+      const visitTimeLabelMap: Record<number, 'morning' | 'afternoon' | 'evening'> = {
+        0: 'morning',
+        1: 'afternoon',
+        2: 'afternoon',
+        3: 'evening',
+      };
+      trackVisitLogged({
+        cafeId: selectedCafe.id,
+        cafeName: selectedCafe.name,
+        includesReview: includeReview,
+        visitTime: visitTime !== null ? visitTimeLabelMap[visitTime] : null,
+        amountSpent: amountSpent ? parseFloat(amountSpent) : null,
+        currency: amountSpent ? currency : null,
+        isDuplicateVisit: showDuplicateInfo && !!existingVisit,
+      });
+
+      // Track review creation if review was included
+      if (includeReview) {
+        trackReviewCreated({
+          cafeId: selectedCafe.id,
+          cafeName: selectedCafe.name,
+          wfcRating: wfcRating,
+          wifiQuality: wifiQuality,
+          hasComment: !!comment.trim(),
+          commentLength: comment.length,
+          source: 'visit_modal',
+          hasSmokingArea: hasSmokingArea === true ? 'yes' : hasSmokingArea === false ? 'no' : 'unknown',
+          hasPrayerRoom: hasPrayerRoom === true ? 'yes' : hasPrayerRoom === false ? 'no' : 'unknown',
+        });
+      }
 
       // Show success modal
       resultModal.showResultModal({
