@@ -14,9 +14,9 @@ import styles from './ReviewCard.module.css';
 interface ReviewCardProps {
   review: Review;
   currentUserId?: number;
-  onDelete?: (reviewId: number) => Promise<void>;
-  onToggleHelpful?: (reviewId: number) => Promise<void>;
-  onFlagReview?: (reviewId: number, reason: string, description?: string) => Promise<void>;
+  onDelete?: (reviewId: number) => Promise<unknown>;
+  onToggleHelpful?: (reviewId: number) => Promise<unknown>;
+  onFlagReview?: (reviewId: number, reason: string, description?: string) => Promise<unknown>;
   onUsernameClick?: (username: string) => void;
 }
 
@@ -75,7 +75,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
       // Track analytics after successful deletion
       trackReviewDeleted({
-        cafeId: review.cafe,
+        cafeId: review.cafe.id,
         cafeName: review.cafe?.name || '',
       });
 
@@ -120,7 +120,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       // Track analytics after successful toggle
       trackReviewMarkedHelpful({
         reviewId: review.id,
-        cafeId: review.cafe,
+        cafeId: review.cafe.id,
         action: previousIsHelpful ? 'unmarked' : 'marked',
       });
     } catch (error: any) {
@@ -149,7 +149,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       // Track analytics after successful flag
       trackReviewFlagged({
         reviewId: review.id,
-        cafeId: review.cafe,
+        cafeId: review.cafe.id,
         reason,
       });
 

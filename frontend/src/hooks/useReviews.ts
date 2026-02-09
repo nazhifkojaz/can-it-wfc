@@ -1,5 +1,4 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
 import { reviewApi } from '../api/client';
 import { ReviewUpdate } from '../types';
 import { queryKeys } from '../config/queryKeys';

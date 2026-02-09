@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
-import { Cafe } from '../../types';
+import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState, ResultModal } from '../common';
 import { useReviews, useFavorites, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,7 +38,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   const { location } = useGeolocation({ watch: false });
 
   // Use custom hook for cafe state management (replaces 2 useState + 3 useEffect)
-  const { cafe, isRefreshing: refreshingCafe, isRefreshingRating, refreshGoogleRating } = useCafeDetail({
+  const { cafe, isRefreshingRating, refreshGoogleRating } = useCafeDetail({
     initialCafe,
     isOpen,
     userLocation: location,

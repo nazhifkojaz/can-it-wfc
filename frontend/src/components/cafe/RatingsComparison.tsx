@@ -3,7 +3,7 @@ import { Star, Coffee, RefreshCw } from 'lucide-react';
 import styles from './RatingsComparison.module.css';
 
 interface RatingsComparisonProps {
-  googleRating?: number | null;
+  googleRating?: number | string | null;
   googleCount?: number | null;
   googleRatingUpdatedAt?: string | null;
   googlePlaceId?: string | null;

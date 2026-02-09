@@ -126,7 +126,7 @@ export const useCafeDetail = ({
         logger.info(`Refreshed Google rating for cafe ${cafe.id}`, {}, 'useCafeDetail');
       } catch (err) {
         // Silently fail - user still sees cached data
-        logger.warn('Failed to refresh Google rating (cached data still shown)', err, 'useCafeDetail');
+        logger.warn('Failed to refresh Google rating (cached data still shown)', { error: String(err) }, 'useCafeDetail');
       } finally {
         setIsRefreshingRating(false);
       }
