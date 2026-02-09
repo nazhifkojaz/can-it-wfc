@@ -42,7 +42,7 @@ import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, tra
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
-  const { hidePanel, showPanel, activePanel } = usePanel();
+  const { hidePanel, showPanel } = usePanel();
   const { user, logout, updateUser } = useAuth();
   const resultModal = useResultModal();
 
@@ -77,15 +77,12 @@ const ProfilePanel: React.FC = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useVisits();
-  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
 
   // Track reviews per cafe
   const [cafeReviews, setCafeReviews] = useState<Map<number, Review | null>>(new Map());
-  const [selectedCafeId, setSelectedCafeId] = useState<number | null>(null);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const [showEditVisit, setShowEditVisit] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
@@ -133,7 +130,6 @@ const ProfilePanel: React.FC = () => {
     const loadReviewStatuses = async () => {
       if (cafeIds.length === 0) return;
 
-      setReviewsLoading(true);
       try {
         // NEW: Use bulk endpoint - single request instead of N parallel requests
         const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
@@ -145,8 +141,6 @@ const ProfilePanel: React.FC = () => {
         setCafeReviews(new Map(reviewEntries));
       } catch (error) {
         logger.error('Error loading review statuses', error, 'ProfilePanel');
-      } finally {
-        setReviewsLoading(false);
       }
     };
 
@@ -350,7 +344,6 @@ const ProfilePanel: React.FC = () => {
 
   // Cafe-level review handlers
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {
-    setSelectedCafeId(cafeId);
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setExistingReview(null);
@@ -359,64 +352,11 @@ const ProfilePanel: React.FC = () => {
   };
 
   const handleEditCafeReview = (cafeId: number, cafeName: string, review: Review) => {
-    setSelectedCafeId(cafeId);
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setExistingReview(review);
     setIsViewMode(false);
     setShowReviewForm(true);
-  };
-
-  const handleViewCafeReview = (cafeId: number, cafeName: string, review: Review) => {
-    setSelectedCafeId(cafeId);
-    setReviewCafeId(cafeId);
-    setReviewCafeName(cafeName);
-    setExistingReview(review);
-    setIsViewMode(true);
-    setShowReviewForm(true);
-  };
-
-  // Deprecated: Old visit-based handlers (keeping for compatibility)
-  const handleAddReview = (visit: Visit) => {
-    handleAddCafeReview(visit.cafe.id, visit.cafe.name);
-  };
-
-  const handleEditReview = async (visit: Visit) => {
-    const review = getReviewForCafe(visit.cafe.id);
-    if (review) {
-      handleEditCafeReview(visit.cafe.id, visit.cafe.name, review);
-    }
-  };
-
-  const handleViewReview = async (visit: Visit) => {
-    const review = getReviewForCafe(visit.cafe.id);
-    if (review) {
-      handleViewCafeReview(visit.cafe.id, visit.cafe.name, review);
-    }
-  };
-
-  const handleReviewSuccess = async () => {
-    setShowReviewForm(false);
-    setSelectedCafeId(null);
-    setExistingReview(null);
-    setIsViewMode(false);
-
-    // Reload review statuses to get updated data
-    if (visits && visits.length > 0) {
-      const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      const reviewPromises = cafeIds.map(async (cafeId) => {
-        try {
-          const review = await reviewApi.getUserCafeReview(cafeId);
-          return [cafeId, review] as const;
-        } catch (error) {
-          return [cafeId, null] as const;
-        }
-      });
-      const reviewResults = await Promise.all(reviewPromises);
-      setCafeReviews(new Map(reviewResults));
-    }
-
-    refetchVisits();
   };
 
   const handleEditVisit = (visit: Visit) => {
@@ -547,7 +487,7 @@ const ProfilePanel: React.FC = () => {
   };
 
   // Add review from favorites tab
-  const handleAddReviewFromFavorites = (visitId: number, cafeId: number, cafeName: string) => {
+  const handleAddReviewFromFavorites = (_visitId: number, cafeId: number, cafeName: string) => {
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setShowAddVisit(false);
@@ -1256,11 +1196,10 @@ const ProfilePanel: React.FC = () => {
             setShowReviewForm(false);
             setExistingReview(null);
             setIsViewMode(false);
-            setSelectedCafeId(null);
             setReviewCafeId(null);
             setReviewCafeName('');
           }}
-          onSuccess={selectedVisit ? handleReviewSuccess : handleReviewSuccessFromFavorites}
+          onSuccess={handleReviewSuccessFromFavorites}
         />
       )}
 

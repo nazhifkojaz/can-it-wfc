@@ -495,7 +495,7 @@ const VisitsPanel: React.FC = () => {
                 >
                   {CURRENCIES.map((curr) => (
                     <option key={curr.code} value={curr.code}>
-                      {curr.code} ({curr.symbol})
+                      {curr.symbol} {curr.code}
                     </option>
                   ))}
                 </select>
