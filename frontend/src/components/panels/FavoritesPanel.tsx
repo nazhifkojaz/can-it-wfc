@@ -9,6 +9,7 @@ import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
 import { formatPriceRange, formatRating, formatDistance } from '../../utils';
 import { Cafe } from '../../types';
 import { logger } from '../../utils/logger';
+import { trackCafeUnfavorited } from '../../lib/analytics';
 import './FavoritesPanel.css';
 
 const FavoritesPanel: React.FC = () => {
@@ -31,10 +32,16 @@ const FavoritesPanel: React.FC = () => {
     setSelectedCafe(cafe);
   };
 
-  const handleRemoveFavorite = async (cafeId: number, e: React.MouseEvent) => {
+  const handleRemoveFavorite = async (cafeId: number, cafeName: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
+
+      // Track analytics after successful removal
+      trackCafeUnfavorited({
+        cafeId,
+        source: 'favorites_panel',
+      });
     } catch (error: any) {
       logger.error('Error removing favorite', error, 'FavoritesPanel');
       resultModal.showResultModal({
@@ -174,7 +181,7 @@ const FavoritesPanel: React.FC = () => {
               <h3 className="cafe-name">{cafe.name}</h3>
               <button
                 className="favorite-button active"
-                onClick={(e) => handleRemoveFavorite(cafe.id, e)}
+                onClick={(e) => handleRemoveFavorite(cafe.id, cafe.name, e)}
                 aria-label="Remove from favorites"
               >
                 <Heart size={20} fill="currentColor" />

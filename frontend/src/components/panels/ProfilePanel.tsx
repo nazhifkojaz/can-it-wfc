@@ -38,6 +38,7 @@ import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
 import { logger } from '../../utils/logger';
+import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, trackProfileTabViewed, trackUserProfileViewed } from '../../lib/analytics';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
@@ -310,6 +311,12 @@ const ProfilePanel: React.FC = () => {
       });
       // Merge with existing user to preserve all fields (like date_joined)
       updateUser({ ...user, ...updatedUser });
+
+      // Track analytics after successful update
+      trackPrivacySettingsChanged({
+        setting: 'anonymous_display',
+        newValue: checked,
+      });
     } catch (error: any) {
       // Revert on error
       setIsAnonymous(!checked);
@@ -329,6 +336,7 @@ const ProfilePanel: React.FC = () => {
       primaryButton: {
         label: 'Log Out',
         onClick: async () => {
+          trackUserLoggedOut();
           await logout();  // Wait for logout to complete
           resultModal.closeResultModal();
         },
@@ -462,6 +470,13 @@ const ProfilePanel: React.FC = () => {
 
     try {
       await deleteVisit(visitToDelete.id);
+
+      // Track analytics
+      trackVisitDeleted({
+        cafeId: visitToDelete.cafe.id,
+        cafeName: visitToDelete.cafe.name,
+      });
+
       setShowDeleteConfirm(false);
       setVisitToDelete(null);
       refetchVisits();
@@ -690,7 +705,7 @@ const ProfilePanel: React.FC = () => {
           </div>
         )}
 
-        <p className="email">
+        <p className="email" data-ph-mask>
           <Mail size={14} />
           {user.email}
         </p>
@@ -752,19 +767,28 @@ const ProfilePanel: React.FC = () => {
         <div className="profile-tabs">
           <button
             className={`profile-tab ${activeTab === 'visits' ? 'active' : ''}`}
-            onClick={() => setActiveTab('visits')}
+            onClick={() => {
+              setActiveTab('visits');
+              trackProfileTabViewed({ tab: 'visits' });
+            }}
           >
             Visits
           </button>
           <button
             className={`profile-tab ${activeTab === 'favorites' ? 'active' : ''}`}
-            onClick={() => setActiveTab('favorites')}
+            onClick={() => {
+              setActiveTab('favorites');
+              trackProfileTabViewed({ tab: 'favorites' });
+            }}
           >
             Favorites
           </button>
           <button
             className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => {
+              setActiveTab('settings');
+              trackProfileTabViewed({ tab: 'settings' });
+            }}
           >
             Settings
           </button>
@@ -1271,6 +1295,7 @@ const ProfilePanel: React.FC = () => {
         type={followModalType}
         onUserClick={(clickedUsername) => {
           setShowFollowersModal(false);
+          trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
           showPanel('userProfile', { username: clickedUsername });
         }}
       />

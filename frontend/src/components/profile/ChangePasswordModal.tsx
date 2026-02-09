@@ -5,6 +5,7 @@ import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
+import { trackPasswordChanged } from '../../lib/analytics';
 import styles from './ChangePasswordModal.module.css';
 
 interface ChangePasswordModalProps {
@@ -69,6 +70,8 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         old_password: oldPassword,
         new_password: newPassword,
       });
+
+      trackPasswordChanged();
 
       // Clear form
       setOldPassword('');

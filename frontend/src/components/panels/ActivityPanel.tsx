@@ -9,6 +9,7 @@ import { Loading } from '../common';
 import { formatDistanceToNow } from 'date-fns';
 import { formatVisitTime } from '../../utils/visit';
 import { logger } from '../../utils/logger';
+import { trackActivityItemClicked, trackUserProfileViewed } from '../../lib/analytics';
 import './ActivityPanel.css';
 
 const ActivityPanel: React.FC = () => {
@@ -41,11 +42,23 @@ const ActivityPanel: React.FC = () => {
   }, [user]);
 
   const handleActivityClick = (activity: ActivityItem) => {
+    // Determine activity type for analytics
+    const getAnalyticsActivityType = (): 'review' | 'visit' | 'follow' => {
+      if (activity.type.includes('review')) return 'review';
+      if (activity.type.includes('visit')) return 'visit';
+      return 'follow';
+    };
+
     switch (activity.type) {
       case 'own_visit':
       case 'own_review':
       case 'following_visit':
       case 'following_review':
+        // Track cafe click activity
+        trackActivityItemClicked({
+          activityType: getAnalyticsActivityType(),
+          actionTaken: 'view_cafe',
+        });
         // Jump to cafe on map
         hidePanel();
         setTimeout(() => {
@@ -54,15 +67,27 @@ const ActivityPanel: React.FC = () => {
         break;
 
       case 'new_follower':
+        // Track profile view activity
+        trackActivityItemClicked({
+          activityType: 'follow',
+          actionTaken: 'view_profile',
+        });
         // Open follower's profile
         if (activity.actor_username) {
+          trackUserProfileViewed({ targetUsername: activity.actor_username, source: 'activity_feed' });
           showPanel('userProfile', { username: activity.actor_username });
         }
         break;
 
       case 'following_followed':
+        // Track profile view activity
+        trackActivityItemClicked({
+          activityType: 'follow',
+          actionTaken: 'view_profile',
+        });
         // Open the newly followed user's profile
         if (activity.target_username) {
+          trackUserProfileViewed({ targetUsername: activity.target_username, source: 'activity_feed' });
           showPanel('userProfile', { username: activity.target_username });
         }
         break;
