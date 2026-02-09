@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, DollarSign } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import ReviewForm from '../review/ReviewForm';
 import { Loading, EmptyState, ConfirmDialog, ResultModal } from '../common';
@@ -493,9 +493,9 @@ const VisitsPanel: React.FC = () => {
                   onChange={(e) => setEditCurrency(e.target.value)}
                   disabled={!editAmountSpent}
                 >
-                  {Object.entries(CURRENCIES).map(([code, { symbol, name }]) => (
-                    <option key={code} value={code}>
-                      {code} ({symbol})
+                  {CURRENCIES.map((curr) => (
+                    <option key={curr.code} value={curr.code}>
+                      {curr.code} ({curr.symbol})
                     </option>
                   ))}
                 </select>
@@ -528,8 +528,8 @@ const VisitsPanel: React.FC = () => {
         isOpen={showDeleteConfirm}
         title="Delete Visit?"
         message={`Are you sure you want to delete this visit to ${visitToDelete?.cafe.name}? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmText="Delete"
+        cancelText="Cancel"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         isLoading={isDeleting}
@@ -542,7 +542,7 @@ const VisitsPanel: React.FC = () => {
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        onClose={resultModal.hideResultModal}
+        onClose={resultModal.closeResultModal}
       />
     </div>
   );

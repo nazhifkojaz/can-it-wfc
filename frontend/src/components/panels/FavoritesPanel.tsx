@@ -24,7 +24,6 @@ const FavoritesPanel: React.FC = () => {
 
   // Review form state
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
   const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
   const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
@@ -32,7 +31,7 @@ const FavoritesPanel: React.FC = () => {
     setSelectedCafe(cafe);
   };
 
-  const handleRemoveFavorite = async (cafeId: number, cafeName: string, e: React.MouseEvent) => {
+  const handleRemoveFavorite = async (cafeId: number, _cafeName: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
@@ -78,8 +77,7 @@ const FavoritesPanel: React.FC = () => {
     });
   };
 
-  const handleAddReview = (visitId: number, cafeId: number, cafeName: string) => {
-    setReviewVisitId(visitId);
+  const handleAddReview = (_visitId: number, cafeId: number, cafeName: string) => {
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setShowAddVisit(false);
@@ -89,7 +87,6 @@ const FavoritesPanel: React.FC = () => {
 
   const handleReviewSuccess = () => {
     setShowReviewForm(false);
-    setReviewVisitId(null);
     setReviewCafeId(null);
     setReviewCafeName('');
 
@@ -239,9 +236,8 @@ const FavoritesPanel: React.FC = () => {
       />
 
       {/* Review Form Modal */}
-      {showReviewForm && reviewVisitId !== null && reviewCafeId !== null && (
+      {showReviewForm && reviewCafeId !== null && (
         <ReviewForm
-          visitId={reviewVisitId}
           cafeId={reviewCafeId}
           cafeName={reviewCafeName}
           isOpen={showReviewForm}
