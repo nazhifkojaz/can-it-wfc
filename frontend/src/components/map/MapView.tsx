@@ -11,25 +11,12 @@ import FindMyLocationButton from './FindMyLocationButton';
 import ZoomInButton from './ZoomInButton';
 import ZoomOutButton from './ZoomOutButton';
 import SearchButton from './SearchButton';
-import { Cafe } from '../../types';
+import { Cafe, SearchResult } from '../../types';
 import styles from './map.module.css';
 import 'leaflet/dist/leaflet.css';
 
-interface TempSearchMarker {
-  name: string;
-  address: string;
-  latitude: string;
-  longitude: string;
-  google_place_id?: string;
-  distance?: string;
-  rating?: number;
-  result_type?: 'cafe' | 'location';
-  is_registered?: boolean;
-  db_cafe_id?: number;
-  total_reviews?: number;
-  total_visits?: number;
-  average_wfc_rating?: number;
-}
+// TempSearchMarker is a subset of SearchResult for temporary map markers
+// Use SearchResult directly instead of duplicating the interface
 
 interface MapViewProps {
   cafes: Cafe[];
@@ -40,7 +27,7 @@ interface MapViewProps {
   onSearchArea: (center: { lat: number; lng: number }) => void;
   userLocation: { lat: number; lng: number } | null;
   jumpToLocation?: { lat: number; lng: number } | null;
-  tempSearchMarker?: TempSearchMarker | null;
+  tempSearchMarker?: SearchResult | null;
   onSearchClick?: () => void;
 }
 
