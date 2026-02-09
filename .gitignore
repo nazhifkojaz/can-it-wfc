@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -59,3 +59,4 @@ yarn-error.log*
 
 # Documentation
 docs/archive/
+docs/internal_documentation/
