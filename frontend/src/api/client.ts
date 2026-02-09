@@ -208,13 +208,13 @@ export const authApi = {
   getCurrentUser: () => get<User>('/auth/me/'),
 
   // Google OAuth login
-  googleLogin: async (accessToken: string): Promise<{ user: User }> => {
-    const { user } = await post<{ user: User }>('/auth/google/', { access_token: accessToken });
+  googleLogin: async (accessToken: string): Promise<{ user: User; created: boolean }> => {
+    const response = await post<{ user: User; created: boolean }>('/auth/google/', { access_token: accessToken });
 
     // Clear legacy localStorage tokens
     tokenStorage.clearTokens();
 
-    return { user };
+    return { user: response.user, created: response.created ?? false };
   },
 
   // Update profile (for username, bio, etc.)

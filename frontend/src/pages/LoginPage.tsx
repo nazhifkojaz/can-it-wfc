@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+import { trackUserLoggedIn } from '../lib/analytics';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -28,6 +29,7 @@ const LoginPage: React.FC = () => {
 
     try {
       await login({ username, password });
+      trackUserLoggedIn('email');
       navigate('/map');
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
