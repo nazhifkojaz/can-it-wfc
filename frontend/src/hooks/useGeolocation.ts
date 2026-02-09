@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { trackLocationPermissionResponded } from '../lib/analytics';
 
 interface GeolocationState {
   latitude: number | null;
@@ -21,6 +22,9 @@ export const useGeolocation = (options?: GeolocationOptions) => {
     loading: true,
   });
 
+  // Track if we've already logged permission to avoid duplicate events
+  const permissionTrackedRef = useRef(false);
+
   const onSuccess = useCallback((position: GeolocationPosition) => {
     setState({
       latitude: position.coords.latitude,
@@ -28,6 +32,12 @@ export const useGeolocation = (options?: GeolocationOptions) => {
       error: null,
       loading: false,
     });
+
+    // Track permission granted (only once per session)
+    if (!permissionTrackedRef.current) {
+      trackLocationPermissionResponded({ granted: true });
+      permissionTrackedRef.current = true;
+    }
   }, []);
 
   const onError = useCallback((error: GeolocationPositionError) => {
@@ -40,6 +50,15 @@ export const useGeolocation = (options?: GeolocationOptions) => {
         error: 'Location permission denied. Please enable location access in your browser settings.',
         loading: false,
       });
+
+      // Track permission denied (only once per session)
+      if (!permissionTrackedRef.current) {
+        trackLocationPermissionResponded({
+          granted: false,
+          errorCode: 'PERMISSION_DENIED',
+        });
+        permissionTrackedRef.current = true;
+      }
     }
     // For other errors, keep loading state - watchPosition will keep trying
   }, []);

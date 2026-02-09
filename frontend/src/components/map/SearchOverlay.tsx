@@ -3,6 +3,7 @@ import { Search, X, MapPin, Star, Navigation, Map } from 'lucide-react';
 import api from '../../api/client';
 import { formatDistance } from '../../utils/formatters';
 import { logger } from '../../utils/logger';
+import { trackSearchPerformed, trackSearchResultClicked } from '../../lib/analytics';
 import styles from './SearchOverlay.module.css';
 
 interface SearchResult {
@@ -84,6 +85,14 @@ export function SearchOverlay({
           signal: controller.signal
         });
         setResults(response.data);
+
+        // Track search analytics
+        const wfcResults = response.data.results.filter(r => r.is_registered);
+        trackSearchPerformed({
+          query,
+          resultCountWfc: wfcResults.length,
+          resultCountGoogle: response.data.results.length - wfcResults.length,
+        });
       } catch (error: any) {
         // Ignore abort errors (expected when user types quickly or unmounts)
         if (error.name === 'AbortError' || error.name === 'CanceledError') {
@@ -105,6 +114,14 @@ export function SearchOverlay({
   }, [query, userLocation]);
 
   const handleSelectResult = (result: SearchResult) => {
+    // Track search result click
+    trackSearchResultClicked({
+      query: results?.query || query,
+      resultType: result.is_registered ? 'wfc' : 'google',
+      resultPosition: results?.results.findIndex(r => r.google_place_id === result.google_place_id) ?? 0,
+      cafeName: result.name,
+    });
+
     onSelectResult(result);
     onClose();
     setQuery('');

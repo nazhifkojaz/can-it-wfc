@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, List, Map as MapIcon } from 'lucide-react';
 import MobileLayout from '../components/layout/MobileLayout';
@@ -14,6 +14,7 @@ import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
+import { trackMapAreaSearched, trackViewModeToggled } from '../lib/analytics';
 import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
@@ -50,6 +51,11 @@ const MapPage: React.FC = () => {
   const { activePanel } = usePanel();
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
+
+  const searchUserLocation = useMemo(
+    () => location ? { lat: location.lat, lon: location.lng } : undefined,
+    [location?.lat, location?.lng]
+  );
 
   // Close CafeDetailSheet when any panel opens
   React.useEffect(() => {
@@ -119,6 +125,11 @@ const MapPage: React.FC = () => {
   });
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
+    // Track analytics
+    trackMapAreaSearched({
+      latitude: center.lat,
+      longitude: center.lng,
+    });
     setManualSearchCenter(center);
   };
 
@@ -158,7 +169,11 @@ const MapPage: React.FC = () => {
   };
 
   const toggleViewMode = () => {
-    setViewMode(prev => prev === 'map' ? 'list' : 'map');
+    setViewMode(prev => {
+      const newMode = prev === 'map' ? 'list' : 'map';
+      trackViewModeToggled({ switchedTo: newMode });
+      return newMode;
+    });
   };
 
   const handleSearchSelect = (result: SearchResult) => {
@@ -308,7 +323,7 @@ const MapPage: React.FC = () => {
           isOpen={showSearchOverlay}
           onClose={() => setShowSearchOverlay(false)}
           onSelectResult={handleSearchSelect}
-          userLocation={location ? { lat: location.lat, lon: location.lng } : undefined}
+          userLocation={searchUserLocation}
         />
       </div>
       {activePanel && <PanelManager />}
