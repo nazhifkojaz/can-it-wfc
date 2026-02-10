@@ -409,17 +409,31 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     } catch (error: any) {
       logger.error('Error logging visit', error, 'AddVisitReviewModal');
 
+      // Log full error details for debugging
+      if (error.response?.data) {
+        console.log('Full error response:', error.response.data);
+      }
+
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;
 
       // Check for field-specific errors
       const distanceError = getFieldError(error, 'check_in_latitude');
       const cafeIdError = getFieldError(error, 'cafe_id');
+      const visitDateError = getFieldError(error, 'visit_date');
       const ratingError = getFieldError(error, 'wfc_rating');
 
       let errorMessage: string;
 
-      if (distanceError) {
+      if (visitDateError) {
+        errorTitle = 'Duplicate Visit';
+        errorMessage = visitDateError;
+        errorDetails = (
+          <div className={styles.errorTip}>
+            <p>💡 You can only log one visit per cafe per day. Visit your profile to view your existing visits.</p>
+          </div>
+        );
+      } else if (distanceError) {
         errorTitle = 'Distance Check Failed';
         errorMessage = distanceError;
         errorDetails = (
