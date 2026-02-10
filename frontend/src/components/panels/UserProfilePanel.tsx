@@ -10,6 +10,7 @@ import FollowersModal from '../social/FollowersModal';
 import { formatVisitTime } from '../../utils/visit';
 import { formatRelativeDate } from '../../utils/date';
 import { logger } from '../../utils/logger';
+import { trackUserProfileViewed } from '../../lib/analytics';
 import './UserProfilePanel.css';
 
 const UserProfilePanel: React.FC = () => {
@@ -341,6 +342,7 @@ const UserProfilePanel: React.FC = () => {
         type={followModalType}
         onUserClick={(clickedUsername) => {
           setShowFollowersModal(false);
+          trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
           showPanel('userProfile', { username: clickedUsername });
         }}
       />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, List, Map as MapIcon } from 'lucide-react';
 import MobileLayout from '../components/layout/MobileLayout';
@@ -6,34 +6,18 @@ import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
-import { Loading, ResultModal } from '../components/common';
+import { ResultModal } from '../components/common';
 import { SearchOverlay } from '../components/map/SearchOverlay';
 import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
-import { Cafe } from '../types';
+import { Cafe, SearchResult } from '../types';
 import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
+import { trackMapAreaSearched, trackViewModeToggled } from '../lib/analytics';
 import './MapPage.css';
 
 type ViewMode = 'map' | 'list';
-
-interface SearchResult {
-  google_place_id: string;
-  is_registered: boolean;
-  db_cafe_id?: number;
-  name: string;
-  address: string;
-  latitude: string;
-  longitude: string;
-  distance?: string;
-  rating?: number;
-  average_wfc_rating?: number;
-  total_reviews?: number;
-  total_visits?: number;
-  source: 'google';
-  result_type: 'cafe' | 'location';
-}
 
 const MapPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,6 +35,11 @@ const MapPage: React.FC = () => {
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
 
+  const searchUserLocation = useMemo(
+    () => location ? { lat: location.lat, lon: location.lng } : undefined,
+    [location?.lat, location?.lng]
+  );
+
   // Close CafeDetailSheet when any panel opens
   React.useEffect(() => {
     if (activePanel) {
@@ -66,7 +55,7 @@ const MapPage: React.FC = () => {
         try {
           const cafe = await cafeApi.getById(parseInt(cafeId));
           // Jump to cafe location
-          setJumpToLocation({ lat: cafe.latitude, lng: cafe.longitude });
+          setJumpToLocation({ lat: parseFloat(cafe.latitude), lng: parseFloat(cafe.longitude) });
 
           // Create temp marker to ensure cafe is visible
           // If cafe is already in nearby list, MapView will handle showing it
@@ -78,8 +67,8 @@ const MapPage: React.FC = () => {
             address: cafe.address,
             latitude: cafe.latitude.toString(),
             longitude: cafe.longitude.toString(),
-            rating: cafe.google_rating,
-            average_wfc_rating: cafe.average_wfc_rating,
+            rating: cafe.google_rating ?? undefined,
+            average_wfc_rating: cafe.average_wfc_rating ? parseFloat(String(cafe.average_wfc_rating)) : undefined,
             total_reviews: cafe.total_reviews,
             total_visits: cafe.total_visits,
             source: 'google',
@@ -119,6 +108,11 @@ const MapPage: React.FC = () => {
   });
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
+    // Track analytics
+    trackMapAreaSearched({
+      latitude: center.lat,
+      longitude: center.lng,
+    });
     setManualSearchCenter(center);
   };
 
@@ -158,7 +152,11 @@ const MapPage: React.FC = () => {
   };
 
   const toggleViewMode = () => {
-    setViewMode(prev => prev === 'map' ? 'list' : 'map');
+    setViewMode(prev => {
+      const newMode = prev === 'map' ? 'list' : 'map';
+      trackViewModeToggled({ switchedTo: newMode });
+      return newMode;
+    });
   };
 
   const handleSearchSelect = (result: SearchResult) => {
@@ -308,7 +306,7 @@ const MapPage: React.FC = () => {
           isOpen={showSearchOverlay}
           onClose={() => setShowSearchOverlay(false)}
           onSelectResult={handleSearchSelect}
-          userLocation={location ? { lat: location.lat, lon: location.lng } : undefined}
+          userLocation={searchUserLocation}
         />
       </div>
       {activePanel && <PanelManager />}

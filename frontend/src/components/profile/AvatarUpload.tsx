@@ -101,13 +101,14 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       });
 
       setPreview(null);
-    } catch (error: any) {
-      logger.error('Avatar upload error', error, 'AvatarUpload');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Avatar upload error', apiError, 'AvatarUpload');
 
       // More detailed error message
       let errorMessage = 'Failed to upload avatar. Please try again.';
-      if (error.message && error.message !== 'Upload failed') {
-        errorMessage = error.message;
+      if (apiError.message && apiError.message !== 'Upload failed') {
+        errorMessage = apiError.message;
       }
 
       resultModal.showResultModal({
@@ -144,7 +145,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
               autoClose: true,
               autoCloseDelay: 2000,
             });
-          } catch (error: any) {
+          } catch (error) {
             resultModal.showResultModal({
               type: 'error',
               title: 'Remove Failed',

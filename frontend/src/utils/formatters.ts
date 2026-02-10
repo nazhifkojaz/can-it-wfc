@@ -2,7 +2,7 @@
  * Formatting utilities for displaying data
  */
 
-import { PRICE_RANGE_LABELS, VISIT_TIME_LABELS } from '../config/constants';
+import { PRICE_RANGE_LABELS } from '../config/constants';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 
 /**

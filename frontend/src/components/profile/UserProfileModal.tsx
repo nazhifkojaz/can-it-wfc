@@ -7,6 +7,7 @@ import { Modal, Loading } from '../common';
 import { usePanel } from '../../contexts/PanelContext';
 import { formatDistanceToNow } from 'date-fns';
 import { logger } from '../../utils/logger';
+import { trackUserProfileViewed } from '../../lib/analytics';
 import styles from './UserProfileModal.module.css';
 
 interface UserProfileModalProps {
@@ -145,6 +146,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 className={styles.viewProfileButton}
                 onClick={() => {
                   onClose();
+                  trackUserProfileViewed({ targetUsername: user.username, source: 'review_card' });
                   showPanel('userProfile', { username: user.username });
                 }}
               >

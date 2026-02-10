@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home } from 'lucide-react';
-import { z } from 'zod';
 import { Cafe, CombinedVisitReviewCreate, Visit } from '../../types';
 import { Modal, ResultModal } from '../common';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
@@ -10,6 +9,7 @@ import { VISIT_TIME_OPTIONS } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
+import { trackVisitLogged, trackReviewCreated } from '../../lib/analytics';
 import styles from './AddVisitReviewModal.module.css';
 
 /**
@@ -332,6 +332,38 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
       await createWithReview(visitReviewData);
 
+      // Track analytics
+      const visitTimeLabelMap: Record<number, 'morning' | 'afternoon' | 'evening'> = {
+        0: 'morning',
+        1: 'afternoon',
+        2: 'afternoon',
+        3: 'evening',
+      };
+      trackVisitLogged({
+        cafeId: selectedCafe.id,
+        cafeName: selectedCafe.name,
+        includesReview: includeReview,
+        visitTime: visitTime !== null ? visitTimeLabelMap[visitTime] : null,
+        amountSpent: amountSpent ? parseFloat(amountSpent) : null,
+        currency: amountSpent ? currency : null,
+        isDuplicateVisit: showDuplicateInfo && !!existingVisit,
+      });
+
+      // Track review creation if review was included
+      if (includeReview) {
+        trackReviewCreated({
+          cafeId: selectedCafe.id,
+          cafeName: selectedCafe.name,
+          wfcRating: wfcRating,
+          wifiQuality: wifiQuality,
+          hasComment: !!comment.trim(),
+          commentLength: comment.length,
+          source: 'visit_modal',
+          hasSmokingArea: hasSmokingArea === true ? 'yes' : hasSmokingArea === false ? 'no' : 'unknown',
+          hasPrayerRoom: hasPrayerRoom === true ? 'yes' : hasPrayerRoom === false ? 'no' : 'unknown',
+        });
+      }
+
       // Show success modal
       resultModal.showResultModal({
         type: 'success',
@@ -374,20 +406,35 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           }
         }
       });
-    } catch (error: any) {
-      logger.error('Error logging visit', error, 'AddVisitReviewModal');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Error logging visit', apiError, 'AddVisitReviewModal');
+
+      // Log full error details for debugging
+      if ('response' in apiError && (apiError as any).response?.data) {
+        console.log('Full error response:', (apiError as any).response.data);
+      }
 
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;
 
       // Check for field-specific errors
-      const distanceError = getFieldError(error, 'check_in_latitude');
-      const cafeIdError = getFieldError(error, 'cafe_id');
-      const ratingError = getFieldError(error, 'wfc_rating');
+      const distanceError = getFieldError(apiError, 'check_in_latitude');
+      const cafeIdError = getFieldError(apiError, 'cafe_id');
+      const visitDateError = getFieldError(apiError, 'visit_date');
+      const ratingError = getFieldError(apiError, 'wfc_rating');
 
       let errorMessage: string;
 
-      if (distanceError) {
+      if (visitDateError) {
+        errorTitle = 'Duplicate Visit';
+        errorMessage = visitDateError;
+        errorDetails = (
+          <div className={styles.errorTip}>
+            <p>💡 You can only log one visit per cafe per day. Visit your profile to view your existing visits.</p>
+          </div>
+        );
+      } else if (distanceError) {
         errorTitle = 'Distance Check Failed';
         errorMessage = distanceError;
         errorDetails = (
@@ -407,7 +454,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         errorTitle = 'Validation Error';
         errorMessage = ratingError;
       } else {
-        errorMessage = extractApiError(error).message;
+        errorMessage = apiError.message;
       }
 
       resultModal.showResultModal({

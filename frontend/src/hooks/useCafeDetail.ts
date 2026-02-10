@@ -99,6 +99,8 @@ export const useCafeDetail = ({
 
   // Background refresh for stale Google ratings
   useEffect(() => {
+    let cancelled = false;
+
     const refreshGoogleRatingInBackground = async () => {
       // Only refresh if cafe has Google Place ID, is registered, and rating is stale
       if (!cafe.google_place_id || !cafe.is_registered || !isValidCafeId(cafe.id)) {
@@ -115,20 +117,24 @@ export const useCafeDetail = ({
       try {
         const ratingData = await cafeApi.refreshGoogleRating(cafe.id);
 
-        // Update cafe with fresh rating data
-        setCafe(prev => ({
-          ...prev,
-          google_rating: ratingData.google_rating,
-          google_ratings_count: ratingData.google_ratings_count,
-          google_rating_updated_at: ratingData.google_rating_updated_at,
-        }));
+        // Update cafe with fresh rating data (only if not cancelled)
+        if (!cancelled) {
+          setCafe(prev => ({
+            ...prev,
+            google_rating: ratingData.google_rating,
+            google_ratings_count: ratingData.google_ratings_count,
+            google_rating_updated_at: ratingData.google_rating_updated_at,
+          }));
+        }
 
         logger.info(`Refreshed Google rating for cafe ${cafe.id}`, {}, 'useCafeDetail');
       } catch (err) {
         // Silently fail - user still sees cached data
-        logger.warn('Failed to refresh Google rating (cached data still shown)', err, 'useCafeDetail');
+        logger.warn('Failed to refresh Google rating (cached data still shown)', { error: String(err) }, 'useCafeDetail');
       } finally {
-        setIsRefreshingRating(false);
+        if (!cancelled) {
+          setIsRefreshingRating(false);
+        }
       }
     };
 
@@ -137,7 +143,10 @@ export const useCafeDetail = ({
       refreshGoogleRatingInBackground();
     }, 500);
 
-    return () => clearTimeout(timerId);
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
   }, [cafe.google_place_id, cafe.is_registered, cafe.id, cafe.google_rating_updated_at]);
 
   // Calculate distance if missing and user location available

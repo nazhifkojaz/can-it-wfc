@@ -3,24 +3,9 @@ import { Search, X, MapPin, Star, Navigation, Map } from 'lucide-react';
 import api from '../../api/client';
 import { formatDistance } from '../../utils/formatters';
 import { logger } from '../../utils/logger';
+import { trackSearchPerformed, trackSearchResultClicked } from '../../lib/analytics';
+import { SearchResult } from '../../types';
 import styles from './SearchOverlay.module.css';
-
-interface SearchResult {
-  google_place_id: string;
-  is_registered: boolean;
-  db_cafe_id?: number;
-  name: string;
-  address: string;
-  latitude: string;
-  longitude: string;
-  distance?: number | string;
-  rating?: number;
-  average_wfc_rating?: number;
-  total_reviews?: number;
-  total_visits?: number;
-  source: 'google';
-  result_type: 'cafe' | 'location';
-}
 
 interface SearchResponse {
   results: SearchResult[];
@@ -84,12 +69,20 @@ export function SearchOverlay({
           signal: controller.signal
         });
         setResults(response.data);
-      } catch (error: any) {
+
+        // Track search analytics
+        const wfcResults = response.data.results.filter(r => r.is_registered);
+        trackSearchPerformed({
+          query,
+          resultCountWfc: wfcResults.length,
+          resultCountGoogle: response.data.results.length - wfcResults.length,
+        });
+      } catch (error) {
         // Ignore abort errors (expected when user types quickly or unmounts)
-        if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
           return;
         }
-        logger.error('Search error', error, 'SearchOverlay');
+        logger.error('Search error', error as Error, 'SearchOverlay');
       } finally {
         setIsLoading(false);
       }
@@ -105,6 +98,14 @@ export function SearchOverlay({
   }, [query, userLocation]);
 
   const handleSelectResult = (result: SearchResult) => {
+    // Track search result click
+    trackSearchResultClicked({
+      query: results?.query || query,
+      resultType: result.is_registered ? 'wfc' : 'google',
+      resultPosition: results?.results.findIndex(r => r.google_place_id === result.google_place_id) ?? 0,
+      cafeName: result.name,
+    });
+
     onSelectResult(result);
     onClose();
     setQuery('');

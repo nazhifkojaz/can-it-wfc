@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
-import { Cafe } from '../../types';
+import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState, ResultModal } from '../common';
 import { useReviews, useFavorites, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,7 +14,10 @@ import QuickInfo from './QuickInfo';
 import ActionButtons from './ActionButtons';
 import FacilitiesStats from './FacilitiesStats';
 import { formatDistance } from '../../utils/formatters';
+import { calculateDistance } from '../../utils';
+import { extractApiError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
+import { trackCafeViewed, trackDirectionsClicked, trackCafeFavorited, trackCafeUnfavorited, trackGoogleRatingRefreshed } from '../../lib/analytics';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -22,6 +25,7 @@ interface CafeDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onLogVisit: () => void;
+  source?: 'map_marker' | 'list_item' | 'search_result' | 'activity_feed' | 'favorite' | 'direct';
 }
 
 const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
@@ -29,16 +33,47 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   isOpen,
   onClose,
   onLogVisit,
+  source = 'direct',
 }) => {
   const { user } = useAuth();
   const { location } = useGeolocation({ watch: false });
 
   // Use custom hook for cafe state management (replaces 2 useState + 3 useEffect)
-  const { cafe, isRefreshing: refreshingCafe, isRefreshingRating, refreshGoogleRating } = useCafeDetail({
+  const { cafe, isRefreshingRating, refreshGoogleRating } = useCafeDetail({
     initialCafe,
     isOpen,
     userLocation: location,
   });
+
+  // Track cafe view once when sheet opens
+  const hasTrackedViewRef = useRef(false);
+
+  useEffect(() => {
+    if (isOpen && !hasTrackedViewRef.current) {
+      const distanceKm = location
+        ? calculateDistance(
+            location.lat,
+            location.lng,
+            parseFloat(cafe.latitude),
+            parseFloat(cafe.longitude)
+          )
+        : null;
+
+      trackCafeViewed({
+        cafeId: cafe.id,
+        cafeName: cafe.name,
+        isRegistered: cafe.is_registered,
+        hasWfcRating: !!cafe.average_wfc_rating,
+        source,
+        distanceKm,
+      });
+      hasTrackedViewRef.current = true;
+    }
+    // Reset tracking when sheet closes
+    if (!isOpen) {
+      hasTrackedViewRef.current = false;
+    }
+  }, [isOpen, cafe.id, cafe.name, cafe.is_registered, cafe.average_wfc_rating, cafe.latitude, cafe.longitude, source, location]);
 
   const {
     reviews,
@@ -86,14 +121,24 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       return;
     }
 
+    const wasFavorite = isFavorite(cafe.id);
+
     try {
       await toggleFavorite(cafe.id);
-    } catch (error: any) {
-      logger.error('Error toggling favorite', error, 'CafeDetailSheet');
+
+      // Track analytics after successful toggle
+      if (!wasFavorite) {
+        trackCafeFavorited({ cafeId: cafe.id, cafeName: cafe.name });
+      } else {
+        trackCafeUnfavorited({ cafeId: cafe.id, source: 'detail_sheet' });
+      }
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Error toggling favorite', apiError, 'CafeDetailSheet');
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Toggle Favorite',
-        message: error.message || 'Failed to toggle favorite. Please try again.',
+        message: apiError.message || 'Failed to toggle favorite. Please try again.',
       });
     }
   };
@@ -113,8 +158,27 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       return;
     }
 
+    const distanceKm = calculateDistance(
+      location.lat,
+      location.lng,
+      parseFloat(cafe.latitude),
+      parseFloat(cafe.longitude)
+    );
+
+    // Track analytics before opening directions
+    trackDirectionsClicked({
+      cafeId: cafe.id,
+      cafeName: cafe.name,
+      distanceKm,
+    });
+
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${location.lat},${location.lng}&destination=${cafe.latitude},${cafe.longitude}&travelmode=driving`;
     window.open(mapsUrl, '_blank');
+  };
+
+  const handleRefreshGoogleRating = () => {
+    trackGoogleRatingRefreshed({ cafeId: cafe.id });
+    refreshGoogleRating();
   };
 
   const handleFlagClick = (e: React.MouseEvent) => {
@@ -211,7 +275,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         wfcRating={cafe.average_wfc_rating}
         wfcCount={cafe.total_reviews}
         isRegistered={cafe.is_registered}
-        onRefreshRating={refreshGoogleRating}
+        onRefreshRating={handleRefreshGoogleRating}
       />
 
       {/* WFC Detailed Ratings (only if has reviews) */}

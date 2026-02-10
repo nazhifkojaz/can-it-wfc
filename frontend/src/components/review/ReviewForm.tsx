@@ -8,6 +8,7 @@ import { isValidReviewComment } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import { logger } from '../../utils/logger';
+import { trackReviewCreated, trackReviewEdited } from '../../lib/analytics';
 import styles from './ReviewForm.module.css';
 
 /**
@@ -108,6 +109,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         };
         await reviewApi.update(existingReview.id, updateData);
 
+        // Track analytics for review edit
+        const fieldsChanged = Object.keys(updateData).filter(
+          key => updateData[key as keyof ReviewUpdate] !== existingReview[key as keyof Review]
+        );
+        trackReviewEdited({
+          cafeId,
+          cafeName,
+          fieldsChanged,
+        });
+
         resultModal.showResultModal({
           type: 'success',
           title: 'Review Updated!',
@@ -133,6 +144,19 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           has_prayer_room: hasPrayerRoom,
         };
         await createReview(reviewData);
+
+        // Track analytics for review creation
+        trackReviewCreated({
+          cafeId,
+          cafeName,
+          wfcRating: formData.wfc_rating,
+          wifiQuality: formData.wifi_quality,
+          hasComment: !!formData.comment?.trim(),
+          commentLength: formData.comment?.length || 0,
+          source: 'standalone',
+          hasSmokingArea: hasSmokingArea === true ? 'yes' : hasSmokingArea === false ? 'no' : 'unknown',
+          hasPrayerRoom: hasPrayerRoom === true ? 'yes' : hasPrayerRoom === false ? 'no' : 'unknown',
+        });
 
         resultModal.showResultModal({
           type: 'success',

@@ -8,14 +8,15 @@ import { useResultModal } from '../../hooks';
 import { extractApiError } from '../../utils/errorUtils';
 import FlagReviewModal from './FlagReviewModal';
 import { logger } from '../../utils/logger';
+import { trackReviewMarkedHelpful, trackReviewFlagged, trackReviewDeleted } from '../../lib/analytics';
 import styles from './ReviewCard.module.css';
 
 interface ReviewCardProps {
   review: Review;
   currentUserId?: number;
-  onDelete?: (reviewId: number) => Promise<void>;
-  onToggleHelpful?: (reviewId: number) => Promise<void>;
-  onFlagReview?: (reviewId: number, reason: string, description?: string) => Promise<void>;
+  onDelete?: (reviewId: number) => Promise<unknown>;
+  onToggleHelpful?: (reviewId: number) => Promise<unknown>;
+  onFlagReview?: (reviewId: number, reason: string, description?: string) => Promise<unknown>;
   onUsernameClick?: (username: string) => void;
 }
 
@@ -71,6 +72,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     setIsDeleting(true);
     try {
       await onDelete(review.id);
+
+      // Track analytics after successful deletion
+      trackReviewDeleted({
+        cafeId: review.cafe.id,
+        cafeName: review.cafe?.name || '',
+      });
+
       setShowDeleteConfirm(false);
 
       // Show success modal
@@ -81,8 +89,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      logger.error('Failed to delete review', error, 'ReviewCard');
+    } catch (error) {
+      logger.error('Failed to delete review', error as Error, 'ReviewCard');
       setShowDeleteConfirm(false);
 
       resultModal.showResultModal({
@@ -108,8 +116,15 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     try {
       setIsTogglingHelpful(true);
       await onToggleHelpful(review.id);
-    } catch (error: any) {
-      logger.error('Failed to toggle helpful', error, 'ReviewCard');
+
+      // Track analytics after successful toggle
+      trackReviewMarkedHelpful({
+        reviewId: review.id,
+        cafeId: review.cafe.id,
+        action: previousIsHelpful ? 'unmarked' : 'marked',
+      });
+    } catch (error) {
+      logger.error('Failed to toggle helpful', error as Error, 'ReviewCard');
 
       // Revert on error
       setIsHelpful(previousIsHelpful);
@@ -131,6 +146,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     try {
       await onFlagReview(review.id, reason, description);
 
+      // Track analytics after successful flag
+      trackReviewFlagged({
+        reviewId: review.id,
+        cafeId: review.cafe.id,
+        reason,
+      });
+
       // Mark as flagged locally
       setHasFlagged(true);
 
@@ -141,8 +163,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         autoClose: true,
         autoCloseDelay: 3000,
       });
-    } catch (error: any) {
-      logger.error('Failed to flag review', error, 'ReviewCard');
+    } catch (error) {
+      logger.error('Failed to flag review', error as Error, 'ReviewCard');
 
       resultModal.showResultModal({
         type: 'error',

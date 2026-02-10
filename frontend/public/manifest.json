@@ -1,7 +1,17 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Can-It-WFC",
+  "name": "Can-It-WFC - Find the Best Cafes for Work From Cafe",
   "icons": [
+    {
+      "src": "favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
@@ -10,16 +20,19 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "description": "Discover and review the best cafes for working remotely. Find Wi-Fi speeds, power outlets, and work-friendly environments near you."
 }

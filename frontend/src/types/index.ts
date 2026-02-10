@@ -216,8 +216,8 @@ export interface Cafe {
   source: 'database' | 'google_places';
 
   // NEW: Google Places data (only for unregistered cafes)
-  google_rating?: number;
-  google_ratings_count?: number;
+  google_rating?: number | null;
+  google_ratings_count?: number | null;
   google_rating_updated_at?: string | null;  // ISO timestamp for staleness detection
   is_open_now?: boolean;
 
@@ -458,6 +458,27 @@ export interface Location {
   lng: number;
 }
 
+// ===========================
+// Search Types
+// ===========================
+
+export interface SearchResult {
+  google_place_id: string;
+  is_registered: boolean;
+  db_cafe_id?: number;
+  name: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+  distance?: number | string;
+  rating?: number;
+  average_wfc_rating?: number;
+  total_reviews?: number;
+  total_visits?: number;
+  source: 'google';
+  result_type: 'cafe' | 'location';
+}
+
 export interface GeolocationState {
   latitude: number | null;
   longitude: number | null;
@@ -472,13 +493,6 @@ export interface GeolocationState {
 export interface ApiError {
   message: string;
   errors?: Record<string, string[]>;
-}
-
-export interface PaginatedResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
 }
 
 // ===========================

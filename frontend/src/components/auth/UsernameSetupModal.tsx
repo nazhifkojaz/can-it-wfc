@@ -9,7 +9,7 @@ interface UsernameSetupModalProps {
   isOpen: boolean;
   currentUsername: string;
   email: string;
-  onComplete: (newUsername: string) => void;
+  onComplete: (newUsername: string, skipped: boolean) => void;
 }
 
 const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
@@ -45,8 +45,8 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
     }
 
     if (username === currentUsername) {
-      // No change, just close
-      onComplete(username);
+      // No change, just close - treat as skipped since they didn't change it
+      onComplete(username, true);
       return;
     }
 
@@ -61,12 +61,13 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
         message: `Your username is now @${username}`,
         autoClose: true,
         autoCloseDelay: 2000,
-        onClose: () => onComplete(username),
+        onClose: () => onComplete(username, false),
       });
-    } catch (error: any) {
+    } catch (error) {
       // Check for field-specific username error first
-      const usernameError = getFieldError(error, 'username');
-      const errorMsg = usernameError || extractApiError(error).message;
+      const apiError = extractApiError(error);
+      const usernameError = getFieldError(apiError, 'username');
+      const errorMsg = usernameError || apiError.message;
 
       resultModal.showResultModal({
         type: 'error',
@@ -80,7 +81,7 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
 
   const handleSkip = () => {
     // Keep auto-generated username
-    onComplete(currentUsername);
+    onComplete(currentUsername, true);
   };
 
   return (

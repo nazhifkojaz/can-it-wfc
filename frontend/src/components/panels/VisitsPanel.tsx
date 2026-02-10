@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit, DollarSign } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus, Home, Trash2, Edit } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import ReviewForm from '../review/ReviewForm';
 import { Loading, EmptyState, ConfirmDialog, ResultModal } from '../common';
@@ -8,10 +8,10 @@ import { usePanel } from '../../contexts/PanelContext';
 import { reviewApi } from '../../api/client';
 import { formatDate, formatRating } from '../../utils';
 import { extractApiError } from '../../utils/errorUtils';
-import { formatCurrency, CURRENCIES } from '../../utils/currency';
+import { CURRENCIES } from '../../utils/currency';
+import { groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
 import { VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review } from '../../types';
-import { format } from 'date-fns';
 import { logger } from '../../utils/logger';
 import './VisitsPanel.css';
 
@@ -99,12 +99,6 @@ const VisitsPanel: React.FC = () => {
     return cafeReviews.get(cafeId) || null;
   };
 
-  const getAmountSpentLabel = (visit: Visit): string => {
-    if (!visit.amount_spent) return 'Not specified';
-    const currency = visit.currency || 'USD';
-    return formatCurrency(visit.amount_spent, currency);
-  };
-
   const getVisitTimeLabel = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return 'Not specified';
     const numValue = typeof value === 'string' ? parseInt(value) : value;
@@ -128,26 +122,32 @@ const VisitsPanel: React.FC = () => {
   };
 
   const handleReviewFormSuccess = async () => {
+    // Capture whether we were editing before clearing state
+    const wasEditing = !!existingReview;
+
     setShowReviewForm(false);
     setSelectedCafeId(null);
     setSelectedCafeName('');
     setExistingReview(null);
 
-    // Refetch review statuses for all cafes
+    // Refetch review statuses for all cafes using bulk endpoint
     if (visits.length > 0) {
       const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      const reviewPromises = cafeIds.map(async (cafeId) => {
-        const review = await reviewApi.getUserCafeReview(cafeId);
-        return [cafeId, review] as const;
-      });
-      const reviewResults = await Promise.all(reviewPromises);
-      setCafeReviews(new Map(reviewResults));
+      try {
+        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
+        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+          ([id, review]) => [parseInt(id), review]
+        );
+        setCafeReviews(new Map(reviewEntries));
+      } catch (error) {
+        logger.error('Error loading review statuses', error, 'VisitsPanel');
+      }
     }
 
     resultModal.showResultModal({
       type: 'success',
-      title: existingReview ? 'Review Updated!' : 'Review Added!',
-      message: existingReview
+      title: wasEditing ? 'Review Updated!' : 'Review Added!',
+      message: wasEditing
         ? 'Your review has been updated successfully!'
         : 'Your review has been added successfully!',
       autoClose: true,
@@ -184,8 +184,8 @@ const VisitsPanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      logger.error('Error updating visit', error, 'VisitsPanel');
+    } catch (error) {
+      logger.error('Error updating visit', error as Error, 'VisitsPanel');
 
       resultModal.showResultModal({
         type: 'error',
@@ -219,8 +219,8 @@ const VisitsPanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      logger.error('Error deleting visit', error, 'VisitsPanel');
+    } catch (error) {
+      logger.error('Error deleting visit', error as Error, 'VisitsPanel');
 
       resultModal.showResultModal({
         type: 'error',
@@ -235,20 +235,6 @@ const VisitsPanel: React.FC = () => {
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setVisitToDelete(null);
-  };
-
-  const groupVisitsByDate = (visits: Visit[]) => {
-    const grouped: { [key: string]: Visit[] } = {};
-
-    visits.forEach(visit => {
-      const date = format(new Date(visit.visit_date), 'MMMM yyyy');
-      if (!grouped[date]) {
-        grouped[date] = [];
-      }
-      grouped[date].push(visit);
-    });
-
-    return grouped;
   };
 
   const groupedVisits = groupVisitsByDate(visits);
@@ -493,9 +479,9 @@ const VisitsPanel: React.FC = () => {
                   onChange={(e) => setEditCurrency(e.target.value)}
                   disabled={!editAmountSpent}
                 >
-                  {Object.entries(CURRENCIES).map(([code, { symbol, name }]) => (
-                    <option key={code} value={code}>
-                      {code} ({symbol})
+                  {CURRENCIES.map((curr) => (
+                    <option key={curr.code} value={curr.code}>
+                      {curr.symbol} {curr.code}
                     </option>
                   ))}
                 </select>
@@ -528,8 +514,8 @@ const VisitsPanel: React.FC = () => {
         isOpen={showDeleteConfirm}
         title="Delete Visit?"
         message={`Are you sure you want to delete this visit to ${visitToDelete?.cafe.name}? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmText="Delete"
+        cancelText="Cancel"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         isLoading={isDeleting}
@@ -539,10 +525,15 @@ const VisitsPanel: React.FC = () => {
       {/* Result Modal */}
       <ResultModal
         isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        onClose={resultModal.hideResultModal}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
       />
     </div>
   );

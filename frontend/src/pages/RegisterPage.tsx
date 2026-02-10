@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+import { trackUserSignedUp } from '../lib/analytics';
 
 // Password validation requirements (must match backend validators.py)
 const passwordRequirements = [
@@ -58,6 +59,7 @@ const RegisterPage: React.FC = () => {
 
     try {
       await register({ username, email, password, password2 });
+      trackUserSignedUp('email');
       navigate('/map');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');

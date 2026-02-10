@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { logger } from './utils/logger';
+import { initPostHog } from './lib/posthog';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,9 @@ const queryClient = new QueryClient({
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
+
+// Initialize PostHog analytics
+initPostHog();
 
 const googleClientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || '';
 

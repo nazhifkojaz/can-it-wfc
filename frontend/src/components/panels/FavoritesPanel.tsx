@@ -1,46 +1,48 @@
 import React, { useState } from 'react';
 import { MapPin, Star, Heart, Home } from 'lucide-react';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
-import AddVisitModal from '../visit/AddVisitModal';
-import ReviewForm from '../review/ReviewForm';
+import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import { Loading, EmptyState, ResultModal } from '../common';
 import { useFavorites, useResultModal } from '../../hooks';
-import { usePanel } from '../../contexts/PanelContext'; // Import usePanel
+import { usePanel } from '../../contexts/PanelContext';
 import { formatPriceRange, formatRating, formatDistance } from '../../utils';
+import { extractApiError } from '../../utils/errorUtils';
 import { Cafe } from '../../types';
 import { logger } from '../../utils/logger';
+import { trackCafeUnfavorited } from '../../lib/analytics';
 import './FavoritesPanel.css';
 
 const FavoritesPanel: React.FC = () => {
-  const { hidePanel } = usePanel(); // Use hidePanel from context
+  const { hidePanel } = usePanel();
   const { favorites, loading, toggleFavorite, refetch } = useFavorites();
   const resultModal = useResultModal();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
 
-  // Visit logging state
-  const [showAddVisit, setShowAddVisit] = useState(false);
+  // Visit + Review modal state
+  const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
-
-  // Review form state
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewVisitId, setReviewVisitId] = useState<number | null>(null);
-  const [reviewCafeId, setReviewCafeId] = useState<number | null>(null);
-  const [reviewCafeName, setReviewCafeName] = useState<string>('');
 
   const handleCafeClick = (cafe: Cafe) => {
     setSelectedCafe(cafe);
   };
 
-  const handleRemoveFavorite = async (cafeId: number, e: React.MouseEvent) => {
+  const handleRemoveFavorite = async (cafeId: number, _cafeName: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
-    } catch (error: any) {
-      logger.error('Error removing favorite', error, 'FavoritesPanel');
+
+      // Track analytics after successful removal
+      trackCafeUnfavorited({
+        cafeId,
+        source: 'favorites_panel',
+      });
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Error removing favorite', apiError, 'FavoritesPanel');
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',
-        message: error.message || 'Failed to remove favorite. Please try again.',
+        message: apiError.message || 'Failed to remove favorite. Please try again.',
       });
     }
   };
@@ -49,54 +51,17 @@ const FavoritesPanel: React.FC = () => {
     if (selectedCafe) {
       setVisitCafe(selectedCafe);
     }
-    setShowAddVisit(true);
+    setShowAddVisitReview(true);
     setSelectedCafe(null); // Close cafe detail sheet for clean modal transition
   };
 
-  const handleVisitSuccess = () => {
-    setShowAddVisit(false);
+  const handleVisitReviewSuccess = () => {
+    setShowAddVisitReview(false);
     setVisitCafe(undefined);
     setSelectedCafe(null);
 
     // Refetch favorites to update stats
     refetch();
-
-    // Show success message
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Visit Logged!',
-      message: 'Your visit has been recorded successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
-  };
-
-  const handleAddReview = (visitId: number, cafeId: number, cafeName: string) => {
-    setReviewVisitId(visitId);
-    setReviewCafeId(cafeId);
-    setReviewCafeName(cafeName);
-    setShowAddVisit(false);
-    setVisitCafe(undefined);
-    setShowReviewForm(true);
-  };
-
-  const handleReviewSuccess = () => {
-    setShowReviewForm(false);
-    setReviewVisitId(null);
-    setReviewCafeId(null);
-    setReviewCafeName('');
-
-    // Refetch favorites to update stats
-    refetch();
-
-    // Show success message
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Review Submitted!',
-      message: 'Your review has been submitted successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
   };
 
   if (loading) {
@@ -174,7 +139,7 @@ const FavoritesPanel: React.FC = () => {
               <h3 className="cafe-name">{cafe.name}</h3>
               <button
                 className="favorite-button active"
-                onClick={(e) => handleRemoveFavorite(cafe.id, e)}
+                onClick={(e) => handleRemoveFavorite(cafe.id, cafe.name, e)}
                 aria-label="Remove from favorites"
               >
                 <Heart size={20} fill="currentColor" />
@@ -219,29 +184,16 @@ const FavoritesPanel: React.FC = () => {
         />
       )}
 
-      {/* Add Visit Modal */}
-      <AddVisitModal
-        isOpen={showAddVisit}
+      {/* Add Visit + Review Modal */}
+      <AddVisitReviewModal
+        isOpen={showAddVisitReview}
         onClose={() => {
-          setShowAddVisit(false);
-          setVisitCafe(undefined); // Clear visit cafe on close
+          setShowAddVisitReview(false);
+          setVisitCafe(undefined);
         }}
-        onSuccess={handleVisitSuccess}
-        onAddReview={handleAddReview}
+        onSuccess={handleVisitReviewSuccess}
         preselectedCafe={visitCafe}
       />
-
-      {/* Review Form Modal */}
-      {showReviewForm && reviewVisitId !== null && reviewCafeId !== null && (
-        <ReviewForm
-          visitId={reviewVisitId}
-          cafeId={reviewCafeId}
-          cafeName={reviewCafeName}
-          isOpen={showReviewForm}
-          onClose={() => setShowReviewForm(false)}
-          onSuccess={handleReviewSuccess}
-        />
-      )}
 
       <ResultModal
         isOpen={resultModal.isOpen}

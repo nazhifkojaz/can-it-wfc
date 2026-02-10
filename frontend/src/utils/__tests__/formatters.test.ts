@@ -8,11 +8,11 @@ import {
   formatDistance,
   parseDistance,
   formatRating,
-  formatVisitTime,
   formatUsername,
   formatCount,
   truncateText,
 } from '../formatters';
+import { formatVisitTime } from '../visit';
 import { VISIT_TIME } from '../../config/constants';
 
 describe('formatters', () => {

@@ -26,22 +26,23 @@ import ChangePasswordModal from '../profile/ChangePasswordModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
-import AddVisitModal from '../visit/AddVisitModal';
+import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
 import { authApi, reviewApi } from '../../api/client';
-import { formatDistanceToNow, differenceInDays, format } from 'date-fns';
+import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { formatDate, formatRating, formatPriceRange, formatDistance } from '../../utils';
-import { formatCurrency, CURRENCIES } from '../../utils/currency';
-import { formatVisitTime } from '../../utils/visit';
+import { CURRENCIES } from '../../utils/currency';
+import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
 import { logger } from '../../utils/logger';
+import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, trackProfileTabViewed, trackUserProfileViewed } from '../../lib/analytics';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
-  const { hidePanel, showPanel, activePanel } = usePanel();
+  const { hidePanel, showPanel } = usePanel();
   const { user, logout, updateUser } = useAuth();
   const resultModal = useResultModal();
 
@@ -76,15 +77,12 @@ const ProfilePanel: React.FC = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useVisits();
-  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
 
   // Track reviews per cafe
   const [cafeReviews, setCafeReviews] = useState<Map<number, Review | null>>(new Map());
-  const [selectedCafeId, setSelectedCafeId] = useState<number | null>(null);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const [showEditVisit, setShowEditVisit] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
@@ -98,7 +96,7 @@ const ProfilePanel: React.FC = () => {
   // Favorites tab state and hooks
   const { favorites, loading: favoritesLoading, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
-  const [showAddVisit, setShowAddVisit] = useState(false);
+  const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
 
   // Cafe-level review state
@@ -122,7 +120,7 @@ const ProfilePanel: React.FC = () => {
   // Memoize cafe IDs to prevent unnecessary refetches
   const cafeIds = React.useMemo(() => {
     if (!visits || visits.length === 0) return [];
-    return [...new Set(visits.map(v => v.cafe.id))];
+    return [...new Set(visits.filter(v => v.cafe).map(v => v.cafe.id))];
   }, [visits]);
 
   // Convert to stable string key for dependency comparison
@@ -132,7 +130,6 @@ const ProfilePanel: React.FC = () => {
     const loadReviewStatuses = async () => {
       if (cafeIds.length === 0) return;
 
-      setReviewsLoading(true);
       try {
         // NEW: Use bulk endpoint - single request instead of N parallel requests
         const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
@@ -144,8 +141,6 @@ const ProfilePanel: React.FC = () => {
         setCafeReviews(new Map(reviewEntries));
       } catch (error) {
         logger.error('Error loading review statuses', error, 'ProfilePanel');
-      } finally {
-        setReviewsLoading(false);
       }
     };
 
@@ -164,24 +159,6 @@ const ProfilePanel: React.FC = () => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
     return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
-  };
-
-  const getAmountSpentLabel = (visit: Visit): string => {
-    if (!visit.amount_spent) return 'Not specified';
-    const currency = visit.currency || 'USD';
-    return formatCurrency(visit.amount_spent, currency);
-  };
-
-  const groupVisitsByDate = (visits: Visit[]) => {
-    const grouped: { [key: string]: Visit[] } = {};
-    visits.forEach(visit => {
-      const date = format(new Date(visit.visit_date), 'MMMM yyyy');
-      if (!grouped[date]) {
-        grouped[date] = [];
-      }
-      grouped[date].push(visit);
-    });
-    return grouped;
   };
 
   if (!user) {
@@ -209,13 +186,14 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      const bioError = getFieldError(error, 'bio');
-      const displayNameError = getFieldError(error, 'display_name');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      const bioError = getFieldError(apiError, 'bio');
+      const displayNameError = getFieldError(apiError, 'display_name');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: displayNameError || bioError || extractApiError(error).message,
+        message: displayNameError || bioError || apiError.message,
       });
     } finally {
       setLoading(false);
@@ -237,12 +215,13 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      const displayNameError = getFieldError(error, 'display_name');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      const displayNameError = getFieldError(apiError, 'display_name');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: displayNameError || extractApiError(error).message,
+        message: displayNameError || apiError.message,
       });
     } finally {
       setSavingDisplayName(false);
@@ -288,12 +267,13 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      const usernameError = getFieldError(error, 'username');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      const usernameError = getFieldError(apiError, 'username');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: usernameError || extractApiError(error).message,
+        message: usernameError || apiError.message,
       });
     } finally {
       setSavingUsername(false);
@@ -310,7 +290,13 @@ const ProfilePanel: React.FC = () => {
       });
       // Merge with existing user to preserve all fields (like date_joined)
       updateUser({ ...user, ...updatedUser });
-    } catch (error: any) {
+
+      // Track analytics after successful update
+      trackPrivacySettingsChanged({
+        setting: 'anonymous_display',
+        newValue: checked,
+      });
+    } catch (error) {
       // Revert on error
       setIsAnonymous(!checked);
       resultModal.showResultModal({
@@ -329,6 +315,7 @@ const ProfilePanel: React.FC = () => {
       primaryButton: {
         label: 'Log Out',
         onClick: async () => {
+          trackUserLoggedOut();
           await logout();  // Wait for logout to complete
           resultModal.closeResultModal();
         },
@@ -342,7 +329,6 @@ const ProfilePanel: React.FC = () => {
 
   // Cafe-level review handlers
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {
-    setSelectedCafeId(cafeId);
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setExistingReview(null);
@@ -351,64 +337,11 @@ const ProfilePanel: React.FC = () => {
   };
 
   const handleEditCafeReview = (cafeId: number, cafeName: string, review: Review) => {
-    setSelectedCafeId(cafeId);
     setReviewCafeId(cafeId);
     setReviewCafeName(cafeName);
     setExistingReview(review);
     setIsViewMode(false);
     setShowReviewForm(true);
-  };
-
-  const handleViewCafeReview = (cafeId: number, cafeName: string, review: Review) => {
-    setSelectedCafeId(cafeId);
-    setReviewCafeId(cafeId);
-    setReviewCafeName(cafeName);
-    setExistingReview(review);
-    setIsViewMode(true);
-    setShowReviewForm(true);
-  };
-
-  // Deprecated: Old visit-based handlers (keeping for compatibility)
-  const handleAddReview = (visit: Visit) => {
-    handleAddCafeReview(visit.cafe.id, visit.cafe.name);
-  };
-
-  const handleEditReview = async (visit: Visit) => {
-    const review = getReviewForCafe(visit.cafe.id);
-    if (review) {
-      handleEditCafeReview(visit.cafe.id, visit.cafe.name, review);
-    }
-  };
-
-  const handleViewReview = async (visit: Visit) => {
-    const review = getReviewForCafe(visit.cafe.id);
-    if (review) {
-      handleViewCafeReview(visit.cafe.id, visit.cafe.name, review);
-    }
-  };
-
-  const handleReviewSuccess = async () => {
-    setShowReviewForm(false);
-    setSelectedCafeId(null);
-    setExistingReview(null);
-    setIsViewMode(false);
-
-    // Reload review statuses to get updated data
-    if (visits && visits.length > 0) {
-      const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      const reviewPromises = cafeIds.map(async (cafeId) => {
-        try {
-          const review = await reviewApi.getUserCafeReview(cafeId);
-          return [cafeId, review] as const;
-        } catch (error) {
-          return [cafeId, null] as const;
-        }
-      });
-      const reviewResults = await Promise.all(reviewPromises);
-      setCafeReviews(new Map(reviewResults));
-    }
-
-    refetchVisits();
   };
 
   const handleEditVisit = (visit: Visit) => {
@@ -440,7 +373,7 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
+    } catch (error) {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Update Visit',
@@ -462,6 +395,13 @@ const ProfilePanel: React.FC = () => {
 
     try {
       await deleteVisit(visitToDelete.id);
+
+      // Track analytics
+      trackVisitDeleted({
+        cafeId: visitToDelete.cafe.id,
+        cafeName: visitToDelete.cafe.name,
+      });
+
       setShowDeleteConfirm(false);
       setVisitToDelete(null);
       refetchVisits();
@@ -473,7 +413,7 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
+    } catch (error) {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Delete Visit',
@@ -498,7 +438,7 @@ const ProfilePanel: React.FC = () => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
-    } catch (error: any) {
+    } catch (error) {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',
@@ -511,33 +451,16 @@ const ProfilePanel: React.FC = () => {
     if (selectedCafe) {
       setVisitCafe(selectedCafe);
     }
-    setShowAddVisit(true);
+    setShowAddVisitReview(true);
     setSelectedCafe(null);
   };
 
-  const handleVisitSuccess = () => {
-    setShowAddVisit(false);
+  const handleVisitReviewSuccess = () => {
+    setShowAddVisitReview(false);
     setVisitCafe(undefined);
     setSelectedCafe(null);
     refetchFavorites();
     refetchVisits();
-
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Visit Logged!',
-      message: 'Your visit has been recorded successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
-  };
-
-  // Add review from favorites tab
-  const handleAddReviewFromFavorites = (visitId: number, cafeId: number, cafeName: string) => {
-    setReviewCafeId(cafeId);
-    setReviewCafeName(cafeName);
-    setShowAddVisit(false);
-    setVisitCafe(undefined);
-    setShowReviewForm(true);
   };
 
   const handleReviewSuccessFromFavorites = async () => {
@@ -545,19 +468,18 @@ const ProfilePanel: React.FC = () => {
     setReviewCafeId(null);
     setReviewCafeName('');
 
-    // Reload review statuses
+    // Reload review statuses using bulk endpoint
     if (visits && visits.length > 0) {
       const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      const reviewPromises = cafeIds.map(async (cafeId) => {
-        try {
-          const review = await reviewApi.getUserCafeReview(cafeId);
-          return [cafeId, review] as const;
-        } catch (error) {
-          return [cafeId, null] as const;
-        }
-      });
-      const reviewResults = await Promise.all(reviewPromises);
-      setCafeReviews(new Map(reviewResults));
+      try {
+        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
+        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+          ([id, review]) => [parseInt(id), review]
+        );
+        setCafeReviews(new Map(reviewEntries));
+      } catch (error) {
+        logger.error('Error loading review statuses', error, 'ProfilePanel');
+      }
     }
 
     refetchFavorites();
@@ -690,7 +612,7 @@ const ProfilePanel: React.FC = () => {
           </div>
         )}
 
-        <p className="email">
+        <p className="email" data-ph-mask>
           <Mail size={14} />
           {user.email}
         </p>
@@ -752,19 +674,28 @@ const ProfilePanel: React.FC = () => {
         <div className="profile-tabs">
           <button
             className={`profile-tab ${activeTab === 'visits' ? 'active' : ''}`}
-            onClick={() => setActiveTab('visits')}
+            onClick={() => {
+              setActiveTab('visits');
+              trackProfileTabViewed({ tab: 'visits' });
+            }}
           >
             Visits
           </button>
           <button
             className={`profile-tab ${activeTab === 'favorites' ? 'active' : ''}`}
-            onClick={() => setActiveTab('favorites')}
+            onClick={() => {
+              setActiveTab('favorites');
+              trackProfileTabViewed({ tab: 'favorites' });
+            }}
           >
             Favorites
           </button>
           <button
             className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => {
+              setActiveTab('settings');
+              trackProfileTabViewed({ tab: 'settings' });
+            }}
           >
             Settings
           </button>
@@ -1208,15 +1139,14 @@ const ProfilePanel: React.FC = () => {
         />
       )}
 
-      {/* Add Visit Modal (for favorites) */}
-      <AddVisitModal
-        isOpen={showAddVisit}
+      {/* Add Visit + Review Modal (for favorites) */}
+      <AddVisitReviewModal
+        isOpen={showAddVisitReview}
         onClose={() => {
-          setShowAddVisit(false);
+          setShowAddVisitReview(false);
           setVisitCafe(undefined);
         }}
-        onSuccess={handleVisitSuccess}
-        onAddReview={handleAddReviewFromFavorites}
+        onSuccess={handleVisitReviewSuccess}
         preselectedCafe={visitCafe}
       />
 
@@ -1232,11 +1162,10 @@ const ProfilePanel: React.FC = () => {
             setShowReviewForm(false);
             setExistingReview(null);
             setIsViewMode(false);
-            setSelectedCafeId(null);
             setReviewCafeId(null);
             setReviewCafeName('');
           }}
-          onSuccess={selectedVisit ? handleReviewSuccess : handleReviewSuccessFromFavorites}
+          onSuccess={handleReviewSuccessFromFavorites}
         />
       )}
 
@@ -1271,6 +1200,7 @@ const ProfilePanel: React.FC = () => {
         type={followModalType}
         onUserClick={(clickedUsername) => {
           setShowFollowersModal(false);
+          trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
           showPanel('userProfile', { username: clickedUsername });
         }}
       />

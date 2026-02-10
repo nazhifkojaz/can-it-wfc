@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { cafeApi } from '../api/client';
-import { Cafe, NearbyCafesParams } from '../types';
+import { Cafe } from '../types';
 import { extractApiError } from '../utils/errorUtils';
 
 interface UseCafesOptions {
@@ -65,46 +65,6 @@ export const useCafes = (options?: UseCafesOptions) => {
     error,
     refetch,
     searchCafes,
-  };
-};
-
-export const useNearbyCafes = (params?: NearbyCafesParams) => {
-  const [cafes, setCafes] = useState<Cafe[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchNearbyCafes = useCallback(async (searchParams: NearbyCafesParams) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await cafeApi.getNearby(searchParams);
-      setCafes(data);
-    } catch (err: any) {
-      setError(extractApiError(err).message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (params?.latitude && params?.longitude) {
-      fetchNearbyCafes(params);
-    }
-  }, [params, fetchNearbyCafes]);
-
-  const refetch = useCallback(() => {
-    if (params?.latitude && params?.longitude) {
-      fetchNearbyCafes(params);
-    }
-  }, [params, fetchNearbyCafes]);
-
-  return {
-    cafes,
-    loading,
-    error,
-    refetch,
-    fetchNearbyCafes,
   };
 };
 

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { trackPanelOpened } from '../lib/analytics';
 
 type Panel = 'activity' | 'profile' | 'visits' | 'favorites' | 'userProfile';
 
@@ -25,7 +26,19 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const encodedData = dataParts.join(':'); // Rejoin in case username contains ':'
 
       if (validPanels.includes(panelType as Panel)) {
-        setActivePanel(panelType as Panel);
+        const newPanel = panelType as Panel;
+
+        // Track panel opened when changing via hash (but not on initial load)
+        if (activePanel !== newPanel) {
+          const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
+            newPanel === 'userProfile' ? 'user_profile' :
+            newPanel === 'visits' || newPanel === 'favorites' ? 'profile' :
+            newPanel as 'activity' | 'profile';
+
+          trackPanelOpened({ panel: analyticsPanel });
+        }
+
+        setActivePanel(newPanel);
 
         // For userProfile, extract username from hash
         if (panelType === 'userProfile' && encodedData) {
@@ -45,9 +58,20 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []);
+  }, [activePanel]);
 
   const showPanel = (panel: Panel, data?: any) => {
+    // Only track if opening a different panel
+    if (activePanel !== panel) {
+      // Map panel types to analytics panel types
+      const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
+        panel === 'userProfile' ? 'user_profile' :
+        panel === 'visits' || panel === 'favorites' ? 'profile' :
+        panel as 'activity' | 'profile';
+
+      trackPanelOpened({ panel: analyticsPanel });
+    }
+
     setPanelData(data || null);
 
     // For userProfile, encode username in hash for persistence on refresh

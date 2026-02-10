@@ -95,22 +95,6 @@ const patch = async <T>(
 };
 
 /**
- * Generic PUT request helper
- * @param url - The endpoint URL
- * @param data - Request body data
- * @param config - Additional axios config
- * @returns The response data
- */
-const put = async <T>(
-  url: string,
-  data?: any,
-  config?: AxiosRequestConfig
-): Promise<T> => {
-  const response = await api.put<T>(url, data, config);
-  return response.data;
-};
-
-/**
  * Generic DELETE request helper
  * @param url - The endpoint URL
  * @param config - Additional axios config
@@ -208,13 +192,13 @@ export const authApi = {
   getCurrentUser: () => get<User>('/auth/me/'),
 
   // Google OAuth login
-  googleLogin: async (accessToken: string): Promise<{ user: User }> => {
-    const { user } = await post<{ user: User }>('/auth/google/', { access_token: accessToken });
+  googleLogin: async (accessToken: string): Promise<{ user: User; created: boolean }> => {
+    const response = await post<{ user: User; created: boolean }>('/auth/google/', { access_token: accessToken });
 
     // Clear legacy localStorage tokens
     tokenStorage.clearTokens();
 
-    return { user };
+    return { user: response.user, created: response.created ?? false };
   },
 
   // Update profile (for username, bio, etc.)
@@ -322,7 +306,7 @@ export const cafeApi = {
       throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
     }
 
-    const favoritesList = await get<Favorite[]>('/cafes/favorites/');
+    const favoritesList = await getPaginated<Favorite>('/cafes/favorites/');
     const existing = favoritesList.find((fav: any) => fav.cafe.id === cafeId);
 
     if (existing) {
@@ -437,9 +421,10 @@ export const reviewApi = {
   getUserCafeReview: async (cafeId: number): Promise<Review | null> => {
     try {
       return await get<Review>('/reviews/for-cafe/', { cafe: cafeId });
-    } catch (error: any) {
+    } catch (error) {
       // Return null if 404 (no review found)
-      if (error.response?.status === 404) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 404) {
         return null;
       }
       // Re-throw other errors
