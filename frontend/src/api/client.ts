@@ -306,7 +306,7 @@ export const cafeApi = {
       throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
     }
 
-    const favoritesList = await get<Favorite[]>('/cafes/favorites/');
+    const favoritesList = await getPaginated<Favorite>('/cafes/favorites/');
     const existing = favoritesList.find((fav: any) => fav.cafe.id === cafeId);
 
     if (existing) {
