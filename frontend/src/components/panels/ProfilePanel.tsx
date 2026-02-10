@@ -29,10 +29,10 @@ import CafeDetailSheet from '../cafe/CafeDetailSheet';
 import AddVisitModal from '../visit/AddVisitModal';
 import FollowersModal from '../social/FollowersModal';
 import { authApi, reviewApi } from '../../api/client';
-import { formatDistanceToNow, differenceInDays, format } from 'date-fns';
+import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { formatDate, formatRating, formatPriceRange, formatDistance } from '../../utils';
-import { formatCurrency, CURRENCIES } from '../../utils/currency';
-import { formatVisitTime } from '../../utils/visit';
+import { CURRENCIES } from '../../utils/currency';
+import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
@@ -159,24 +159,6 @@ const ProfilePanel: React.FC = () => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
     return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
-  };
-
-  const getAmountSpentLabel = (visit: Visit): string => {
-    if (!visit.amount_spent) return 'Not specified';
-    const currency = visit.currency || 'USD';
-    return formatCurrency(visit.amount_spent, currency);
-  };
-
-  const groupVisitsByDate = (visits: Visit[]) => {
-    const grouped: { [key: string]: Visit[] } = {};
-    visits.forEach(visit => {
-      const date = format(new Date(visit.visit_date), 'MMMM yyyy');
-      if (!grouped[date]) {
-        grouped[date] = [];
-      }
-      grouped[date].push(visit);
-    });
-    return grouped;
   };
 
   if (!user) {
@@ -500,19 +482,18 @@ const ProfilePanel: React.FC = () => {
     setReviewCafeId(null);
     setReviewCafeName('');
 
-    // Reload review statuses
+    // Reload review statuses using bulk endpoint
     if (visits && visits.length > 0) {
       const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      const reviewPromises = cafeIds.map(async (cafeId) => {
-        try {
-          const review = await reviewApi.getUserCafeReview(cafeId);
-          return [cafeId, review] as const;
-        } catch (error) {
-          return [cafeId, null] as const;
-        }
-      });
-      const reviewResults = await Promise.all(reviewPromises);
-      setCafeReviews(new Map(reviewResults));
+      try {
+        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
+        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+          ([id, review]) => [parseInt(id), review]
+        );
+        setCafeReviews(new Map(reviewEntries));
+      } catch (error) {
+        logger.error('Error loading review statuses', error, 'ProfilePanel');
+      }
     }
 
     refetchFavorites();

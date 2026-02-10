@@ -8,10 +8,10 @@ import { usePanel } from '../../contexts/PanelContext';
 import { reviewApi } from '../../api/client';
 import { formatDate, formatRating } from '../../utils';
 import { extractApiError } from '../../utils/errorUtils';
-import { formatCurrency, CURRENCIES } from '../../utils/currency';
+import { CURRENCIES } from '../../utils/currency';
+import { groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
 import { VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review } from '../../types';
-import { format } from 'date-fns';
 import { logger } from '../../utils/logger';
 import './VisitsPanel.css';
 
@@ -99,12 +99,6 @@ const VisitsPanel: React.FC = () => {
     return cafeReviews.get(cafeId) || null;
   };
 
-  const getAmountSpentLabel = (visit: Visit): string => {
-    if (!visit.amount_spent) return 'Not specified';
-    const currency = visit.currency || 'USD';
-    return formatCurrency(visit.amount_spent, currency);
-  };
-
   const getVisitTimeLabel = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return 'Not specified';
     const numValue = typeof value === 'string' ? parseInt(value) : value;
@@ -133,15 +127,18 @@ const VisitsPanel: React.FC = () => {
     setSelectedCafeName('');
     setExistingReview(null);
 
-    // Refetch review statuses for all cafes
+    // Refetch review statuses for all cafes using bulk endpoint
     if (visits.length > 0) {
       const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      const reviewPromises = cafeIds.map(async (cafeId) => {
-        const review = await reviewApi.getUserCafeReview(cafeId);
-        return [cafeId, review] as const;
-      });
-      const reviewResults = await Promise.all(reviewPromises);
-      setCafeReviews(new Map(reviewResults));
+      try {
+        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
+        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+          ([id, review]) => [parseInt(id), review]
+        );
+        setCafeReviews(new Map(reviewEntries));
+      } catch (error) {
+        logger.error('Error loading review statuses', error, 'VisitsPanel');
+      }
     }
 
     resultModal.showResultModal({
@@ -235,20 +232,6 @@ const VisitsPanel: React.FC = () => {
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setVisitToDelete(null);
-  };
-
-  const groupVisitsByDate = (visits: Visit[]) => {
-    const grouped: { [key: string]: Visit[] } = {};
-
-    visits.forEach(visit => {
-      const date = format(new Date(visit.visit_date), 'MMMM yyyy');
-      if (!grouped[date]) {
-        grouped[date] = [];
-      }
-      grouped[date].push(visit);
-    });
-
-    return grouped;
   };
 
   const groupedVisits = groupVisitsByDate(visits);
