@@ -122,6 +122,9 @@ const VisitsPanel: React.FC = () => {
   };
 
   const handleReviewFormSuccess = async () => {
+    // Capture whether we were editing before clearing state
+    const wasEditing = !!existingReview;
+
     setShowReviewForm(false);
     setSelectedCafeId(null);
     setSelectedCafeName('');
@@ -143,8 +146,8 @@ const VisitsPanel: React.FC = () => {
 
     resultModal.showResultModal({
       type: 'success',
-      title: existingReview ? 'Review Updated!' : 'Review Added!',
-      message: existingReview
+      title: wasEditing ? 'Review Updated!' : 'Review Added!',
+      message: wasEditing
         ? 'Your review has been updated successfully!'
         : 'Your review has been added successfully!',
       autoClose: true,
@@ -522,10 +525,15 @@ const VisitsPanel: React.FC = () => {
       {/* Result Modal */}
       <ResultModal
         isOpen={resultModal.isOpen}
+        onClose={resultModal.closeResultModal}
         type={resultModal.type}
         title={resultModal.title}
         message={resultModal.message}
-        onClose={resultModal.closeResultModal}
+        details={resultModal.details}
+        primaryButton={resultModal.primaryButton}
+        secondaryButton={resultModal.secondaryButton}
+        autoClose={resultModal.autoClose}
+        autoCloseDelay={resultModal.autoCloseDelay}
       />
     </div>
   );

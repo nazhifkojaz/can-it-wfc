@@ -26,7 +26,7 @@ import ChangePasswordModal from '../profile/ChangePasswordModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
-import AddVisitModal from '../visit/AddVisitModal';
+import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
 import { authApi, reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
@@ -96,7 +96,7 @@ const ProfilePanel: React.FC = () => {
   // Favorites tab state and hooks
   const { favorites, loading: favoritesLoading, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
-  const [showAddVisit, setShowAddVisit] = useState(false);
+  const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
 
   // Cafe-level review state
@@ -120,7 +120,7 @@ const ProfilePanel: React.FC = () => {
   // Memoize cafe IDs to prevent unnecessary refetches
   const cafeIds = React.useMemo(() => {
     if (!visits || visits.length === 0) return [];
-    return [...new Set(visits.map(v => v.cafe.id))];
+    return [...new Set(visits.filter(v => v.cafe).map(v => v.cafe.id))];
   }, [visits]);
 
   // Convert to stable string key for dependency comparison
@@ -448,33 +448,16 @@ const ProfilePanel: React.FC = () => {
     if (selectedCafe) {
       setVisitCafe(selectedCafe);
     }
-    setShowAddVisit(true);
+    setShowAddVisitReview(true);
     setSelectedCafe(null);
   };
 
-  const handleVisitSuccess = () => {
-    setShowAddVisit(false);
+  const handleVisitReviewSuccess = () => {
+    setShowAddVisitReview(false);
     setVisitCafe(undefined);
     setSelectedCafe(null);
     refetchFavorites();
     refetchVisits();
-
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Visit Logged!',
-      message: 'Your visit has been recorded successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
-  };
-
-  // Add review from favorites tab
-  const handleAddReviewFromFavorites = (_visitId: number, cafeId: number, cafeName: string) => {
-    setReviewCafeId(cafeId);
-    setReviewCafeName(cafeName);
-    setShowAddVisit(false);
-    setVisitCafe(undefined);
-    setShowReviewForm(true);
   };
 
   const handleReviewSuccessFromFavorites = async () => {
@@ -1153,15 +1136,14 @@ const ProfilePanel: React.FC = () => {
         />
       )}
 
-      {/* Add Visit Modal (for favorites) */}
-      <AddVisitModal
-        isOpen={showAddVisit}
+      {/* Add Visit + Review Modal (for favorites) */}
+      <AddVisitReviewModal
+        isOpen={showAddVisitReview}
         onClose={() => {
-          setShowAddVisit(false);
+          setShowAddVisitReview(false);
           setVisitCafe(undefined);
         }}
-        onSuccess={handleVisitSuccess}
-        onAddReview={handleAddReviewFromFavorites}
+        onSuccess={handleVisitReviewSuccess}
         preselectedCafe={visitCafe}
       />
 
