@@ -63,10 +63,11 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
         autoCloseDelay: 2000,
         onClose: () => onComplete(username, false),
       });
-    } catch (error: any) {
+    } catch (error) {
       // Check for field-specific username error first
-      const usernameError = getFieldError(error, 'username');
-      const errorMsg = usernameError || extractApiError(error).message;
+      const apiError = extractApiError(error);
+      const usernameError = getFieldError(apiError, 'username');
+      const errorMsg = usernameError || apiError.message;
 
       resultModal.showResultModal({
         type: 'error',

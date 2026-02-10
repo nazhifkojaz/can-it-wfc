@@ -184,8 +184,8 @@ const VisitsPanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      logger.error('Error updating visit', error, 'VisitsPanel');
+    } catch (error) {
+      logger.error('Error updating visit', error as Error, 'VisitsPanel');
 
       resultModal.showResultModal({
         type: 'error',
@@ -219,8 +219,8 @@ const VisitsPanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      logger.error('Error deleting visit', error, 'VisitsPanel');
+    } catch (error) {
+      logger.error('Error deleting visit', error as Error, 'VisitsPanel');
 
       resultModal.showResultModal({
         type: 'error',

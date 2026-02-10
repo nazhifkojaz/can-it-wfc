@@ -6,6 +6,7 @@ import { Loading, EmptyState, ResultModal } from '../common';
 import { useFavorites, useResultModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { formatPriceRange, formatRating, formatDistance } from '../../utils';
+import { extractApiError } from '../../utils/errorUtils';
 import { Cafe } from '../../types';
 import { logger } from '../../utils/logger';
 import { trackCafeUnfavorited } from '../../lib/analytics';
@@ -35,12 +36,13 @@ const FavoritesPanel: React.FC = () => {
         cafeId,
         source: 'favorites_panel',
       });
-    } catch (error: any) {
-      logger.error('Error removing favorite', error, 'FavoritesPanel');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Error removing favorite', apiError, 'FavoritesPanel');
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',
-        message: error.message || 'Failed to remove favorite. Please try again.',
+        message: apiError.message || 'Failed to remove favorite. Please try again.',
       });
     }
   };

@@ -186,13 +186,14 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      const bioError = getFieldError(error, 'bio');
-      const displayNameError = getFieldError(error, 'display_name');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      const bioError = getFieldError(apiError, 'bio');
+      const displayNameError = getFieldError(apiError, 'display_name');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: displayNameError || bioError || extractApiError(error).message,
+        message: displayNameError || bioError || apiError.message,
       });
     } finally {
       setLoading(false);
@@ -214,12 +215,13 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      const displayNameError = getFieldError(error, 'display_name');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      const displayNameError = getFieldError(apiError, 'display_name');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: displayNameError || extractApiError(error).message,
+        message: displayNameError || apiError.message,
       });
     } finally {
       setSavingDisplayName(false);
@@ -265,12 +267,13 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      const usernameError = getFieldError(error, 'username');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      const usernameError = getFieldError(apiError, 'username');
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
-        message: usernameError || extractApiError(error).message,
+        message: usernameError || apiError.message,
       });
     } finally {
       setSavingUsername(false);
@@ -293,7 +296,7 @@ const ProfilePanel: React.FC = () => {
         setting: 'anonymous_display',
         newValue: checked,
       });
-    } catch (error: any) {
+    } catch (error) {
       // Revert on error
       setIsAnonymous(!checked);
       resultModal.showResultModal({
@@ -370,7 +373,7 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
+    } catch (error) {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Update Visit',
@@ -410,7 +413,7 @@ const ProfilePanel: React.FC = () => {
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
+    } catch (error) {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Delete Visit',
@@ -435,7 +438,7 @@ const ProfilePanel: React.FC = () => {
     e.stopPropagation();
     try {
       await toggleFavorite(cafeId);
-    } catch (error: any) {
+    } catch (error) {
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Remove Favorite',

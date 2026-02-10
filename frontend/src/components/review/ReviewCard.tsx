@@ -89,8 +89,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         autoClose: true,
         autoCloseDelay: 2000,
       });
-    } catch (error: any) {
-      logger.error('Failed to delete review', error, 'ReviewCard');
+    } catch (error) {
+      logger.error('Failed to delete review', error as Error, 'ReviewCard');
       setShowDeleteConfirm(false);
 
       resultModal.showResultModal({
@@ -123,8 +123,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         cafeId: review.cafe.id,
         action: previousIsHelpful ? 'unmarked' : 'marked',
       });
-    } catch (error: any) {
-      logger.error('Failed to toggle helpful', error, 'ReviewCard');
+    } catch (error) {
+      logger.error('Failed to toggle helpful', error as Error, 'ReviewCard');
 
       // Revert on error
       setIsHelpful(previousIsHelpful);
@@ -163,8 +163,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         autoClose: true,
         autoCloseDelay: 3000,
       });
-    } catch (error: any) {
-      logger.error('Failed to flag review', error, 'ReviewCard');
+    } catch (error) {
+      logger.error('Failed to flag review', error as Error, 'ReviewCard');
 
       resultModal.showResultModal({
         type: 'error',

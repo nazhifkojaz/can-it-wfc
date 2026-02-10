@@ -406,22 +406,23 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           }
         }
       });
-    } catch (error: any) {
-      logger.error('Error logging visit', error, 'AddVisitReviewModal');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Error logging visit', apiError, 'AddVisitReviewModal');
 
       // Log full error details for debugging
-      if (error.response?.data) {
-        console.log('Full error response:', error.response.data);
+      if ('response' in apiError && (apiError as any).response?.data) {
+        console.log('Full error response:', (apiError as any).response.data);
       }
 
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;
 
       // Check for field-specific errors
-      const distanceError = getFieldError(error, 'check_in_latitude');
-      const cafeIdError = getFieldError(error, 'cafe_id');
-      const visitDateError = getFieldError(error, 'visit_date');
-      const ratingError = getFieldError(error, 'wfc_rating');
+      const distanceError = getFieldError(apiError, 'check_in_latitude');
+      const cafeIdError = getFieldError(apiError, 'cafe_id');
+      const visitDateError = getFieldError(apiError, 'visit_date');
+      const ratingError = getFieldError(apiError, 'wfc_rating');
 
       let errorMessage: string;
 
@@ -453,7 +454,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         errorTitle = 'Validation Error';
         errorMessage = ratingError;
       } else {
-        errorMessage = extractApiError(error).message;
+        errorMessage = apiError.message;
       }
 
       resultModal.showResultModal({

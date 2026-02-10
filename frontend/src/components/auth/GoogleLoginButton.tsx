@@ -60,8 +60,8 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin' }
         // Existing user or user chose to skip - go directly to map
         navigate('/map');
       }
-    } catch (error: any) {
-      logger.error('Google login error', error, 'GoogleLoginButton');
+    } catch (error) {
+      logger.error('Google login error', error as Error, 'GoogleLoginButton');
       const apiError = extractApiError(error);
       resultModal.showResultModal({
         type: 'error',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { LatLngExpression } from 'leaflet';
 import CafeMarker from './CafeMarker';
@@ -12,6 +12,7 @@ import ZoomInButton from './ZoomInButton';
 import ZoomOutButton from './ZoomOutButton';
 import SearchButton from './SearchButton';
 import { Cafe, SearchResult } from '../../types';
+import { calculateDistance as calculateDistanceUtil } from '../../utils/calculations';
 import styles from './map.module.css';
 import 'leaflet/dist/leaflet.css';
 
@@ -80,24 +81,12 @@ const MapView: React.FC<MapViewProps> = ({
     }
   }, [jumpToLocation]);
 
-  // Memoize calculateDistance to avoid recreating it
-  const calculateDistance = useMemo(() => {
-    return (
-      point1: { lat: number; lng: number },
-      point2: { lat: number; lng: number }
-    ): number => {
-      const R = 6371; // Earth's radius in km
-      const dLat = ((point2.lat - point1.lat) * Math.PI) / 180;
-      const dLng = ((point2.lng - point1.lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((point1.lat * Math.PI) / 180) *
-          Math.cos((point2.lat * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    };
+  // Wrapper for calculateDistance that accepts point objects
+  const calculateDistance = useCallback((
+    point1: { lat: number; lng: number },
+    point2: { lat: number; lng: number }
+  ): number => {
+    return calculateDistanceUtil(point1.lat, point1.lng, point2.lat, point2.lng);
   }, []);
 
   // Handle map movement with debouncing

@@ -15,6 +15,7 @@ import ActionButtons from './ActionButtons';
 import FacilitiesStats from './FacilitiesStats';
 import { formatDistance } from '../../utils/formatters';
 import { calculateDistance } from '../../utils';
+import { extractApiError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
 import { trackCafeViewed, trackDirectionsClicked, trackCafeFavorited, trackCafeUnfavorited, trackGoogleRatingRefreshed } from '../../lib/analytics';
 import styles from './CafeDetailSheet.module.css';
@@ -131,12 +132,13 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       } else {
         trackCafeUnfavorited({ cafeId: cafe.id, source: 'detail_sheet' });
       }
-    } catch (error: any) {
-      logger.error('Error toggling favorite', error, 'CafeDetailSheet');
+    } catch (error) {
+      const apiError = extractApiError(error);
+      logger.error('Error toggling favorite', apiError, 'CafeDetailSheet');
       resultModal.showResultModal({
         type: 'error',
         title: 'Failed to Toggle Favorite',
-        message: error.message || 'Failed to toggle favorite. Please try again.',
+        message: apiError.message || 'Failed to toggle favorite. Please try again.',
       });
     }
   };

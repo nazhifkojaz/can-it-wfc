@@ -421,9 +421,10 @@ export const reviewApi = {
   getUserCafeReview: async (cafeId: number): Promise<Review | null> => {
     try {
       return await get<Review>('/reviews/for-cafe/', { cafe: cafeId });
-    } catch (error: any) {
+    } catch (error) {
       // Return null if 404 (no review found)
-      if (error.response?.status === 404) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 404) {
         return null;
       }
       // Re-throw other errors

@@ -77,12 +77,12 @@ export function SearchOverlay({
           resultCountWfc: wfcResults.length,
           resultCountGoogle: response.data.results.length - wfcResults.length,
         });
-      } catch (error: any) {
+      } catch (error) {
         // Ignore abort errors (expected when user types quickly or unmounts)
-        if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
           return;
         }
-        logger.error('Search error', error, 'SearchOverlay');
+        logger.error('Search error', error as Error, 'SearchOverlay');
       } finally {
         setIsLoading(false);
       }

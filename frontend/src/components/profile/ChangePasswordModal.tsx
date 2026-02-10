@@ -88,13 +88,14 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (error: any) {
-      logger.error('Change password error', error, 'ChangePasswordModal');
+    } catch (error) {
+      logger.error('Change password error', error as Error, 'ChangePasswordModal');
 
       // Check for field-specific errors first, then fall back to general message
-      const oldPasswordError = getFieldError(error, 'old_password');
-      const newPasswordError = getFieldError(error, 'new_password');
-      const errorMessage = oldPasswordError || newPasswordError || extractApiError(error).message;
+      const apiError = extractApiError(error);
+      const oldPasswordError = getFieldError(apiError, 'old_password');
+      const newPasswordError = getFieldError(apiError, 'new_password');
+      const errorMessage = oldPasswordError || newPasswordError || apiError.message;
 
       resultModal.showResultModal({
         type: 'error',
