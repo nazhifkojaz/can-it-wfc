@@ -14,7 +14,6 @@ from .views import (
     MyFollowingListView,
     UserFollowersListView,
     UserFollowingListView,
-    ActivityFeedView
 )
 
 urlpatterns = [
@@ -37,9 +36,6 @@ urlpatterns = [
     path('me/following/', MyFollowingListView.as_view(), name='my-following'),
     path('users/<str:username>/followers/', UserFollowersListView.as_view(), name='user-followers'),
     path('users/<str:username>/following/', UserFollowingListView.as_view(), name='user-following'),
-
-    # Enhanced Activity Feed
-    path('me/feed/', ActivityFeedView.as_view(), name='activity-feed'),
 
     # Public profiles and activity
     path('users/<str:username>/profile/', UserPublicProfileView.as_view(), name='user-public-profile'),

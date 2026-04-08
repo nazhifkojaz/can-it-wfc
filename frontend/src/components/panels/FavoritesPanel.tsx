@@ -133,7 +133,7 @@ const FavoritesPanel: React.FC = () => {
             onClick={() => handleCafeClick(cafe)}
             role="button"
             tabIndex={0}
-            onKeyPress={(e) => e.key === 'Enter' && handleCafeClick(cafe)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCafeClick(cafe)}
           >
             <div className="card-header">
               <h3 className="cafe-name">{cafe.name}</h3>

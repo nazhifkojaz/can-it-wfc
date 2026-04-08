@@ -188,7 +188,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
               onClick={handleUsernameClick}
               role="button"
               tabIndex={0}
-              onKeyPress={(e) => e.key === 'Enter' && handleUsernameClick()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleUsernameClick()}
             >
               {displayName}
             </p>

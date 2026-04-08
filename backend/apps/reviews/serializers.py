@@ -302,6 +302,7 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'comment',
             'helpful_count',
             'is_helpful',
+            'is_hidden',
             'average_rating',
             'created_at',
             'updated_at'
