@@ -32,7 +32,8 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "setup:dashboards": "node scripts/setup-posthog-dashboards.mjs"
   },
   "browserslist": {
     "production": [
