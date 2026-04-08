@@ -8,25 +8,44 @@ import {
   handleApiError,
   getApiError,
 } from './client';
+// Note: tokenStorage is mocked below via vi.mock — use mockClearTokens in assertions
 
-// We need to mock axios before importing the client
-// so we'll use dynamic imports in the tests
-const mockAxiosInstance = {
-  get: vi.fn(),
-  post: vi.fn(),
-  patch: vi.fn(),
-  put: vi.fn(),
-  delete: vi.fn(),
-  interceptors: {
-    request: { use: vi.fn() },
-    response: { use: vi.fn() },
-  },
-};
+// Hoist mocks so they're available when vi.mock factories execute
+const { responseInterceptorHandlers, mockClearTokens, mockAxiosInstance } = vi.hoisted(() => {
+  const handlers: Array<(error: any) => any> = [];
+  const clearTokens = vi.fn();
+  const instance = {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: {
+        use: vi.fn((_onSuccess: any, onError: any) => {
+          handlers.push(onError);
+        }),
+      },
+    },
+  };
+  return { responseInterceptorHandlers: handlers, mockClearTokens: clearTokens, mockAxiosInstance: instance };
+});
 
 vi.mock('axios', () => ({
   default: {
-    create: vi.fn(() => mockAxiosInstance),
+    create: () => mockAxiosInstance,
   },
+}));
+
+vi.mock('../utils/storage', () => ({
+  tokenStorage: {
+    clearTokens: mockClearTokens,
+  },
+}));
+
+vi.mock('../utils/url', () => ({
+  buildAppPath: (path: string) => `/app${path}`,
 }));
 
 describe('ApiClient - Error Handling Utilities', () => {
@@ -68,5 +87,90 @@ describe('ApiClient - Error Handling Utilities', () => {
       message: 'Validation failed',
       details: { field: ['error'] },
     });
+  });
+});
+
+describe('ApiClient - 401 Interceptor', () => {
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    mockClearTokens.mockClear();
+    Object.defineProperty(window, 'location', {
+      value: { href: '' },
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+    });
+  });
+
+  async function trigger401(pathname: string) {
+    // @ts-expect-error - overriding readonly for test
+    window.location.pathname = pathname;
+    window.location.href = '';
+
+    const handler = responseInterceptorHandlers[0];
+    expect(handler).toBeDefined();
+    const error = { response: { status: 401 } };
+    // Handler re-rejects the error after processing — catch it
+    await handler(error).catch(() => {});
+  }
+
+  it('clears tokens on every 401', async () => {
+    await trigger401('/map');
+
+    expect(mockClearTokens).toHaveBeenCalled();
+  });
+
+  it('clears tokens even on public pages', async () => {
+    await trigger401('/login');
+
+    expect(mockClearTokens).toHaveBeenCalled();
+  });
+
+  it('redirects to login when on a protected page', async () => {
+    await trigger401('/map');
+
+    expect(window.location.href).toBe('/app/login');
+  });
+
+  it('redirects to login when on a nested protected page', async () => {
+    await trigger401('/cafes/123');
+
+    expect(window.location.href).toBe('/app/login');
+  });
+
+  it('does not redirect when already on /login', async () => {
+    await trigger401('/login');
+
+    expect(window.location.href).toBe('');
+  });
+
+  it('does not redirect when already on /register', async () => {
+    await trigger401('/register');
+
+    expect(window.location.href).toBe('');
+  });
+
+  it('does not redirect when on landing page /', async () => {
+    await trigger401('/');
+
+    expect(window.location.href).toBe('');
+  });
+
+  it('does not redirect on non-401 errors', async () => {
+    const handler = responseInterceptorHandlers[0];
+    // @ts-expect-error - overriding readonly for test
+    window.location.pathname = '/map';
+    window.location.href = '';
+
+    const error = { response: { status: 500 } };
+    await handler(error).catch(() => {});
+
+    expect(window.location.href).toBe('');
   });
 });

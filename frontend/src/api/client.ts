@@ -151,9 +151,10 @@ api.interceptors.response.use(
       // Clear legacy localStorage tokens
       tokenStorage.clearTokens();
 
-      // Redirect to login only if not already on login page
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/')) {
-        window.location.href = buildAppPath('/');
+      // Redirect to login only if not already on a public page
+      const path = window.location.pathname;
+      if (!path.includes('/login') && !path.includes('/register') && path !== '/') {
+        window.location.href = buildAppPath('/login');
       }
     }
 
