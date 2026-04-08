@@ -80,9 +80,6 @@ def test_create_review_activity(users, cafe, follows):
         wifi_quality=5,
         noise_level=2,
         seating_comfort=4,
-        space_availability=4,
-        coffee_quality=5,
-        menu_options=4,
         wfc_rating=5,
         comment='Great wifi!'
     )
@@ -130,9 +127,6 @@ def test_get_user_feed(users, cafe, follows):
         wifi_quality=5,
         noise_level=3,
         seating_comfort=4,
-        space_availability=4,
-        coffee_quality=5,
-        menu_options=4,
         wfc_rating=5
     )
 

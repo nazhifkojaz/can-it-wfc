@@ -359,10 +359,6 @@ class TestReviewModeration:
             power_outlets_rating=5,
             seating_comfort=5,
             noise_level=5,
-            space_availability=5,
-            coffee_quality=5,
-            menu_options=5,
-            bathroom_quality=5
         )
 
         # Create another user to flag
@@ -406,10 +402,6 @@ class TestReviewModeration:
             power_outlets_rating=5,
             seating_comfort=5,
             noise_level=5,
-            space_availability=5,
-            coffee_quality=5,
-            menu_options=5,
-            bathroom_quality=5
         )
 
         # Authenticated user (different from review author) marks it helpful
@@ -463,10 +455,6 @@ class TestCafeStatistics:
             power_outlets_rating=4,
             seating_comfort=4,
             noise_level=3,
-            space_availability=4,
-            coffee_quality=4,
-            menu_options=3,
-            bathroom_quality=4
         )
         test_cafe.update_stats()
         test_cafe.refresh_from_db()
@@ -596,6 +584,8 @@ class TestTransactionRollbackHandling:
             'include_review': True,
             'wfc_rating': 4,
             'wifi_quality': 5,
+            'seating_comfort': 4,
+            'noise_level': 3,
         }
 
         # update_stats is not wrapped in try/except, so the bare Exception
@@ -666,10 +656,6 @@ class TestCheckSpamDailyLimit:
                 power_outlets_rating=4,
                 seating_comfort=4,
                 noise_level=4,
-                space_availability=4,
-                coffee_quality=4,
-                menu_options=4,
-                bathroom_quality=4,
             ))
         return reviews
 

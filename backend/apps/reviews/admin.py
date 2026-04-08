@@ -127,14 +127,6 @@ class ReviewAdmin(admin.ModelAdmin):
             'fields': (
                 'noise_level',
                 'seating_comfort',
-                'space_availability'
-            )
-        }),
-        ('Food & Facilities', {
-            'fields': (
-                'coffee_quality',
-                'menu_options',
-                'bathroom_quality'
             )
         }),
         ('WFC Rating', {

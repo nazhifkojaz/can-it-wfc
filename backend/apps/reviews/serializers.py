@@ -294,10 +294,6 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'power_outlets_rating',
             'noise_level',
             'seating_comfort',
-            'space_availability',
-            'coffee_quality',
-            'menu_options',
-            'bathroom_quality',
             'has_smoking_area',
             'has_prayer_room',
             'wfc_rating',
@@ -340,10 +336,6 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             'power_outlets_rating',
             'noise_level',
             'seating_comfort',
-            'space_availability',
-            'coffee_quality',
-            'menu_options',
-            'bathroom_quality',
             'has_smoking_area',
             'has_prayer_room',
             'wfc_rating',
@@ -428,10 +420,6 @@ class ReviewUpdateSerializer(serializers.ModelSerializer):
             'power_outlets_rating',
             'noise_level',
             'seating_comfort',
-            'space_availability',
-            'coffee_quality',
-            'menu_options',
-            'bathroom_quality',
             'has_smoking_area',
             'has_prayer_room',
             'wfc_rating',
@@ -724,16 +712,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                     # Create new review
                     # Copy visit_time from Visit to Review for backward compatibility
                     review_data['visit_time'] = visit.visit_time
-
-                    wfc_rating = review_data['wfc_rating']
-                    review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
-                    review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
-                    review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
-                    review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
-                    review_data.setdefault('space_availability', wfc_rating)
-                    review_data.setdefault('coffee_quality', wfc_rating)
-                    review_data.setdefault('menu_options', wfc_rating)
-                    review_data.setdefault('bathroom_quality', wfc_rating)
 
                     review = Review.objects.create(
                         user=user,

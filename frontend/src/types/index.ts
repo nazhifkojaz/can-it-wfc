@@ -337,10 +337,6 @@ export interface Review {
   power_outlets_rating?: number;
   noise_level: number;
   seating_comfort: number;
-  space_availability: number;
-  coffee_quality: number;
-  menu_options: number;
-  bathroom_quality?: number;
 
   // Additional facilities (three-state: true/false/null)
   has_smoking_area?: boolean | null;
@@ -382,10 +378,6 @@ export interface ReviewCreate {
   power_outlets_rating?: number;
   noise_level: number;
   seating_comfort: number;
-  space_availability: number;
-  coffee_quality: number;
-  menu_options: number;
-  bathroom_quality?: number;
 
   // Additional facilities (three-state: true/false/null)
   has_smoking_area?: boolean | null;
@@ -419,10 +411,6 @@ export interface ReviewUpdate {
   power_outlets_rating?: number;
   noise_level?: number;
   seating_comfort?: number;
-  space_availability?: number;
-  coffee_quality?: number;
-  menu_options?: number;
-  bathroom_quality?: number;
 
   // Additional facilities (three-state: true/false/null)
   has_smoking_area?: boolean | null;

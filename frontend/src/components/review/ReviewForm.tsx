@@ -47,10 +47,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     power_outlets_rating: existingReview?.power_outlets_rating || 3,
     noise_level: existingReview?.noise_level || 3,
     seating_comfort: existingReview?.seating_comfort || 3,
-    space_availability: existingReview?.space_availability || 3,
-    coffee_quality: existingReview?.coffee_quality || 3,
-    menu_options: existingReview?.menu_options || 3,
-    bathroom_quality: existingReview?.bathroom_quality || undefined,
     wfc_rating: existingReview?.wfc_rating || 3,
     visit_time: existingReview?.visit_time || 2,
     comment: existingReview?.comment || '',
@@ -90,17 +86,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
     try {
       if (isEditMode && existingReview) {
-        // Update existing review - default missing criteria to wfc_rating
+        // Update existing review
         const updateData: ReviewUpdate = {
           wifi_quality: formData.wifi_quality,
           power_outlets_rating: formData.power_outlets_rating,
           noise_level: formData.noise_level,
           seating_comfort: formData.seating_comfort,
-          // Default these to wfc_rating for consistency
-          space_availability: formData.space_availability || formData.wfc_rating,
-          coffee_quality: formData.coffee_quality || formData.wfc_rating,
-          menu_options: formData.menu_options || formData.wfc_rating,
-          bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
           has_smoking_area: hasSmokingArea,
           has_prayer_room: hasPrayerRoom,
           wfc_rating: formData.wfc_rating,
@@ -133,13 +124,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           }
         });
       } else {
-        // Create new review - default missing criteria to wfc_rating
+        // Create new review
         const reviewData: ReviewCreate = {
           ...formData,
-          space_availability: formData.space_availability || formData.wfc_rating,
-          coffee_quality: formData.coffee_quality || formData.wfc_rating,
-          menu_options: formData.menu_options || formData.wfc_rating,
-          bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
           has_smoking_area: hasSmokingArea,
           has_prayer_room: hasPrayerRoom,
         };

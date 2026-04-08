@@ -159,29 +159,6 @@ class Review(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         help_text="Seating comfort (1=very uncomfortable, 5=very comfortable)"
     )
-    space_availability = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="How crowded/available is space (1=always full, 5=plenty of space)"
-    )
-    
-    # Food & Beverage
-    coffee_quality = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Coffee quality (1=very poor, 5=excellent)"
-    )
-    menu_options = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Menu variety (1=very limited, 5=extensive)"
-    )
-    
-    # Facilities
-    bathroom_quality = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        null=True,
-        blank=True,
-        help_text="Bathroom quality (1=very poor, 5=excellent)"
-    )
-
     # Additional facilities (new fields - three-state: True/False/None)
     has_smoking_area = models.BooleanField(
         null=True,
@@ -282,10 +259,6 @@ class Review(models.Model):
             self.power_outlets_rating or 0,
             self.noise_level,
             self.seating_comfort,
-            self.space_availability,
-            self.coffee_quality,
-            self.menu_options,
-            self.bathroom_quality or 0,
             self.wfc_rating,
         ]
         valid_ratings = [r for r in ratings if r > 0]
