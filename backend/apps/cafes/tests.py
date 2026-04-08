@@ -561,6 +561,72 @@ class TestNearbyCafesView:
 
 
 @pytest.mark.django_db
+class TestCafeServicePriceLevelClamping:
+    """Test that Google price_level=0 is clamped to None (price_range only accepts 1-4)."""
+
+    def _make_cafe_data(self):
+        return {
+            'name': 'Test Cafe',
+            'address': '123 Test St',
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+        }
+
+    def test_price_level_zero_stored_as_none(self, test_user, monkeypatch):
+        """Google price_level=0 (Free) should be stored as None, not 0."""
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'price_level': 0, 'rating': 4.5, 'user_ratings_total': 10}
+        )
+        from apps.cafes.services import CafeService
+        cafe, created = CafeService.get_or_create_from_google(
+            'price_zero_place', self._make_cafe_data(), created_by=test_user
+        )
+        assert created
+        assert cafe.price_range is None
+
+    def test_price_level_in_valid_range_stored(self, test_user, monkeypatch):
+        """Google price_level 1-4 should be stored as-is."""
+        for level in range(1, 5):
+            monkeypatch.setattr(
+                'apps.cafes.services.GooglePlacesService.get_place_details',
+                lambda pid, pl=level: {'price_level': pl, 'rating': 4.0, 'user_ratings_total': 5}
+            )
+            from apps.cafes.services import CafeService
+            cafe, created = CafeService.get_or_create_from_google(
+                f'price_{level}_place', self._make_cafe_data(), created_by=test_user
+            )
+            assert created
+            assert cafe.price_range == level
+
+    def test_price_level_five_stored_as_none(self, test_user, monkeypatch):
+        """Google price_level=5 (if ever returned) should be stored as None."""
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'price_level': 5, 'rating': 4.0, 'user_ratings_total': 5}
+        )
+        from apps.cafes.services import CafeService
+        cafe, created = CafeService.get_or_create_from_google(
+            'price_five_place', self._make_cafe_data(), created_by=test_user
+        )
+        assert created
+        assert cafe.price_range is None
+
+    def test_null_price_level_stored_as_none(self, test_user, monkeypatch):
+        """Missing price_level should be stored as None."""
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'rating': 4.0, 'user_ratings_total': 5}
+        )
+        from apps.cafes.services import CafeService
+        cafe, created = CafeService.get_or_create_from_google(
+            'price_null_place', self._make_cafe_data(), created_by=test_user
+        )
+        assert created
+        assert cafe.price_range is None
+
+
+@pytest.mark.django_db
 class TestFavoriteByCafeDelete:
     """Test DELETE /api/cafes/favorites/by-cafe/{cafe_id}/ endpoint."""
 

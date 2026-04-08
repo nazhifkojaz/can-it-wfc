@@ -495,6 +495,15 @@ class CafeSearchView(APIView):
                 'total_results': 0
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+        # Batch-fetch all registered cafes for these results (avoids N+1)
+        all_place_ids = [
+            p.get('place_id') for p in autocomplete_results if p.get('place_id')
+        ]
+        registered_cafes = {
+            c.google_place_id: c
+            for c in Cafe.objects.filter(google_place_id__in=all_place_ids, is_closed=False)
+        }
+
         # Process each result and check DB for registration status
         unified_results = []
 
@@ -506,11 +515,8 @@ class CafeSearchView(APIView):
             is_cafe = any(t in place_types for t in ['cafe', 'restaurant', 'food', 'bakery'])
             result_type = 'cafe' if is_cafe else 'location'
 
-            # Check if this place is registered in our DB
-            db_cafe = Cafe.objects.filter(
-                google_place_id=place_id,
-                is_closed=False
-            ).first()
+            # Look up from batch-fetched map
+            db_cafe = registered_cafes.get(place_id)
 
             # Build result object
             result = {

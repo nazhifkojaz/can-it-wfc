@@ -92,6 +92,7 @@ class GooglePlacesService:
                         'rating': place.get('rating'),
                         'user_ratings_total': place.get('user_ratings_total', 0),
                         'price_level': place.get('price_level'),  # 0-4 scale
+                        'types': place.get('types', []),
                         'is_open_now': place.get('opening_hours', {}).get('open_now') if place.get('opening_hours') else None,
                         'photo_reference': place.get('photos', [{}])[0].get('photo_reference') if place.get('photos') else None,
                         'distance_km': distance_km,
@@ -291,7 +292,7 @@ class CafeService:
             longitude=cafe_data['longitude'],
             google_place_id=google_place_id,
             # Google Places API data (ensures consistency across all creation paths)
-            price_range=place_details.get('price_level') if place_details else None,
+            price_range=place_details.get('price_level') if place_details and 1 <= (place_details.get('price_level') or 0) <= 4 else None,
             google_rating=place_details.get('rating') if place_details else None,
             google_ratings_count=place_details.get('user_ratings_total') if place_details else None,
             google_rating_updated_at=timezone.now() if place_details else None,
