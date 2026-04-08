@@ -72,8 +72,8 @@ class TestVisitCreation:
         assert response.data['review'] is None
         assert Visit.objects.filter(cafe=test_cafe).exists()
 
-    def test_create_visit_without_location(self, authenticated_client, test_cafe):
-        """Test creating visit without check-in location"""
+    def test_create_visit_without_location_rejected(self, authenticated_client, test_cafe):
+        """Test creating visit without check-in location is rejected"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
@@ -81,13 +81,11 @@ class TestVisitCreation:
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        assert response.status_code == status.HTTP_201_CREATED
-        visit = Visit.objects.get(cafe=test_cafe)
-        assert visit.check_in_latitude is None
-        assert visit.check_in_longitude is None
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'non_field_errors' in response.data['error']['details']
 
-    def test_create_visit_far_location_not_verified(self, authenticated_client, test_cafe, test_user):
-        """Test creating visit from >1km away is allowed but not verified"""
+    def test_create_visit_far_location_rejected(self, authenticated_client, test_cafe):
+        """Test creating visit from >1km away is rejected"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
@@ -97,12 +95,8 @@ class TestVisitCreation:
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        # Visit creation is allowed (location verification is optional)
-        assert response.status_code == status.HTTP_201_CREATED
-
-        # But verify the location check returns False
-        visit = Visit.objects.get(user=test_user, cafe=test_cafe)
-        assert visit.is_verified_location() is False
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'check_in_latitude' in response.data['error']['details']
 
     def test_create_duplicate_visit_same_day(self, authenticated_client, test_cafe, test_user):
         """Test creating duplicate visit for same cafe+date fails"""
@@ -117,12 +111,14 @@ class TestVisitCreation:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': False
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert 'visit_date' in response.data
+        assert 'visit_date' in response.data['error']['details']
 
     def test_create_visit_unauthenticated(self, api_client, test_cafe):
         """Test unauthenticated user cannot create visit"""
@@ -188,6 +184,8 @@ class TestCombinedVisitReview:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wifi_quality': 5,
             # Missing wfc_rating
@@ -201,6 +199,8 @@ class TestCombinedVisitReview:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wfc_rating': 6,  # Invalid: should be 1-5
             'wifi_quality': 5,
@@ -208,6 +208,34 @@ class TestCombinedVisitReview:
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_combined_visit_far_location_rejected(self, authenticated_client, test_cafe):
+        """Test combined visit+review from >1km away is rejected"""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.3,  # ~10km away
+            'check_in_longitude': 106.9,
+            'include_review': True,
+            'wfc_rating': 4,
+        }
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'check_in_latitude' in response.data['error']['details']
+
+    def test_combined_visit_missing_location_rejected(self, authenticated_client, test_cafe):
+        """Test combined visit+review without check-in location is rejected"""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'include_review': True,
+            'wfc_rating': 4,
+        }
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'non_field_errors' in response.data['error']['details']
 
 
 @pytest.mark.django_db
@@ -458,6 +486,8 @@ class TestTransactionRollbackHandling:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': False
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
@@ -503,8 +533,8 @@ class TestTransactionRollbackHandling:
         # Visit should be created
         assert Visit.objects.filter(cafe__google_place_id='ChIJ_new_test_place', user=test_user).exists()
 
-    def test_cafe_not_orphaned_when_visit_validation_fails(self, authenticated_client, test_user, monkeypatch):
-        """Test that cafe is created but properly handled when visit data is invalid"""
+    def test_cafe_not_created_when_field_validation_fails(self, authenticated_client, test_user, monkeypatch):
+        """Test that cafe is NOT created when required fields are missing at the serializer level"""
         from apps.cafes.services import GooglePlacesService
         from apps.cafes.models import Cafe
 
@@ -524,29 +554,27 @@ class TestTransactionRollbackHandling:
             mock_get_place_details
         )
 
-        # This should fail at visit validation (missing visit_date)
-        # Cafe creation happens before visit validation in our refactored code
+        # Missing visit_date — DRF field-level validation rejects this
+        # before create() (where cafe creation happens) is ever called
         data = {
             'google_place_id': 'ChIJ_invalid_visit_test',
             'cafe_name': 'Invalid Visit Cafe',
             'cafe_address': '999 Invalid St, Jakarta',
             'cafe_latitude': -6.2300,
             'cafe_longitude': 106.8700,
-            # Missing visit_date - should fail validation
+            # Missing visit_date - field validation fails before create()
             'include_review': False
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        # Should fail validation
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-        # In the refactored code, cafe IS created (which is correct behavior)
-        # The cafe is intentionally created before the transaction
-        # This is NOT an orphan - it's a valid cafe that can be used later
-        assert Cafe.objects.filter(google_place_id='ChIJ_invalid_visit_test').exists()
+        # Cafe should NOT be created — field validation runs before create()
+        assert not Cafe.objects.filter(google_place_id='ChIJ_invalid_visit_test').exists()
+        assert Cafe.objects.count() == initial_cafe_count
 
     def test_review_creation_rolled_back_on_failure(self, authenticated_client, test_cafe, test_user, monkeypatch):
-        """Test that review is rolled back if stats update fails"""
+        """Test that review is rolled back if stats update raises an unhandled error"""
         # Create a visit first
         visit = Visit.objects.create(
             cafe=test_cafe,
@@ -563,18 +591,19 @@ class TestTransactionRollbackHandling:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today() + timedelta(days=1)),  # Different date
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wfc_rating': 4,
             'wifi_quality': 5,
         }
 
-        # This should fail because update_stats raises an exception
-        response = authenticated_client.post('/api/visits/create-with-review/', data)
+        # update_stats is not wrapped in try/except, so the bare Exception
+        # propagates through the test client as an unhandled server error
+        with pytest.raises(Exception, match="Stats update failed"):
+            authenticated_client.post('/api/visits/create-with-review/', data)
 
-        # The transaction should roll back - review should not be created
-        assert response.status_code in [status.HTTP_500_INTERNAL_SERVER_ERROR, status.HTTP_400_BAD_REQUEST]
-
-        # Review should not exist (rolled back)
+        # The transaction.atomic() should roll back — review should not exist
         assert not Review.objects.filter(user=test_user, cafe=test_cafe).exists()
 
     def test_transaction_with_both_visit_and_review(self, authenticated_client, test_cafe, test_user):
@@ -587,6 +616,8 @@ class TestTransactionRollbackHandling:
             'visit_date': str(date.today()),
             'amount_spent': 25.0,
             'visit_time': 2,
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wfc_rating': 5,
             'wifi_quality': 5,

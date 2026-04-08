@@ -31,7 +31,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for authenticated user (private view)."""
+    """Detailed serializer for authenticated user's own profile only.
+
+    WARNING: Contains PII (email). Only use for endpoints that return
+    the requesting user's own data (e.g. /auth/me/, login response).
+    Never use in public-facing or other-user endpoints.
+    """
 
     effective_display_name = serializers.ReadOnlyField()
     account_age_hours = serializers.ReadOnlyField()

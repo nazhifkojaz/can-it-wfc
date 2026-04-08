@@ -616,6 +616,30 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                     'visit_date': 'You have already logged a visit to this cafe on this date.'
                 })
 
+        # Validate check-in distance
+        if cafe:
+            check_in_lat = data.get('check_in_latitude')
+            check_in_lng = data.get('check_in_longitude')
+
+            if not check_in_lat or not check_in_lng:
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        'Check-in location is required to verify you are at the cafe.'
+                    ]
+                })
+
+            distance = Cafe.calculate_distance(
+                check_in_lat, check_in_lng,
+                cafe.latitude, cafe.longitude
+            )
+            if distance > MAX_CHECKIN_DISTANCE_KM:
+                raise serializers.ValidationError({
+                    'check_in_latitude': [
+                        f'You are {distance:.2f}km away from {cafe.name}. '
+                        f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
+                    ]
+                })
+
         if data.get('include_review', False):
             if not data.get('wfc_rating'):
                 raise serializers.ValidationError({

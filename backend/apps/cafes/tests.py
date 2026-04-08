@@ -320,7 +320,7 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
 
         assert response.status_code == status.HTTP_200_OK
         # Should return cached data immediately (no API call)
-        assert response.data['google_rating'] == 4.5
+        assert response.data['google_rating'] == '4.5'
         assert response.data['google_ratings_count'] == 100
         # Should include google_rating_updated_at for frontend staleness detection
         assert 'google_rating_updated_at' in response.data
@@ -382,13 +382,13 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
         response = authenticated_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['google_rating'] == 4.8
+        assert float(response.data['google_rating']) == 4.8
         assert response.data['google_ratings_count'] == 150
         assert response.data['google_rating_updated_at'] is not None
 
         # Verify database was updated
         cafe.refresh_from_db()
-        assert cafe.google_rating == 4.8
+        assert cafe.google_rating == Decimal('4.8')  # DecimalField returns Decimal from DB
         assert cafe.google_ratings_count == 150
 
     def test_refresh_endpoint_requires_authentication(self, api_client, test_user):

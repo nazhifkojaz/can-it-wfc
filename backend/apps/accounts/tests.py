@@ -3,6 +3,7 @@ Authentication and User Management Tests
 """
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.accounts.models import Follow
@@ -71,6 +72,7 @@ class TestUserRegistration:
 
     def test_register_weak_password(self, api_client):
         """Test registration with weak password fails"""
+        cache.clear()  # Reset throttle counters
         data = {
             'username': 'newuser',
             'email': 'new@example.com',
@@ -82,6 +84,7 @@ class TestUserRegistration:
 
     def test_register_missing_fields(self, api_client):
         """Test registration with missing required fields fails"""
+        cache.clear()  # Reset throttle counters
         data = {'username': 'newuser'}
         response = api_client.post('/api/auth/register/', data)
 
@@ -222,18 +225,18 @@ class TestUserModel:
         assert user.total_visits == 0
 
     def test_display_name_not_anonymous(self, test_user):
-        """Test display_name returns username when not anonymous"""
+        """Test effective_display_name returns username when not anonymous"""
         test_user.is_anonymous_display = False
         test_user.save()
 
-        assert test_user.display_name == 'testuser'
+        assert test_user.effective_display_name == 'testuser'
 
     def test_display_name_anonymous(self, test_user):
-        """Test display_name masks username when anonymous"""
+        """Test effective_display_name masks username when anonymous"""
         test_user.is_anonymous_display = True
         test_user.save()
 
-        display = test_user.display_name
+        display = test_user.effective_display_name
         assert display != 'testuser'
         assert 'tes' in display  # First 3 chars visible
         assert '*' in display  # Contains masking
