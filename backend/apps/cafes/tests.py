@@ -558,3 +558,62 @@ class TestNearbyCafesView:
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 2
+
+
+@pytest.mark.django_db
+class TestFavoriteByCafeDelete:
+    """Test DELETE /api/cafes/favorites/by-cafe/{cafe_id}/ endpoint."""
+
+    def _create_cafe(self, test_user, name='Test Cafe'):
+        from apps.cafes.models import Cafe
+        return Cafe.objects.create(
+            name=name,
+            address='123 Test St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id=f'{name.lower().replace(" ", "_")}_place',
+            created_by=test_user,
+        )
+
+    def test_delete_favorite_by_cafe_id(self, authenticated_client, test_user):
+        """Authenticated user can remove a favorite by cafe ID."""
+        from apps.cafes.models import Favorite
+        cafe = self._create_cafe(test_user)
+        Favorite.objects.create(user=test_user, cafe=cafe)
+
+        response = authenticated_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Favorite.objects.filter(user=test_user, cafe=cafe).exists()
+
+    def test_delete_nonexistent_favorite_returns_404(self, authenticated_client, test_user):
+        """Returns 404 when unfavorite-ing a cafe that wasn't favorited."""
+        cafe = self._create_cafe(test_user)
+
+        response = authenticated_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_favorite_requires_auth(self, api_client, test_user):
+        """Unauthenticated requests are rejected."""
+        cafe = self._create_cafe(test_user)
+
+        response = api_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_delete_favorite_only_deletes_own(self, api_client, test_user, db):
+        """Cannot remove another user's favorite."""
+        from apps.cafes.models import Favorite
+        cafe = self._create_cafe(test_user)
+        other_user = User.objects.create_user(
+            username='otheruser', email='other@example.com', password='pass123'
+        )
+        Favorite.objects.create(user=other_user, cafe=cafe)
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        # Other user's favorite should still exist
+        assert Favorite.objects.filter(user=other_user, cafe=cafe).exists()

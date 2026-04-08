@@ -375,3 +375,67 @@ class TestUnfollowUpdatesCounts:
         response = api_client.delete('/api/auth/unfollow/stranger/')
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestPasswordChangeInvalidatesTokens:
+    """Test that changing password blacklists all outstanding refresh tokens."""
+
+    def _login_user(self, api_client, test_user):
+        """Helper: login and return (access_token, refresh_token)."""
+        login_response = api_client.post('/api/auth/login/', {
+            'username': 'testuser',
+            'password': 'testpass123',
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        return login_response.data['access'], login_response.data['refresh']
+
+    def test_password_change_blacklists_refresh_token(self, api_client, test_user):
+        """After password change, old refresh token should be unusable."""
+        access, refresh = self._login_user(api_client, test_user)
+        api_client.force_authenticate(user=test_user)
+
+        # Change password
+        response = api_client.post('/api/auth/change-password/', {
+            'old_password': 'testpass123',
+            'new_password': 'NewSecurePass456!',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+
+        # Old refresh token should be blacklisted
+        refresh_response = api_client.post('/api/auth/refresh/', {
+            'refresh': refresh,
+        })
+        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_password_change_requires_correct_old_password(self, api_client, test_user):
+        """Password change fails with wrong old password."""
+        self._login_user(api_client, test_user)
+        api_client.force_authenticate(user=test_user)
+
+        response = api_client.post('/api/auth/change-password/', {
+            'old_password': 'wrong_password',
+            'new_password': 'NewSecurePass456!',
+        })
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_password_change_allows_new_login(self, api_client, test_user):
+        """After password change, user can login with the new password."""
+        self._login_user(api_client, test_user)
+        api_client.force_authenticate(user=test_user)
+
+        api_client.post('/api/auth/change-password/', {
+            'old_password': 'testpass123',
+            'new_password': 'NewSecurePass456!',
+        })
+
+        # Login with new password should work
+        login_response = api_client.post('/api/auth/login/', {
+            'username': 'testuser',
+            'password': 'NewSecurePass456!',
+        })
+
+        assert login_response.status_code == status.HTTP_200_OK
+        assert 'access' in login_response.data

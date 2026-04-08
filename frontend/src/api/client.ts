@@ -302,16 +302,13 @@ export const cafeApi = {
   // Update cafe
   update: (id: number, data: CafeUpdate) => patch<Cafe>(`/cafes/${id}/`, data),
 
-  toggleFavorite: async (cafeId: number | undefined) => {
+  toggleFavorite: async (cafeId: number | undefined, isFavorited?: boolean) => {
     if (cafeId === undefined || cafeId === null) {
       throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
     }
 
-    const favoritesList = await getPaginated<Favorite>('/cafes/favorites/');
-    const existing = favoritesList.find((fav: any) => fav.cafe.id === cafeId);
-
-    if (existing) {
-      await del(`/cafes/favorites/${existing.id}/`);
+    if (isFavorited) {
+      await del(`/cafes/favorites/by-cafe/${cafeId}/`);
       return { is_favorited: false };
     } else {
       return post<{ is_favorited: boolean } & Favorite>('/cafes/favorites/', { cafe_id: cafeId });

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,24 +20,27 @@ const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const { register } = useAuth();
+  const { user, loading, register } = useAuth();
   const navigate = useNavigate();
+  const didCheckAuth = useRef(false);
 
   // Check if all password requirements are met
   const isPasswordValid = useMemo(() => {
     return passwordRequirements.every(req => req.test(password));
   }, [password]);
 
-  // Redirect if already logged in
-  // NOTE: Commented out to allow Google OAuth username modal to show
-  // Google OAuth button handles its own navigation flow
-  // useEffect(() => {
-  //   if (user) {
-  //     navigate('/map');
-  //   }
-  // }, [user, navigate]);
+  // Redirect if already logged in (check only once on mount to avoid
+  // interfering with Google OAuth username modal flow)
+  useEffect(() => {
+    if (!loading && !didCheckAuth.current) {
+      didCheckAuth.current = true;
+      if (user) {
+        navigate('/map', { replace: true });
+      }
+    }
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +58,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       await register({ username, email, password, password2 });
@@ -64,7 +67,7 @@ const RegisterPage: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -160,8 +163,8 @@ const RegisterPage: React.FC = () => {
             </div>
           )}
 
-          <button type="submit" className="submit-button" disabled={loading}>
-            {loading ? 'Creating account...' : 'Sign Up'}
+          <button type="submit" className="submit-button" disabled={submitting}>
+            {submitting ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 

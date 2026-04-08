@@ -27,9 +27,20 @@ export const useFavorites = () => {
     staleTime: 2 * 60 * 1000,
   });
 
+  const isFavorite = useCallback(
+    (cafeId: number | undefined) => {
+      if (cafeId === undefined || cafeId === null) {
+        return false;
+      }
+      return Array.isArray(favorites) && favorites.some((cafe) => cafe.id === cafeId);
+    },
+    [favorites]
+  );
+
   const toggleFavoriteMutation = useMutation({
-    mutationFn: cafeApi.toggleFavorite,
-    onMutate: async (cafeId) => {
+    mutationFn: ({ cafeId, isFavorited }: { cafeId: number; isFavorited: boolean }) =>
+      cafeApi.toggleFavorite(cafeId, isFavorited),
+    onMutate: async ({ cafeId }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.favoritesList() });
 
       const previousFavorites = queryClient.getQueryData(queryKeys.favoritesList());
@@ -61,19 +72,10 @@ export const useFavorites = () => {
     if (!cafeId) {
       throw new Error('Cannot favorite unregistered cafes');
     }
-    const result = await toggleFavoriteMutation.mutateAsync(cafeId);
+    const currentlyFavorited = isFavorite(cafeId);
+    const result = await toggleFavoriteMutation.mutateAsync({ cafeId, isFavorited: currentlyFavorited });
     return result.is_favorited;
-  }, [toggleFavoriteMutation]);
-
-  const isFavorite = useCallback(
-    (cafeId: number | undefined) => {
-      if (cafeId === undefined || cafeId === null) {
-        return false;
-      }
-      return Array.isArray(favorites) && favorites.some((cafe) => cafe.id === cafeId);
-    },
-    [favorites]
-  );
+  }, [toggleFavoriteMutation, isFavorite]);
 
   return {
     favorites,

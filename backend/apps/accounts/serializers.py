@@ -244,10 +244,18 @@ class ChangePasswordSerializer(serializers.Serializer):
         return value
 
     def save(self, **kwargs):
-        """Update password."""
+        """Update password and invalidate all existing sessions."""
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+
         user = self.context['request'].user
         user.set_password(self.validated_data['new_password'])
         user.save()
+
+        # Blacklist all outstanding refresh tokens to force re-login
+        tokens = OutstandingToken.objects.filter(user=user)
+        for token in tokens:
+            BlacklistedToken.objects.get_or_create(token=token)
+
         return user
 
 

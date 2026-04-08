@@ -9,6 +9,7 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
 from core.exceptions import CafeNotFound, AlreadyFavorited
+from rest_framework.exceptions import NotFound
 from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from .serializers import (
@@ -200,6 +201,23 @@ class FavoriteDetailView(generics.DestroyAPIView):
 
     def get_queryset(self):
         return Favorite.objects.filter(user=self.request.user)
+
+
+class FavoriteByCafeDetailView(APIView):
+    """
+    Remove a cafe from favorites by cafe ID.
+
+    DELETE /api/cafes/favorites/by-cafe/{cafe_id}/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, cafe_id):
+        try:
+            favorite = Favorite.objects.get(user=request.user, cafe_id=cafe_id)
+        except Favorite.DoesNotExist:
+            raise NotFound(detail="Favorite not found.")
+        favorite.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MergedNearbyCafesView(APIView):

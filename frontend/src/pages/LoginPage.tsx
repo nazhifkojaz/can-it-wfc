@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
@@ -8,24 +8,27 @@ const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
+  const didCheckAuth = useRef(false);
 
-  // Redirect if already logged in
-  // NOTE: Commented out to allow Google OAuth username modal to show
-  // Google OAuth button handles its own navigation flow
-  // useEffect(() => {
-  //   if (user) {
-  //     navigate('/map');
-  //   }
-  // }, [user, navigate]);
+  // Redirect if already logged in (check only once on mount to avoid
+  // interfering with Google OAuth username modal flow)
+  useEffect(() => {
+    if (!loading && !didCheckAuth.current) {
+      didCheckAuth.current = true;
+      if (user) {
+        navigate('/map', { replace: true });
+      }
+    }
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       await login({ username, password });
@@ -34,7 +37,7 @@ const LoginPage: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -85,8 +88,8 @@ const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <button type="submit" className="submit-button" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+          <button type="submit" className="submit-button" disabled={submitting}>
+            {submitting ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
