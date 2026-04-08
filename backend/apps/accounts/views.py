@@ -331,19 +331,18 @@ class UserActivityView(APIView):
                 raise UserNotFound()
 
         # Check privacy settings
-        user_settings = user.settings
-
         is_own_profile = (
             request.user.is_authenticated and
             request.user.id == user.id
         )
 
-        # If profile is private and not own profile, return empty
-        if user_settings.profile_visibility == 'private' and not is_own_profile:
-            return Response({
-                'message': 'This profile is private',
-                'activity': []
-            })
+        if not is_own_profile:
+            from apps.accounts.utils import can_view_user_activity
+            if not can_view_user_activity(request.user, user):
+                return Response({
+                    'message': 'This activity is private',
+                    'activity': []
+                })
 
         # Get limit from query params (default 20, max 50)
         try:
