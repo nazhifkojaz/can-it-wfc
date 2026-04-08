@@ -46,7 +46,6 @@ function identifyUserInPostHog(user: User, authMethod?: AuthMethod) {
 
   identifyUser(user.id, {
     username: user.username,
-    email: user.email,
     auth_method: method || undefined,
     created_at: user.date_joined,
     is_private_profile: user.is_anonymous_display,

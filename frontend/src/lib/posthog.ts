@@ -49,7 +49,6 @@ export function identifyUser(
   userId: number,
   properties: {
     username: string
-    email?: string
     auth_method?: 'google' | 'email'
     created_at: string
     is_private_profile?: boolean
