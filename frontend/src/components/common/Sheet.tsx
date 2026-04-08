@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import styles from './common.module.css';
+import { lockBodyScroll, unlockBodyScroll } from './scrollLock';
 
 interface SheetProps {
   isOpen: boolean;
@@ -30,13 +31,13 @@ const Sheet: React.FC<SheetProps> = ({
   // Prevent body scroll when sheet is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      lockBodyScroll();
     } else {
-      document.body.style.overflow = 'unset';
+      unlockBodyScroll();
     }
 
     return () => {
-      document.body.style.overflow = 'unset';
+      unlockBodyScroll();
     };
   }, [isOpen]);
 

@@ -10,6 +10,7 @@ import FollowersModal from '../social/FollowersModal';
 import { formatVisitTime } from '../../utils/visit';
 import { formatRelativeDate } from '../../utils/date';
 import { logger } from '../../utils/logger';
+import { extractApiError } from '../../utils/errorUtils';
 import { trackUserProfileViewed } from '../../lib/analytics';
 import './UserProfilePanel.css';
 
@@ -103,8 +104,9 @@ const UserProfilePanel: React.FC = () => {
           setActivity(mergedActivity);
         }
       } catch (err: any) {
+        const apiError = extractApiError(err);
         logger.error('Failed to load profile', err, 'UserProfilePanel');
-        setError(err.response?.data?.detail || 'Failed to load profile');
+        setError(apiError.message);
       } finally {
         setLoading(false);
       }
