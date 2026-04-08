@@ -458,3 +458,103 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
 
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert 'error' in response.data
+
+
+@pytest.mark.django_db
+class TestNearbyCafesView:
+    """Test NearbyCafesView bounding-box filter and Haversine accuracy."""
+
+    # Jakarta coordinates
+    JAKARTA_LAT = Decimal('-6.2088')
+    JAKARTA_LNG = Decimal('106.8456')
+
+    def _create_cafe(self, name, lat, lng, user, **kwargs):
+        from apps.cafes.models import Cafe
+        return Cafe.objects.create(
+            name=name,
+            address=f'{name} Address',
+            latitude=Decimal(str(lat)),
+            longitude=Decimal(str(lng)),
+            google_place_id=f'{name.lower().replace(" ", "_")}_place',
+            created_by=user,
+            **kwargs,
+        )
+
+    def test_returns_cafes_within_radius(self, api_client, test_user):
+        """Cafes within radius are returned, sorted by distance."""
+        cafe_near = self._create_cafe('Near Cafe', '-6.2088', '106.8456', test_user)
+        cafe_mid = self._create_cafe('Mid Cafe', '-6.2100', '106.8470', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 5,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 2
+        # Should be sorted by distance (nearest first)
+        assert results[0]['name'] == 'Near Cafe'
+        assert results[1]['name'] == 'Mid Cafe'
+
+    def test_excludes_cafes_outside_radius(self, api_client, test_user):
+        """Cafes outside the radius are excluded."""
+        self._create_cafe('Near Cafe', '-6.2088', '106.8456', test_user)
+        # ~100+ km away
+        self._create_cafe('Far Cafe', '-6.9000', '106.8456', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 5,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 1
+        assert results[0]['name'] == 'Near Cafe'
+
+    def test_returns_empty_when_no_cafes_nearby(self, api_client, test_user):
+        """Empty list returned when no cafes are within radius."""
+        self._create_cafe('Distant Cafe', '-7.0000', '107.0000', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_excludes_closed_cafes(self, api_client, test_user):
+        """Closed cafes are excluded from results."""
+        self._create_cafe('Open Cafe', '-6.2088', '106.8456', test_user)
+        self._create_cafe('Closed Cafe', '-6.2088', '106.8456', test_user, is_closed=True)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['name'] == 'Open Cafe'
+
+    def test_respects_limit_parameter(self, api_client, test_user):
+        """Limit parameter caps the number of results."""
+        for i in range(5):
+            self._create_cafe(f'Cafe {i}', '-6.2088', '106.8456', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 1,
+            'limit': 2,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 2

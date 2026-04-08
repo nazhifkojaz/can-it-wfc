@@ -1,3 +1,6 @@
+import math
+from decimal import Decimal
+
 from rest_framework import generics, status, permissions, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -116,15 +119,25 @@ class NearbyCafesView(APIView):
         radius_km = serializer.validated_data.get('radius_km', 1)
         limit = serializer.validated_data.get('limit', 100)
         
-        # Find nearby cafes from DB only (Haversine calculation)
-        # Note: With PlacesAPI-first architecture, consider using /api/cafes/nearby/all/ instead
-        all_cafes = Cafe.objects.filter(is_closed=False)
+        # Pre-filter with bounding box before Haversine calculation
+        # ~111km per degree of latitude; longitude shrinks with cos(lat)
+        radius_float = float(radius_km)
+        lat_delta = Decimal(str(radius_float / 111.0))
+        lon_delta = Decimal(str(radius_float / (111.0 * math.cos(math.radians(float(latitude))))))
 
-        # Calculate distances and filter by radius
+        candidates = Cafe.objects.filter(
+            is_closed=False,
+            latitude__gte=latitude - lat_delta,
+            latitude__lte=latitude + lat_delta,
+            longitude__gte=longitude - lon_delta,
+            longitude__lte=longitude + lon_delta,
+        )
+
+        # Calculate exact Haversine distances on the pre-filtered set
         nearby_cafes = []
-        for cafe in all_cafes:
+        for cafe in candidates:
             distance = cafe.distance_to(latitude, longitude)
-            if distance <= float(radius_km):
+            if distance <= radius_float:
                 cafe.distance = distance
                 nearby_cafes.append(cafe)
 
