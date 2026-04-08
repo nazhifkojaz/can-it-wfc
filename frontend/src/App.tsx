@@ -4,7 +4,7 @@ import { ErrorBoundary } from './components/common';
 import { PanelProvider } from './contexts/PanelContext';
 
 // Pages
-import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import MapPage from './pages/MapPage';
@@ -18,7 +18,7 @@ function App() {
         <Router basename={basename || '/'}>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
