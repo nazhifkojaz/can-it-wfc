@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Home, Calendar, Star, MapPin, DollarSign, User } from 'lucide-react';
+import { Home, Calendar, Star, MapPin, DollarSign, User, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePanel } from '../../contexts/PanelContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,23 +21,22 @@ const ActivityPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchFeed = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await userApi.getActivityFeed(50);
+      setActivities(data.activities);
+    } catch (err: any) {
+      logger.error('Failed to load feed', err, 'ActivityPanel');
+      setError('Failed to load your activity');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-
-    const fetchFeed = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await userApi.getActivityFeed(50);
-        setActivities(data.activities);
-      } catch (err: any) {
-        logger.error('Failed to load feed', err, 'ActivityPanel');
-        setError('Failed to load your activity');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchFeed();
   }, [user]);
 
@@ -117,6 +116,14 @@ const ActivityPanel: React.FC = () => {
           </button>
           <h2 className="panel-title">Your Activity</h2>
         </div>
+        <button
+          className="home-button"
+          onClick={fetchFeed}
+          disabled={loading}
+          aria-label="Refresh activity"
+        >
+          <RefreshCw size={18} className={loading ? 'spin' : ''} />
+        </button>
       </div>
 
       {/* Content */}
