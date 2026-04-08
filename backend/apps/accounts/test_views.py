@@ -41,6 +41,40 @@ class TestUserActivityView:
         assert 'user_settings.show_activity_dates' in source, \
             "Fix not applied: code should use user_settings.show_activity_dates"
 
+    def test_activity_view_assigns_user_settings_before_use(self):
+        """
+        Verify that `user_settings` is assigned (e.g. `user_settings = user.settings`)
+        before being referenced in the get() method. Without this, every request
+        crashes with NameError.
+        """
+        from apps.accounts import views
+        import inspect
+        import re
+
+        source = inspect.getsource(views.UserActivityView.get)
+
+        # Find all lines that reference user_settings
+        lines = source.split('\n')
+        user_settings_lines = [
+            (i, line) for i, line in enumerate(lines)
+            if 'user_settings' in line
+        ]
+
+        # There must be at least one assignment line before any usage
+        has_assignment = False
+        for idx, line in user_settings_lines:
+            stripped = line.strip()
+            # Check if this line is an assignment (user_settings = ...)
+            if re.match(r'user_settings\s*=', stripped):
+                has_assignment = True
+                break
+            # If we hit a usage before any assignment, fail
+            assert False, (
+                f"`user_settings` is used at line {idx} before being assigned: {stripped}"
+            )
+
+        assert has_assignment, "`user_settings` is never assigned in UserActivityView.get()"
+
     def test_activity_view_no_attribute_error_simulation(self):
         """
         Simulate the original bug to demonstrate the fix.

@@ -683,3 +683,62 @@ class TestCheckSpamDailyLimit:
 
         assert is_spam is False
         assert reason == "OK"
+
+
+@pytest.mark.django_db
+class TestCafeReviewsURL:
+    """Test that CafeReviewsView URL accepts integer cafe IDs."""
+
+    def test_cafe_reviews_accepts_integer_id(self, api_client, test_cafe, test_user):
+        """
+        GET /api/cafes/{int}/reviews/ should return 200, not 404.
+        The URL converter must be <int:cafe_id>, not <uuid:cafe_id>,
+        since Cafe uses an integer primary key.
+        """
+        # Create a review so there's data to return
+        Review.objects.create(
+            cafe=test_cafe,
+            user=test_user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+        )
+
+        response = api_client.get(f'/api/cafes/{test_cafe.id}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cafe_reviews_returns_reviews_for_correct_cafe(self, api_client, test_user):
+        """
+        CafeReviewsView should only return reviews for the requested cafe.
+        """
+        # Create two cafes with reviews
+        cafe_a = Cafe.objects.create(
+            name='Cafe A', address='1 A St',
+            latitude=Decimal('-6.2'), longitude=Decimal('106.8'),
+            google_place_id='place_a', created_by=test_user,
+        )
+        cafe_b = Cafe.objects.create(
+            name='Cafe B', address='2 B St',
+            latitude=Decimal('-6.2'), longitude=Decimal('106.8'),
+            google_place_id='place_b', created_by=test_user,
+        )
+        Review.objects.create(
+            cafe=cafe_a, user=test_user, wfc_rating=5,
+            wifi_quality=5, power_outlets_rating=5,
+            seating_comfort=5, noise_level=5,
+        )
+        Review.objects.create(
+            cafe=cafe_b, user=test_user, wfc_rating=3,
+            wifi_quality=3, power_outlets_rating=3,
+            seating_comfort=3, noise_level=3,
+        )
+
+        response = api_client.get(f'/api/cafes/{cafe_a.id}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results'] if 'results' in response.data else response.data
+        assert len(results) == 1
+        assert results[0]['cafe']['id'] == cafe_a.id

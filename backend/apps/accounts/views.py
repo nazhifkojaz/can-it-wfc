@@ -344,6 +344,8 @@ class UserActivityView(APIView):
                     'activity': []
                 })
 
+        user_settings = user.settings
+
         # Get limit from query params (default 20, max 50)
         try:
             limit = min(int(request.query_params.get('limit', 20)), 50)
