@@ -255,3 +255,72 @@ class TestUserModel:
         # Should recalculate from database
         assert test_user.total_reviews >= 0
         assert test_user.total_visits >= 0
+
+
+@pytest.mark.django_db
+class TestLogout:
+    """Test logout endpoint"""
+
+    def _login_user(self, api_client, test_user):
+        """Helper: login and return (access_token, refresh_token)"""
+        login_response = api_client.post('/api/auth/login/', {
+            'username': 'testuser',
+            'password': 'testpass123',
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        return login_response.data['access'], login_response.data['refresh']
+
+    def test_logout_success(self, api_client, test_user):
+        """Test successful logout returns 200 and clears cookies"""
+        access, refresh = self._login_user(api_client, test_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        api_client.cookies['refresh_token'] = refresh
+
+        response = api_client.post('/api/auth/logout/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['message'] == 'Logged out successfully'
+        # Cookies should be cleared (max_age=0)
+        assert response.cookies['access_token']['max-age'] == 0
+        assert response.cookies['refresh_token']['max-age'] == 0
+
+    def test_logout_blacklists_refresh_token(self, api_client, test_user):
+        """Test that refresh token cannot be used after logout"""
+        access, refresh = self._login_user(api_client, test_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        api_client.cookies['refresh_token'] = refresh
+
+        # Logout — should blacklist the refresh token
+        api_client.post('/api/auth/logout/')
+
+        # Try to refresh with the old token — should fail
+        refresh_response = api_client.post('/api/auth/refresh/', {
+            'refresh': refresh,
+        })
+        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_logout_unauthenticated(self, api_client):
+        """Test logout without authentication returns 401"""
+        response = api_client.post('/api/auth/logout/')
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_logout_without_refresh_cookie(self, api_client, test_user):
+        """Test logout succeeds even with no refresh_token cookie"""
+        access, _ = self._login_user(api_client, test_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        # No refresh_token cookie set
+
+        response = api_client.post('/api/auth/logout/')
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_logout_with_invalid_refresh_token(self, api_client, test_user):
+        """Test logout succeeds when refresh_token cookie contains garbage"""
+        access, _ = self._login_user(api_client, test_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        api_client.cookies['refresh_token'] = 'not-a-real-token'
+
+        response = api_client.post('/api/auth/logout/')
+
+        assert response.status_code == status.HTTP_200_OK

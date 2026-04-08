@@ -263,6 +263,16 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # Blacklist the refresh token so it can't be used after logout
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token:
+            try:
+                from rest_framework_simplejwt.tokens import RefreshToken
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception:
+                pass  # Token already expired/invalid
+
         response = Response({
             'message': 'Logged out successfully'
         }, status=status.HTTP_200_OK)
