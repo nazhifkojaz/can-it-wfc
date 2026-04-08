@@ -123,12 +123,20 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Cache Configuration (required for DRF throttling)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+if DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': env('REDIS_URL', default='redis://localhost:6379/0'),
+        }
+    }
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'

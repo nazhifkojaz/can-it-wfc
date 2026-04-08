@@ -5,6 +5,7 @@ import pytest
 from datetime import date, timedelta
 from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.models import Cafe
@@ -602,3 +603,66 @@ class TestTransactionRollbackHandling:
         # Verify both visit and review were created
         assert Visit.objects.filter(cafe=test_cafe).count() == initial_visit_count + 1
         assert Review.objects.filter(cafe=test_cafe).count() == initial_review_count + 1
+
+
+@pytest.mark.django_db
+class TestCheckSpamDailyLimit:
+    """Test Review.check_spam() enforces the exact MAX_REVIEWS_PER_DAY limit."""
+
+    def _make_cafes(self, user, count):
+        """Create N distinct cafes for testing."""
+        cafes = []
+        for i in range(count):
+            cafes.append(Cafe.objects.create(
+                name=f'Cafe {i}',
+                address=f'{i} Test St',
+                latitude=Decimal('-6.2088'),
+                longitude=Decimal('106.8456'),
+                google_place_id=f'place_{i}',
+                created_by=user,
+            ))
+        return cafes
+
+    def _make_reviews(self, user, cafes, count):
+        """Create `count` reviews (one per cafe) and return them."""
+        reviews = []
+        for i in range(count):
+            reviews.append(Review.objects.create(
+                cafe=cafes[i],
+                user=user,
+                wfc_rating=4,
+                wifi_quality=4,
+                power_outlets_rating=4,
+                seating_comfort=4,
+                noise_level=4,
+                space_availability=4,
+                coffee_quality=4,
+                menu_options=4,
+                bathroom_quality=4,
+            ))
+        return reviews
+
+    @override_settings(MAX_REVIEWS_PER_DAY=3)
+    def test_spam_detected_at_exact_limit(self, test_user):
+        """After MAX reviews exist, the next check_spam should flag as spam."""
+        cafes = self._make_cafes(test_user, 4)
+        self._make_reviews(test_user, cafes, 3)  # exactly MAX_REVIEWS_PER_DAY
+
+        # 4th review should be flagged — count (3) >= limit (3)
+        review = Review(user=test_user, cafe=cafes[3], wfc_rating=4)
+        is_spam, reason = review.check_spam()
+
+        assert is_spam is True
+        assert reason == "Too many reviews in one day"
+
+    @override_settings(MAX_REVIEWS_PER_DAY=3)
+    def test_not_spam_below_limit(self, test_user):
+        """Below the limit, check_spam should return OK."""
+        cafes = self._make_cafes(test_user, 3)
+        self._make_reviews(test_user, cafes, 2)  # one below limit
+
+        review = Review(user=test_user, cafe=cafes[2], wfc_rating=4)
+        is_spam, reason = review.check_spam()
+
+        assert is_spam is False
+        assert reason == "OK"

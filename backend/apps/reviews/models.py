@@ -318,7 +318,7 @@ class Review(models.Model):
             created_at__date=timezone.now().date()
         ).count()
         
-        if today_count > max_reviews_per_day:
+        if today_count >= max_reviews_per_day:
             return True, "Too many reviews in one day"
         
         return False, "OK"

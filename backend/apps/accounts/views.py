@@ -473,14 +473,17 @@ class UnfollowUserView(APIView):
         except User.DoesNotExist:
             raise UserNotFound()
 
-        # Try to delete follow relationship
-        deleted_count, _ = Follow.objects.filter(
-            follower=request.user,
-            followed=target_user
-        ).delete()
-
-        if deleted_count == 0:
+        # Try to delete follow relationship using model delete()
+        # (QuerySet.delete() skips the custom Follow.delete() which updates counts)
+        try:
+            follow = Follow.objects.get(
+                follower=request.user,
+                followed=target_user
+            )
+        except Follow.DoesNotExist:
             raise NotFollowing()
+
+        follow.delete()
 
         return Response({
             'message': f'You have unfollowed {username}',

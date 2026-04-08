@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
+from apps.accounts.models import Follow
 
 User = get_user_model()
 
@@ -324,3 +325,50 @@ class TestLogout:
         response = api_client.post('/api/auth/logout/')
 
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestUnfollowUpdatesCounts:
+    """Test that unfollowing updates denormalized follower/following counts."""
+
+    def test_unfollow_updates_counts(self, api_client, test_user, db):
+        """Unfollowing via API should update both users' follow counts."""
+        target = User.objects.create_user(
+            username='targetuser',
+            email='target@example.com',
+            password='pass123',
+        )
+
+        # Follow via API
+        api_client.force_authenticate(user=test_user)
+        follow_resp = api_client.post('/api/auth/follow/targetuser/')
+        assert follow_resp.status_code == status.HTTP_201_CREATED
+
+        # Verify counts after follow
+        test_user.refresh_from_db()
+        target.refresh_from_db()
+        assert test_user.following_count == 1
+        assert target.followers_count == 1
+
+        # Unfollow via API
+        unfollow_resp = api_client.delete('/api/auth/unfollow/targetuser/')
+        assert unfollow_resp.status_code == status.HTTP_200_OK
+
+        # Verify counts after unfollow
+        test_user.refresh_from_db()
+        target.refresh_from_db()
+        assert test_user.following_count == 0
+        assert target.followers_count == 0
+
+    def test_unfollow_not_following_returns_error(self, api_client, test_user, db):
+        """Unfollowing someone you don't follow should return 400."""
+        User.objects.create_user(
+            username='stranger',
+            email='stranger@example.com',
+            password='pass123',
+        )
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.delete('/api/auth/unfollow/stranger/')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
