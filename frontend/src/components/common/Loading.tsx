@@ -19,8 +19,8 @@ const Loading: React.FC<LoadingProps> = ({
   }[size];
 
   return (
-    <div className={`${styles.loadingContainer} ${fullScreen ? styles.fullscreen : ''}`}>
-      <div className={`${styles.spinner} ${sizeClass}`} />
+    <div className={`${styles.loadingContainer} ${fullScreen ? styles.fullscreen : ''}`} data-testid="loading-container">
+      <div className={`${styles.spinner} ${sizeClass}`} data-testid="spinner" />
       {message && <p className={styles.loadingMessage}>{message}</p>}
     </div>
   );

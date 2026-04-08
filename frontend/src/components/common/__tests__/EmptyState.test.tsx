@@ -4,6 +4,7 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { describe, it, expect, vi } from 'vitest';
 import EmptyState from '../EmptyState';
 import { Coffee } from 'lucide-react';
 
@@ -31,7 +32,7 @@ describe('EmptyState', () => {
   });
 
   it('should render action button when provided', () => {
-    const mockAction = jest.fn();
+    const mockAction = vi.fn();
     render(
       <EmptyState
         title="No items"
@@ -39,7 +40,7 @@ describe('EmptyState', () => {
       />
     );
 
-    const button = screen.getByText('Add Item');
+    const button = screen.getByTestId('empty-state-action');
     expect(button).toBeInTheDocument();
 
     fireEvent.click(button);
@@ -47,8 +48,7 @@ describe('EmptyState', () => {
   });
 
   it('should not render action button when not provided', () => {
-    const { container } = render(<EmptyState title="No items" />);
-    const button = container.querySelector('.empty-state-action');
-    expect(button).not.toBeInTheDocument();
+    render(<EmptyState title="No items" />);
+    expect(screen.queryByTestId('empty-state-action')).not.toBeInTheDocument();
   });
 });

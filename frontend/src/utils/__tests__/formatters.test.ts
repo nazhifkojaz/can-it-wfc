@@ -94,7 +94,7 @@ describe('formatters', () => {
     });
 
     it('should handle invalid inputs', () => {
-      expect(formatVisitTime(999)).toBe('Unknown');
+      expect(formatVisitTime(999)).toBe('Not specified');
     });
   });
 

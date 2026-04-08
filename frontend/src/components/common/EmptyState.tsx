@@ -23,7 +23,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <h3 className={styles.emptyStateTitle}>{title}</h3>
       {description && <p className={styles.emptyStateDescription}>{description}</p>}
       {action && (
-        <button className={styles.emptyStateAction} onClick={action.onClick}>
+        <button className={styles.emptyStateAction} onClick={action.onClick} data-testid="empty-state-action">
           {action.label}
         </button>
       )}
