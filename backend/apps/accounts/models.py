@@ -235,17 +235,7 @@ from django.dispatch import receiver
 def create_user_settings(sender, instance, created, **kwargs):
     """
     Automatically create UserSettings when a new User is created.
-    This eliminates the need for get_or_create() calls throughout the codebase.
+    Uses get_or_create to avoid IntegrityError on race conditions.
     """
     if created:
-        UserSettings.objects.create(user=instance)
-
-
-@receiver(post_save, sender=User)
-def ensure_user_settings(sender, instance, **kwargs):
-    """
-    Ensure UserSettings exists for all users (handles edge cases).
-    If settings don't exist for some reason, create them.
-    """
-    if not hasattr(instance, 'settings'):
         UserSettings.objects.get_or_create(user=instance)

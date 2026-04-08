@@ -16,11 +16,6 @@ urlpatterns = [
     # Admin panel (obscure path for security - not documented in API)
     path('mimin-wfc-nih/', admin.site.urls),
 
-    # API Documentation
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    
     # JWT Authentication
     path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -35,10 +30,15 @@ urlpatterns = [
     path('api/activity/', include('apps.activity.urls')),  # Activity stream
 ]
 
-# Serve media files in development
+# Serve media files and API docs in development only
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += [
+        path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+        path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+        path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    ]
 
 # Customize admin site
 admin.site.site_header = "Can-It-WFC Admin"

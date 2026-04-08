@@ -32,10 +32,6 @@ MAX_AUTOCOMPLETE_PREDICTIONS = 10
 # Hours after which Google ratings are considered stale and need refreshing
 GOOGLE_RATING_FRESHNESS_HOURS = 24
 
-# Required delay between Google Places API pagination requests (seconds)
-# Google API requires 2-second delay between paginated requests
-GOOGLE_PAGINATION_DELAY_SECONDS = 2
-
 # Timeout for Google Places autocomplete API requests (seconds)
 GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS = 5
 

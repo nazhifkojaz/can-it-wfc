@@ -254,8 +254,7 @@ SUPABASE_SERVICE_KEY = env('SUPABASE_SERVICE_KEY', default='')
 GOOGLE_PLACES_API_KEY = env('GOOGLE_PLACES_API_KEY', default='')
 
 # Google Places Search Configuration
-GOOGLE_PLACES_MAX_RESULTS = env.int('GOOGLE_PLACES_MAX_RESULTS', default=60)  # Max: 60 (3 pages × 20)
-GOOGLE_PLACES_ENABLE_PAGINATION = env.bool('GOOGLE_PLACES_ENABLE_PAGINATION', default=True)
+GOOGLE_PLACES_MAX_RESULTS = env.int('GOOGLE_PLACES_MAX_RESULTS', default=20)  # Single page (max 20)
 GOOGLE_PLACES_TIMEOUT = env.int('GOOGLE_PLACES_TIMEOUT', default=10)  # seconds
 
 # Email Configuration (for password reset, etc.)
