@@ -772,15 +772,27 @@ describe('Analytics - Search Events (Map Area)', () => {
   });
 
   describe('trackMapAreaSearched', () => {
-    it('should capture map_area_searched event', () => {
+    it('should capture map_area_searched event with rounded coordinates', () => {
       trackMapAreaSearched({
-        latitude: -6.2088,
-        longitude: 106.8456,
+        latitude: -6.20881532,
+        longitude: 106.84563012,
       });
 
       expect(mockCapture).toHaveBeenCalledWith('map_area_searched', {
-        latitude: -6.2088,
-        longitude: 106.8456,
+        latitude: -6.21,
+        longitude: 106.85,
+      });
+    });
+
+    it('should round coordinates to 2 decimal places (~1.1km precision)', () => {
+      trackMapAreaSearched({
+        latitude: -6.20000001,
+        longitude: 106.84999999,
+      });
+
+      expect(mockCapture).toHaveBeenCalledWith('map_area_searched', {
+        latitude: -6.2,
+        longitude: 106.85,
       });
     });
   });

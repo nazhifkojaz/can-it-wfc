@@ -223,8 +223,8 @@ export const trackMapAreaSearched = (props: {
   longitude: number;
 }) => {
   posthog.capture('map_area_searched', {
-    latitude: props.latitude,
-    longitude: props.longitude,
+    latitude: Math.round(props.latitude * 100) / 100,
+    longitude: Math.round(props.longitude * 100) / 100,
   });
 };
 

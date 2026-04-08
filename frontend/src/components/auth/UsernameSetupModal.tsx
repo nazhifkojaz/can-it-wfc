@@ -93,7 +93,7 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
       >
         <div className={styles.content}>
           <p className={styles.description}>
-            Welcome! You've signed in with <strong>{email}</strong>.
+            Welcome! You've signed in with <strong data-ph-mask>{email}</strong>.
             <br />
             Please choose a username for your account.
           </p>

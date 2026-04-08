@@ -41,8 +41,6 @@ export const useGeolocation = (options?: GeolocationOptions) => {
   }, []);
 
   const onError = useCallback((error: GeolocationPositionError) => {
-    // Only set error for explicit permission denial
-    // Ignore timeout/unavailable - watchPosition keeps trying
     if (error.code === error.PERMISSION_DENIED) {
       setState({
         latitude: null,
@@ -59,8 +57,23 @@ export const useGeolocation = (options?: GeolocationOptions) => {
         });
         permissionTrackedRef.current = true;
       }
+    } else if (error.code === error.TIMEOUT) {
+      setState({
+        latitude: null,
+        longitude: null,
+        error: 'Location request timed out. Please try again.',
+        loading: false,
+      });
+
+      if (!permissionTrackedRef.current) {
+        trackLocationPermissionResponded({
+          granted: false,
+          errorCode: 'TIMEOUT',
+        });
+        permissionTrackedRef.current = true;
+      }
     }
-    // For other errors, keep loading state - watchPosition will keep trying
+    // For POSITION_UNAVAILABLE, keep loading state - watchPosition will keep trying
   }, []);
 
   useEffect(() => {
@@ -76,7 +89,7 @@ export const useGeolocation = (options?: GeolocationOptions) => {
     const geoOptions: PositionOptions = {
       enableHighAccuracy: options?.enableHighAccuracy ?? true,
       maximumAge: options?.maximumAge ?? 60000, // Accept cached location up to 1 minute old
-      // No timeout - let watchPosition wait indefinitely for user permission
+      timeout: 30000, // 30 second timeout to avoid permanently blocking on some browsers
     };
 
     // Use watchPosition to automatically handle late permission grants
