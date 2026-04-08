@@ -71,6 +71,12 @@ export const VISIT_TIME = {
   EVENING: 3,
 } as const;
 
+export const VISIT_TIME_ANALYTICS_MAP: Record<number, 'morning' | 'afternoon' | 'evening'> = {
+  [VISIT_TIME.MORNING]: 'morning',
+  [VISIT_TIME.AFTERNOON]: 'afternoon',
+  [VISIT_TIME.EVENING]: 'evening',
+};
+
 export const VISIT_TIME_LABELS = {
   [VISIT_TIME.MORNING]: 'Morning (6AM - 12PM)',
   [VISIT_TIME.AFTERNOON]: 'Afternoon (12PM - 6PM)',

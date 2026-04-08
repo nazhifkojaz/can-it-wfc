@@ -5,7 +5,7 @@ import { Modal, ResultModal } from '../common';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
-import { VISIT_TIME_OPTIONS } from '../../config/constants';
+import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
@@ -333,17 +333,11 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       await createWithReview(visitReviewData);
 
       // Track analytics
-      const visitTimeLabelMap: Record<number, 'morning' | 'afternoon' | 'evening'> = {
-        0: 'morning',
-        1: 'afternoon',
-        2: 'afternoon',
-        3: 'evening',
-      };
       trackVisitLogged({
         cafeId: selectedCafe.id,
         cafeName: selectedCafe.name,
         includesReview: includeReview,
-        visitTime: visitTime !== null ? visitTimeLabelMap[visitTime] : null,
+        visitTime: visitTime !== null ? VISIT_TIME_ANALYTICS_MAP[visitTime] : null,
         amountSpent: amountSpent ? parseFloat(amountSpent) : null,
         currency: amountSpent ? currency : null,
         isDuplicateVisit: showDuplicateInfo && !!existingVisit,
