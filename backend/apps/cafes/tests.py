@@ -391,6 +391,22 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
         assert cafe.google_rating == 4.8
         assert cafe.google_ratings_count == 150
 
+    def test_refresh_endpoint_requires_authentication(self, api_client, test_user):
+        """Test that refresh endpoint requires authentication."""
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='Auth Test Cafe',
+            address='123 Auth Test St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='some_place_id',
+            created_by=test_user
+        )
+
+        response = api_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
     def test_refresh_endpoint_returns_404_for_nonexistent_cafe(self, authenticated_client):
         """Test that refresh endpoint returns 404 for non-existent cafe"""
         response = authenticated_client.post('/api/cafes/99999/refresh-google-rating/')

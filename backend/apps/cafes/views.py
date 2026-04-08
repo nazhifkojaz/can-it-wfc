@@ -572,7 +572,8 @@ class CafeGoogleRatingRefreshView(APIView):
 
     Returns updated google_rating, google_ratings_count, and google_rating_updated_at.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
 
     def post(self, request, pk=None):
         """Refresh Google rating from Google Places API."""
