@@ -104,10 +104,11 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
 class NearbyCafesView(APIView):
     """
     Find cafes near a location.
-    
+
     GET /api/cafes/nearby/?latitude={lat}&longitude={lng}&radius_km={radius}&limit={limit}
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
     
     def get(self, request):
         # Validate query parameters

@@ -374,6 +374,7 @@ class UserActivityView(APIView):
                 'visit_time': visit.visit_time,
                 'amount_spent': visit.amount_spent,
                 'currency': visit.currency,
+                'visit_id': visit.id,
             })
 
         # Add reviews
@@ -391,6 +392,7 @@ class UserActivityView(APIView):
                 'visit_time': None,
                 'amount_spent': None,
                 'currency': None,
+                'visit_id': None,
             })
 
         # Sort by created_at descending
