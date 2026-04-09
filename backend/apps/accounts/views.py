@@ -98,7 +98,7 @@ class OAuthLoginView(APIView):
     POST /api/auth/oauth/{provider}/
     Body: { "access_token": "..." }
 
-    Supported providers: google, twitter
+    Supported providers: google
     """
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AuthThrottle]
@@ -235,86 +235,6 @@ class LegacyUserMigrationView(APIView):
             'message': f'{provider_name.capitalize()} account linked successfully',
             'provider': provider_name,
         })
-
-
-class TwitterCallbackView(APIView):
-    """
-    Exchange Twitter OAuth authorization code for access token.
-
-    POST /api/auth/twitter/callback/
-    Body: { "code": "...", "code_verifier": "..." }
-
-    This endpoint proxies the token exchange to avoid exposing
-    the client secret to the browser.
-    """
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [AuthThrottle]
-
-    def post(self, request):
-        import requests as http_requests
-
-        code = request.data.get('code')
-        code_verifier = request.data.get('code_verifier')
-
-        if not code or not code_verifier:
-            raise OAuthTokenRequired()
-
-        # Exchange code for access token
-        try:
-            response = http_requests.post(
-                'https://twitter.com/i/oauth2/token',
-                headers={'Content-Type': 'application/x-www-form-urlencoded'},
-                data={
-                    'code': code,
-                    'grant_type': 'authorization_code',
-                    'client_id': settings.TWITTER_OAUTH_CLIENT_ID,
-                    'client_secret': settings.TWITTER_OAUTH_CLIENT_SECRET,
-                    'redirect_uri': request.data.get(
-                        'redirect_uri',
-                        f"{'https' if not settings.DEBUG else 'http'}://"
-                        f"{request.get_host()}/auth/twitter/callback"
-                    ),
-                    'code_verifier': code_verifier,
-                },
-                timeout=10,
-            )
-            response.raise_for_status()
-        except http_requests.RequestException as e:
-            logger.error(f'Twitter token exchange failed: {str(e)}')
-            raise OAuthTokenInvalid(detail='Twitter authentication failed.')
-
-        access_token = response.json().get('access_token')
-        if not access_token:
-            raise OAuthTokenInvalid(detail='No access token received from Twitter.')
-
-        # Use the generic OAuth flow to authenticate
-        from apps.accounts.services.oauth_service import authenticate_via_oauth
-        user, created = authenticate_via_oauth('twitter', access_token)
-
-        # Generate JWT tokens and set cookies (same as OAuthLoginView)
-        refresh = RefreshToken.for_user(user)
-        response = Response({
-            'user': UserDetailSerializer(user).data,
-            'message': 'Login successful',
-            'created': created,
-        }, status=status.HTTP_200_OK)
-
-        response.set_cookie(
-            key='access_token', value=str(refresh.access_token),
-            max_age=86400, httponly=True,
-            secure=not settings.DEBUG,
-            samesite='None' if not settings.DEBUG else 'Lax',
-            path='/',
-        )
-        response.set_cookie(
-            key='refresh_token', value=str(refresh),
-            max_age=2592000, httponly=True,
-            secure=not settings.DEBUG,
-            samesite='None' if not settings.DEBUG else 'Lax',
-            path='/',
-        )
-
-        return response
 
 
 class LogoutView(APIView):

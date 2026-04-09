@@ -1,7 +1,6 @@
 from django.urls import path
 from .views import (
     OAuthLoginView,
-    TwitterCallbackView,
     LegacyUserMigrationView,
     UserDetailView,
     UserPublicProfileView,
@@ -19,9 +18,6 @@ from .views import (
 urlpatterns = [
     # OAuth Authentication
     path('oauth/<str:provider>/', OAuthLoginView.as_view(), name='oauth-login'),
-
-    # Twitter OAuth Callback
-    path('twitter/callback/', TwitterCallbackView.as_view(), name='twitter-callback'),
 
     # Legacy User Migration
     path('migration/status/', LegacyUserMigrationView.as_view(), name='migration-status'),

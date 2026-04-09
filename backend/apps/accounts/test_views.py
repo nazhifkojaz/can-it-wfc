@@ -22,7 +22,7 @@ def api_client():
 class TestOAuthLoginView:
     """Test generic OAuth login endpoint."""
 
-    def test_oauth_login_with_google_provider_success(self, api_client):
+    def test_oauth_login_with_google_provider_success(self, api_client, no_throttle):
         """Test successful Google OAuth login returns tokens in cookies."""
         user = User.objects.create_user(
             username='testuser',
@@ -45,12 +45,13 @@ class TestOAuthLoginView:
             assert 'access_token' in response.cookies
             assert 'refresh_token' in response.cookies
 
-    def test_oauth_login_creates_new_user(self, api_client):
+    def test_oauth_login_creates_new_user(self, api_client, no_throttle):
         """Test OAuth login creates new user when email doesn't exist."""
-        new_user = User(
-            id=999,
+        # Create a real user in database (will be cleaned up by pytest-django)
+        new_user = User.objects.create_user(
             username='newuser',
             email='new@example.com',
+            password='testpass123',
             oauth_only=True
         )
 
@@ -65,14 +66,14 @@ class TestOAuthLoginView:
             assert response.data['created'] is True
             assert response.data['user']['username'] == 'newuser'
 
-    def test_oauth_login_missing_token(self, api_client):
+    def test_oauth_login_missing_token(self, api_client, no_throttle):
         """Test OAuth login fails without access token."""
         response = api_client.post('/api/auth/oauth/google/', {})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert 'oauth_token_required' in str(response.data).lower()
 
-    def test_oauth_login_unsupported_provider(self, api_client):
+    def test_oauth_login_unsupported_provider(self, api_client, no_throttle):
         """Test OAuth login fails with unsupported provider."""
         response = api_client.post('/api/auth/oauth/github/', {
             'access_token': 'some-token'
@@ -81,7 +82,7 @@ class TestOAuthLoginView:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert 'Unsupported OAuth provider' in str(response.data)
 
-    def test_oauth_login_token_verification_failure(self, api_client):
+    def test_oauth_login_token_verification_failure(self, api_client, no_throttle):
         """Test OAuth login handles token verification errors."""
         from core.exceptions import OAuthTokenInvalid
 
@@ -221,57 +222,6 @@ class TestLegacyUserMigrationView:
         })
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-@pytest.mark.django_db
-class TestTwitterCallbackView:
-    """Test Twitter OAuth callback endpoint."""
-
-    def test_twitter_callback_success(self, api_client):
-        """Test successful Twitter callback exchanges code for token."""
-        user = User.objects.create_user(
-            username='twitteruser',
-            email='twitter@example.com',
-            password='testpass123'
-        )
-
-        with patch('apps.accounts.services.oauth_service.authenticate_via_oauth') as mock_auth:
-            mock_auth.return_value = (user, False)
-
-            with patch('requests.post') as mock_post:
-                mock_response = Mock()
-                mock_response.json.return_value = {'access_token': 'twitter-access-token'}
-                mock_response.raise_for_status = Mock()
-                mock_post.return_value = mock_response
-
-                response = api_client.post('/api/auth/twitter/callback/', {
-                    'code': 'auth-code-123',
-                    'code_verifier': 'verifier-456'
-                })
-
-                assert response.status_code == status.HTTP_200_OK
-                assert response.data['user']['username'] == 'twitteruser'
-                assert 'access_token' in response.cookies
-                assert 'refresh_token' in response.cookies
-
-    def test_twitter_callback_missing_code(self, api_client):
-        """Test Twitter callback fails without code and verifier."""
-        response = api_client.post('/api/auth/twitter/callback/', {})
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_twitter_callback_token_exchange_failure(self, api_client):
-        """Test Twitter callback handles token exchange errors."""
-        with patch('requests.post') as mock_post:
-            mock_post.side_effect = Exception('Network error')
-
-            response = api_client.post('/api/auth/twitter/callback/', {
-                'code': 'auth-code-123',
-                'code_verifier': 'verifier-456'
-            })
-
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
-
 
 
 @pytest.mark.django_db
