@@ -148,15 +148,14 @@ api.interceptors.response.use(
       // Clear legacy localStorage tokens
       tokenStorage.clearTokens();
 
-      // Redirect to auth only if not already on a public page
-      // Check for both bare root and base URL paths
+      // Redirect to landing page only if not already on a public page
       const path = window.location.pathname;
       const base = import.meta.env.BASE_URL || '/';
       const normalizedBase = base === '/' ? '' : base.replace(/\/$/, '');
       const rootPaths = ['/', `${normalizedBase}/`, normalizedBase || '/'];
 
-      if (!path.includes('/auth') && !rootPaths.some(p => path === p || path === `${p}/`)) {
-        window.location.href = buildAppPath('/auth');
+      if (!rootPaths.some(p => path === p || path === `${p}/`)) {
+        window.location.href = buildAppPath('/');
       }
     }
 

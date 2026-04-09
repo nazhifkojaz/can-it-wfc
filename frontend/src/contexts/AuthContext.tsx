@@ -220,7 +220,7 @@ export const withAuth = <P extends object>(
     }
 
     if (!user) {
-      window.location.href = buildAppPath('/auth');
+      window.location.href = buildAppPath('/');
       return null;
     }
 

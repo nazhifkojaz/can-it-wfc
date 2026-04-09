@@ -127,30 +127,24 @@ describe('ApiClient - 401 Interceptor', () => {
   });
 
   it('clears tokens even on public pages', async () => {
-    await trigger401('/auth');
+    await trigger401('/');
 
     expect(mockClearTokens).toHaveBeenCalled();
   });
 
-  it('redirects to auth when on a protected page', async () => {
+  it('redirects to landing page when on a protected page', async () => {
     await trigger401('/map');
 
-    expect(window.location.href).toBe('/app/auth');
+    expect(window.location.href).toBe('/app/');
   });
 
-  it('redirects to auth when on a nested protected page', async () => {
+  it('redirects to landing page when on a nested protected page', async () => {
     await trigger401('/cafes/123');
 
-    expect(window.location.href).toBe('/app/auth');
+    expect(window.location.href).toBe('/app/');
   });
 
-  it('does not redirect when already on /auth', async () => {
-    await trigger401('/auth');
-
-    expect(window.location.href).toBe('');
-  });
-
-  it('does not redirect when on landing page /', async () => {
+  it('does not redirect when already on landing page', async () => {
     await trigger401('/');
 
     expect(window.location.href).toBe('');

@@ -5,7 +5,6 @@ import { PanelProvider } from './contexts/PanelContext';
 
 // Pages
 import LandingPage from './pages/LandingPage';
-import AuthPage from './pages/AuthPage';
 import MapPage from './pages/MapPage';
 
 function App() {
@@ -18,7 +17,6 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<AuthPage />} />
 
             {/* Protected Routes */}
             <Route
