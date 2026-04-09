@@ -9,12 +9,12 @@ import { identifyUser, resetPostHog } from '../lib/posthog';
 const log = createLogger('AuthContext');
 
 const AUTH_METHOD_KEY = 'analytics_auth_method';
-type AuthMethod = 'google' | 'twitter';
+type AuthMethod = 'google';
 
 function getStoredAuthMethod(): AuthMethod | null {
   try {
     const stored = localStorage.getItem(AUTH_METHOD_KEY);
-    return stored === 'google' || stored === 'twitter' ? stored : null;
+    return stored === 'google' ? stored : null;
   } catch {
     return null;
   }
@@ -59,7 +59,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (provider: 'google' | 'twitter', accessToken: string) => Promise<{ user: User; created: boolean }>;
+  login: (provider: 'google', accessToken: string) => Promise<{ user: User; created: boolean }>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
@@ -113,7 +113,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (provider: 'google' | 'twitter', accessToken: string) => {
+  const login = async (provider: 'google', accessToken: string) => {
     setLoading(true);
     setError(null);
     try {

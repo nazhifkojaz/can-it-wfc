@@ -171,7 +171,7 @@ api.interceptors.response.use(
 export const authApi = {
   // Generic OAuth login (replaces googleLogin + password login)
   oauthLogin: async (
-    provider: 'google' | 'twitter',
+    provider: 'google',
     accessToken: string,
   ): Promise<{ user: User; created: boolean }> => {
     const response = await post<{ user: User; created: boolean }>(
@@ -191,7 +191,7 @@ export const authApi = {
     }>('/auth/migration/status/'),
 
   // Link OAuth provider to legacy account
-  linkOAuthProvider: (provider: 'google' | 'twitter', accessToken: string) =>
+  linkOAuthProvider: (provider: 'google', accessToken: string) =>
     post<{ message: string; provider: string }>('/auth/migration/link/', {
       provider,
       access_token: accessToken,

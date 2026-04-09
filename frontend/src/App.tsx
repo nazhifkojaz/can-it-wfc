@@ -6,7 +6,6 @@ import { PanelProvider } from './contexts/PanelContext';
 // Pages
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
-import TwitterCallbackPage from './pages/TwitterCallbackPage';
 import MapPage from './pages/MapPage';
 
 function App() {
@@ -20,7 +19,6 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/auth/twitter/callback" element={<TwitterCallbackPage />} />
 
             {/* Protected Routes */}
             <Route

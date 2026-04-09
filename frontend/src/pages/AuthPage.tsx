@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
-import TwitterLoginButton from '../components/auth/TwitterLoginButton';
 import UsernameSetupModal from '../components/auth/UsernameSetupModal';
 import LegacyUserMigrationModal from '../components/auth/LegacyUserMigrationModal';
 import { trackUserSignedUp, trackUserLoggedIn, trackUsernameSetupCompleted } from '../lib/analytics';
@@ -21,15 +20,6 @@ const AuthPage: React.FC = () => {
     const checkAuthAndMigration = async () => {
       if (!loading && !didCheckAuth.current) {
         didCheckAuth.current = true;
-
-        // Check for Twitter OAuth result from callback
-        const twitterResult = sessionStorage.getItem('twitter_oauth_result');
-        if (twitterResult && user) {
-          sessionStorage.removeItem('twitter_oauth_result');
-          const { user: userData, created } = JSON.parse(twitterResult);
-          handleOAuthSuccess('twitter', { user: userData, created });
-          return;
-        }
 
         if (user) {
           // User is logged in, check if they need migration
@@ -54,7 +44,7 @@ const AuthPage: React.FC = () => {
   }, [user, loading, navigate, checkMigrationStatus]);
 
   const handleOAuthSuccess = async (
-    provider: 'google' | 'twitter',
+    provider: 'google',
     result: { user: User; created: boolean }
   ) => {
     const { user: userData, created } = result;
@@ -109,7 +99,6 @@ const AuthPage: React.FC = () => {
 
         <div className="auth-buttons">
           <GoogleLoginButton mode="signin" onSuccess={handleOAuthSuccess} />
-          <TwitterLoginButton mode="signin" />
         </div>
 
         <div className="info-text">

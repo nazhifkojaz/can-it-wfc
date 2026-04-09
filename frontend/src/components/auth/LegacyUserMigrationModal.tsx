@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useResultModal } from '../../hooks';
 import { ResultModal } from '../common';
 import GoogleLoginButton from './GoogleLoginButton';
-import TwitterLoginButton from './TwitterLoginButton';
 import { extractApiError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
 import styles from './LegacyUserMigrationModal.module.css';
@@ -66,7 +65,7 @@ const LegacyUserMigrationModal: React.FC<LegacyUserMigrationModalProps> = ({
           <h3 className={styles.title}>We've Moved to Social Login</h3>
           <p className={styles.description}>
             We've updated our authentication system to use social login only. To continue using your account,
-            please link it to your Google or Twitter account.
+            please link it to your Google account.
           </p>
           <p className={styles.note}>
             <strong>Important:</strong> Your social account email must match your current account email
@@ -75,7 +74,6 @@ const LegacyUserMigrationModal: React.FC<LegacyUserMigrationModalProps> = ({
 
           <div className={styles.buttons}>
             <GoogleLoginButton mode="signin" />
-            <TwitterLoginButton mode="signin" />
           </div>
 
           {linking && (
