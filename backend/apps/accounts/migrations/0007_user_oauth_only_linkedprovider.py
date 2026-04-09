@@ -21,10 +21,10 @@ class Migration(migrations.Migration):
             name='LinkedProvider',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('provider', models.CharField(choices=[('google', 'Google'), ('twitter', 'Twitter')], max_length=20)),
-                ('provider_user_id', models.CharField(help_text='External user ID from OAuth provider (Google sub, Twitter user ID)', max_length=255)),
+                ('provider', models.CharField(choices=[('google', 'Google')], max_length=20)),
+                ('provider_user_id', models.CharField(help_text='External user ID from OAuth provider (Google sub)', max_length=255)),
                 ('email', models.EmailField(db_index=True, help_text='Email from OAuth provider, used for account linking', max_length=254)),
-                ('display_name', models.CharField(blank=True, default='', help_text='Username/handle from OAuth provider (Twitter @handle, etc.)', max_length=255)),
+                ('display_name', models.CharField(blank=True, default='', help_text='Display name from OAuth provider', max_length=255)),
                 ('avatar_url', models.URLField(blank=True, null=True)),
                 ('linked_at', models.DateTimeField(auto_now_add=True)),
                 ('last_used_at', models.DateTimeField(auto_now=True)),
