@@ -98,30 +98,27 @@ class TestUserActivityView:
         Test that private profile activity is hidden from non-owners.
         """
         mock_request = Mock()
-        mock_user = Mock(spec=User)
-        mock_user.id = 1
-        mock_user.username = 'testuser'
-        mock_request.user = mock_user  # Different user (not authenticated as owner)
-        mock_request.user.is_authenticated = False
+        mock_request.user = Mock()
+        mock_request.user.is_authenticated = True
+        mock_request.user.id = 999  # Different user from the target
         mock_request.query_params = {'limit': '20'}
 
-        # Create mock user settings with private profile
-        mock_user_settings = Mock()
-        mock_user_settings.show_activity_dates = True
-        mock_user_settings.profile_visibility = 'private'
-        mock_user.settings = mock_user_settings
+        mock_target_user = Mock(spec=User)
+        mock_target_user.id = 1
+        mock_target_user.username = 'testuser'
 
         # Mock User.objects.get to return our mock user
         with patch('apps.accounts.views.User') as MockUser:
-            MockUser.objects.get.return_value = mock_user
+            MockUser.objects.get.return_value = mock_target_user
 
-            from apps.accounts.views import UserActivityView
-            view = UserActivityView()
-            view.request = mock_request
-            view.format_kwarg = None
+            with patch('apps.accounts.utils.can_view_user_activity', return_value=False):
+                from apps.accounts.views import UserActivityView
+                view = UserActivityView()
+                view.request = mock_request
+                view.format_kwarg = None
 
-            response = view.get(mock_request, username='testuser')
+                response = view.get(mock_request, username='testuser')
 
-            assert response.status_code == 200
-            assert response.data['message'] == 'This profile is private'
-            assert response.data['activity'] == []
+                assert response.status_code == 200
+                assert response.data['message'] == 'This activity is private'
+                assert response.data['activity'] == []

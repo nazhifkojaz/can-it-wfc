@@ -63,25 +63,42 @@ class NotFollowing(APIException):
     default_code = 'not_following'
 
 
-class GoogleAuthError(APIException):
-    """Raised when Google authentication fails."""
+class OAuthTokenInvalid(APIException):
+    """Raised when OAuth token verification fails."""
     status_code = status.HTTP_400_BAD_REQUEST
-    default_detail = 'Google authentication failed'
-    default_code = 'google_auth_error'
+    default_detail = 'OAuth token verification failed'
+    default_code = 'oauth_token_invalid'
 
 
-class GoogleAuthTokenRequired(APIException):
-    """Raised when Google access token is missing."""
+class OAuthTokenRequired(APIException):
+    """Raised when OAuth access token is missing from request."""
     status_code = status.HTTP_400_BAD_REQUEST
-    default_detail = 'Google access token is required'
-    default_code = 'google_token_required'
+    default_detail = 'OAuth access token is required'
+    default_code = 'oauth_token_required'
 
 
-class GoogleEmailNotProvided(APIException):
-    """Raised when Google doesn't provide email."""
+class OAuthEmailNotProvided(APIException):
+    """Raised when OAuth provider doesn't return an email."""
     status_code = status.HTTP_400_BAD_REQUEST
-    default_detail = 'Email not provided by Google'
-    default_code = 'google_email_not_provided'
+    default_detail = 'Email not provided by OAuth provider'
+    default_code = 'oauth_email_not_provided'
+
+    def __init__(self, provider: str = 'OAuth provider', **kwargs):
+        detail = f'Email not provided by {provider}. Please ensure email sharing is enabled.'
+        super().__init__(detail=detail, **kwargs)
+
+
+class OAuthEmailMismatch(APIException):
+    """Raised during migration when OAuth email doesn't match account email."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = 'OAuth email does not match your account email'
+    default_code = 'oauth_email_mismatch'
+
+
+# Backward compatibility aliases
+GoogleAuthError = OAuthTokenInvalid
+GoogleAuthTokenRequired = OAuthTokenRequired
+GoogleEmailNotProvided = OAuthEmailNotProvided
 
 
 # =============================================================================

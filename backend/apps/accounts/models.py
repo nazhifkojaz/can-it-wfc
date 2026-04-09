@@ -43,6 +43,10 @@ class User(AbstractUser):
     total_visits = models.IntegerField(default=0)
     followers_count = models.IntegerField(default=0)
     following_count = models.IntegerField(default=0)
+    oauth_only = models.BooleanField(
+        default=False,
+        help_text="True if user was created via OAuth and never had a password",
+    )
 
     class Meta:
         db_table = 'users'
@@ -175,6 +179,49 @@ class UserSettings(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s settings"
+
+
+class LinkedProvider(models.Model):
+    """Tracks OAuth providers linked to a user account."""
+    PROVIDER_CHOICES = [
+        ('google', 'Google'),
+        ('twitter', 'Twitter'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='linked_providers',
+    )
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider_user_id = models.CharField(
+        max_length=255,
+        help_text="External user ID from OAuth provider (Google sub, Twitter user ID)",
+    )
+    email = models.EmailField(
+        db_index=True,
+        help_text="Email from OAuth provider, used for account linking",
+    )
+    display_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Username/handle from OAuth provider (Twitter @handle, etc.)",
+    )
+    avatar_url = models.URLField(blank=True, null=True)
+    linked_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'linked_providers'
+        unique_together = [('provider', 'provider_user_id')]
+        indexes = [
+            models.Index(fields=['user', 'provider'], name='lp_user_provider_idx'),
+            models.Index(fields=['email'], name='lp_email_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.provider}"
 
 
 class Follow(models.Model):
