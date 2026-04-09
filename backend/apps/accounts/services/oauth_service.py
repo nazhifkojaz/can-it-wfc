@@ -31,7 +31,7 @@ class OAuthProviderBase(ABC):
 
     @abstractmethod
     def get_provider_name(self) -> str:
-        """Return provider identifier: 'google', 'twitter', etc."""
+        """Return provider identifier: 'google', etc."""
         ...
 
 
@@ -65,45 +65,9 @@ class GoogleOAuthProvider(OAuthProviderBase):
         return 'google'
 
 
-class TwitterOAuthProvider(OAuthProviderBase):
-    """Verifies Twitter access tokens by calling Twitter API v2."""
-
-    BASE_URL = "https://api.twitter.com/2"
-
-    def verify_token(self, token: str) -> OAuthUserInfo:
-        import requests
-
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/users/me",
-                headers={"Authorization": f"Bearer {token}"},
-                params={"user.fields": "id,username,profile_image_url,email"},
-                timeout=10,
-            )
-            response.raise_for_status()
-        except requests.RequestException as e:
-            raise OAuthTokenInvalid(detail=f"Twitter token verification failed: {str(e)}")
-
-        data = response.json().get('data', {})
-        email = data.get('email')
-        if not email:
-            raise OAuthEmailNotProvided(provider='Twitter')
-
-        return OAuthUserInfo(
-            provider_user_id=str(data['id']),
-            email=email,
-            display_name=data.get('username', ''),
-            avatar_url=data.get('profile_image_url', ''),
-        )
-
-    def get_provider_name(self) -> str:
-        return 'twitter'
-
-
 # Registry of available providers
 PROVIDERS: dict[str, OAuthProviderBase] = {
     'google': GoogleOAuthProvider(),
-    'twitter': TwitterOAuthProvider(),
 }
 
 

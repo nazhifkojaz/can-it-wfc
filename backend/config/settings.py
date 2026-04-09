@@ -364,7 +364,3 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # Google OAuth Callback URL
 GOOGLE_OAUTH_CALLBACK_URL = env('GOOGLE_OAUTH_CALLBACK_URL', default='http://localhost:3000/auth/google/callback')
-
-# Twitter OAuth credentials
-TWITTER_OAUTH_CLIENT_ID = env('TWITTER_OAUTH_CLIENT_ID', default='')
-TWITTER_OAUTH_CLIENT_SECRET = env('TWITTER_OAUTH_CLIENT_SECRET', default='')

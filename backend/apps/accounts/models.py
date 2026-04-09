@@ -185,7 +185,6 @@ class LinkedProvider(models.Model):
     """Tracks OAuth providers linked to a user account."""
     PROVIDER_CHOICES = [
         ('google', 'Google'),
-        ('twitter', 'Twitter'),
     ]
 
     user = models.ForeignKey(
@@ -196,7 +195,7 @@ class LinkedProvider(models.Model):
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
     provider_user_id = models.CharField(
         max_length=255,
-        help_text="External user ID from OAuth provider (Google sub, Twitter user ID)",
+        help_text="External user ID from OAuth provider (e.g. Google sub)",
     )
     email = models.EmailField(
         db_index=True,
@@ -206,7 +205,7 @@ class LinkedProvider(models.Model):
         max_length=255,
         blank=True,
         default='',
-        help_text="Username/handle from OAuth provider (Twitter @handle, etc.)",
+        help_text="Username/handle from OAuth provider",
     )
     avatar_url = models.URLField(blank=True, null=True)
     linked_at = models.DateTimeField(auto_now_add=True)

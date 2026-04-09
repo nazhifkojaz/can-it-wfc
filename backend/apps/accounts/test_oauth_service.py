@@ -92,17 +92,11 @@ class TestLinkedProviderModel:
         link2 = self._create_link(provider='google', provider_user_id='id2')
         assert link1.pk != link2.pk
 
-    def test_different_providers_same_id_allowed(self):
-        link1 = self._create_link(provider='google', provider_user_id='shared_id')
-        link2 = self._create_link(provider='twitter', provider_user_id='shared_id')
+    def test_same_provider_different_users_allowed(self):
+        """Different users can both have Google links."""
+        link1 = self._create_link(provider='google', provider_user_id='id1')
+        link2 = self._create_link(provider='google', provider_user_id='id2')
         assert link1.pk != link2.pk
-
-    def test_user_can_have_multiple_providers(self):
-        link = self._create_link(provider='google', provider_user_id='g_id')
-        link2 = self._create_link(
-            user=link.user, provider='twitter', provider_user_id='t_id'
-        )
-        assert link.user.linked_providers.count() == 2
 
     def test_display_name_defaults_to_blank(self):
         link = self._create_link(display_name='')
@@ -126,10 +120,6 @@ class TestProviderRegistry:
     def test_get_provider_google(self):
         provider = get_provider('google')
         assert provider.get_provider_name() == 'google'
-
-    def test_get_provider_twitter(self):
-        provider = get_provider('twitter')
-        assert provider.get_provider_name() == 'twitter'
 
     def test_get_provider_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown OAuth provider"):
@@ -226,22 +216,22 @@ class TestAuthenticateViaOAuth:
         result_user.refresh_from_db()
         assert result_user.avatar_url == 'https://google.com/photo.jpg'
 
-    @patch.object(PROVIDERS['twitter'], 'verify_token')
+    @patch.object(PROVIDERS['google'], 'verify_token')
     def test_new_user_created_with_oauth_only(self, mock_verify):
         """No existing link or email → create new user with oauth_only=True."""
         mock_verify.return_value = self._mock_user_info(
-            display_name='twitterhandle'
+            display_name='googlehandle'
         )
 
-        result_user, created = authenticate_via_oauth('twitter', 'token')
+        result_user, created = authenticate_via_oauth('google', 'token')
 
         assert created is True
-        assert result_user.username == 'twitterhandle'
+        assert result_user.username == 'googlehandle'
         assert result_user.email == 'user@example.com'
         assert result_user.oauth_only is True
         assert result_user.is_active is True
         assert LinkedProvider.objects.filter(
-            user=result_user, provider='twitter'
+            user=result_user, provider='google'
         ).exists()
 
     @patch.object(PROVIDERS['google'], 'verify_token')
