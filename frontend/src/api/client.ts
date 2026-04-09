@@ -1,10 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import {
   User,
-  UserRegistration,
-  UserLogin,
   UserUpdate,
-  AuthTokens,
   UserProfile,
   UserSettings,
   UserActivityResponse,
@@ -146,15 +143,15 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     // If error is 401 (Unauthorized), cookies may have expired
-    // Redirect to login page
+    // Redirect to auth page
     if (error.response?.status === 401) {
       // Clear legacy localStorage tokens
       tokenStorage.clearTokens();
 
-      // Redirect to login only if not already on a public page
+      // Redirect to auth only if not already on a public page
       const path = window.location.pathname;
-      if (!path.includes('/login') && !path.includes('/register') && path !== '/') {
-        window.location.href = buildAppPath('/login');
+      if (!path.includes('/auth') && path !== '/') {
+        window.location.href = buildAppPath('/auth');
       }
     }
 
@@ -167,11 +164,33 @@ api.interceptors.response.use(
 // ===========================
 
 export const authApi = {
-  // Register new user
-  register: (data: UserRegistration) => post<User>('/auth/register/', data),
+  // Generic OAuth login (replaces googleLogin + password login)
+  oauthLogin: async (
+    provider: 'google' | 'twitter',
+    accessToken: string,
+  ): Promise<{ user: User; created: boolean }> => {
+    const response = await post<{ user: User; created: boolean }>(
+      `/auth/oauth/${provider}/`,
+      { access_token: accessToken },
+    );
+    tokenStorage.clearTokens(); // Clear legacy localStorage tokens
+    return { user: response.user, created: response.created ?? false };
+  },
 
-  // Login user (JWT)
-  login: (data: UserLogin) => post<AuthTokens>('/auth/login/', data),
+  // Get migration status for legacy users
+  getMigrationStatus: () =>
+    get<{
+      needs_migration: boolean;
+      has_linked_providers: boolean;
+      linked_providers: string[];
+    }>('/auth/migration/status/'),
+
+  // Link OAuth provider to legacy account
+  linkOAuthProvider: (provider: 'google' | 'twitter', accessToken: string) =>
+    post<{ message: string; provider: string }>('/auth/migration/link/', {
+      provider,
+      access_token: accessToken,
+    }),
 
   // Logout user
   logout: async () => {
@@ -185,29 +204,11 @@ export const authApi = {
     tokenStorage.clearTokens();
   },
 
-  // Refresh access token (deprecated; tokens are refreshed via httpOnly cookies)
-  refreshToken: (refreshToken: string) =>
-    post<{ access: string }>('/auth/refresh/', { refresh: refreshToken }),
-
   // Get current user
   getCurrentUser: () => get<User>('/auth/me/'),
 
-  // Google OAuth login
-  googleLogin: async (accessToken: string): Promise<{ user: User; created: boolean }> => {
-    const response = await post<{ user: User; created: boolean }>('/auth/google/', { access_token: accessToken });
-
-    // Clear legacy localStorage tokens
-    tokenStorage.clearTokens();
-
-    return { user: response.user, created: response.created ?? false };
-  },
-
   // Update profile (for username, bio, etc.)
   updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
-
-  // Change password
-  changePassword: (data: { old_password: string; new_password: string }) =>
-    post('/auth/change-password/', data),
 
   // Get public profile by username
   getUserByUsername: (username: string) => get<User>(`/auth/users/${username}/`),
@@ -223,10 +224,6 @@ export const userApi = {
 
   // Update user profile
   updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
-
-  // Change password
-  changePassword: (oldPassword: string, newPassword: string) =>
-    post('/auth/change-password/', { old_password: oldPassword, new_password: newPassword }),
 
   // Get user by ID
   getById: (userId: number) => get<User>(`/auth/users/${userId}/`),

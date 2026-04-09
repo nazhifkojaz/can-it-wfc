@@ -127,31 +127,25 @@ describe('ApiClient - 401 Interceptor', () => {
   });
 
   it('clears tokens even on public pages', async () => {
-    await trigger401('/login');
+    await trigger401('/auth');
 
     expect(mockClearTokens).toHaveBeenCalled();
   });
 
-  it('redirects to login when on a protected page', async () => {
+  it('redirects to auth when on a protected page', async () => {
     await trigger401('/map');
 
-    expect(window.location.href).toBe('/app/login');
+    expect(window.location.href).toBe('/app/auth');
   });
 
-  it('redirects to login when on a nested protected page', async () => {
+  it('redirects to auth when on a nested protected page', async () => {
     await trigger401('/cafes/123');
 
-    expect(window.location.href).toBe('/app/login');
+    expect(window.location.href).toBe('/app/auth');
   });
 
-  it('does not redirect when already on /login', async () => {
-    await trigger401('/login');
-
-    expect(window.location.href).toBe('');
-  });
-
-  it('does not redirect when already on /register', async () => {
-    await trigger401('/register');
+  it('does not redirect when already on /auth', async () => {
+    await trigger401('/auth');
 
     expect(window.location.href).toBe('');
   });

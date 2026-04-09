@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserLogin, UserRegistration } from '../types';
+import { User } from '../types';
 import { authApi, userApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
 import { extractApiError } from '../utils/errorUtils';
@@ -9,12 +9,12 @@ import { identifyUser, resetPostHog } from '../lib/posthog';
 const log = createLogger('AuthContext');
 
 const AUTH_METHOD_KEY = 'analytics_auth_method';
-type AuthMethod = 'google' | 'email';
+type AuthMethod = 'google' | 'twitter';
 
 function getStoredAuthMethod(): AuthMethod | null {
   try {
     const stored = localStorage.getItem(AUTH_METHOD_KEY);
-    return stored === 'google' || stored === 'email' ? stored : null;
+    return stored === 'google' || stored === 'twitter' ? stored : null;
   } catch {
     return null;
   }
@@ -59,11 +59,15 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (credentials: UserLogin | { user: User; access: string; refresh: string }) => Promise<void>;
-  register: (data: UserRegistration) => Promise<void>;
-  logout: () => Promise<void>;  // Changed to async
+  login: (provider: 'google' | 'twitter', accessToken: string) => Promise<{ user: User; created: boolean }>;
+  logout: () => Promise<void>;
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
+  checkMigrationStatus: () => Promise<{
+    needs_migration: boolean;
+    has_linked_providers: boolean;
+    linked_providers: string[];
+  }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -106,31 +110,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (credentials: UserLogin | { user: User; access: string; refresh: string }) => {
+  const login = async (provider: 'google' | 'twitter', accessToken: string) => {
     setLoading(true);
     setError(null);
-
     try {
-      // Check if this is a Google login (with user data already provided)
-      if ('user' in credentials) {
-        // Google OAuth login - tokens already stored by authApi.googleLogin
-        setUser(credentials.user);
-
-        // Store auth method for analytics and identify user
-        setStoredAuthMethod('google');
-        identifyUserInPostHog(credentials.user, 'google');
-      } else {
-        // Regular email login
-        await authApi.login(credentials);
-
-        // Get user data
-        const userData = await authApi.getCurrentUser();
-        setUser(userData);
-
-        // Store auth method for analytics and identify user
-        setStoredAuthMethod('email');
-        identifyUserInPostHog(userData, 'email');
-      }
+      const { user: userData, created } = await authApi.oauthLogin(provider, accessToken);
+      setUser(userData);
+      setStoredAuthMethod(provider);
+      identifyUserInPostHog(userData, provider);
+      return { user: userData, created };
     } catch (err: any) {
       const apiError = extractApiError(err);
       setError(apiError.message);
@@ -140,35 +128,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (data: UserRegistration) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Validate passwords match
-      if (data.password !== data.password2) {
-        throw new Error('Passwords do not match');
-      }
-
-      // Register user
-      await authApi.register(data);
-
-      // Store auth method before login (login will overwrite it, so we need to be careful)
-      // Registration is always email auth
-      setStoredAuthMethod('email');
-
-      // Auto-login after registration
-      await login({
-        username: data.username,
-        password: data.password,
-      });
-    } catch (err: any) {
-      const apiError = extractApiError(err);
-      setError(apiError.message);
-      throw new Error(apiError.message);
-    } finally {
-      setLoading(false);
-    }
+  const checkMigrationStatus = async () => {
+    return await authApi.getMigrationStatus();
   };
 
   const logout = async () => {
@@ -215,10 +176,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     error,
     login,
-    register,
     logout,
     updateUser,
     refreshUser,
+    checkMigrationStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -256,7 +217,7 @@ export const withAuth = <P extends object>(
     }
 
     if (!user) {
-      window.location.href = buildAppPath('/');
+      window.location.href = buildAppPath('/auth');
       return null;
     }
 

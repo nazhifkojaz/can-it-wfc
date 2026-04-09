@@ -19,23 +19,6 @@ export interface User {
   account_age_hours?: number;
 }
 
-export interface UserRegistration {
-  username: string;
-  email: string;
-  password: string;
-  password2: string;
-}
-
-export interface UserLogin {
-  username: string;
-  password: string;
-}
-
-export interface AuthTokens {
-  access: string;
-  refresh: string;
-}
-
 export interface UserUpdate {
   username?: string;
   display_name?: string; // Customizable display name (always editable)
