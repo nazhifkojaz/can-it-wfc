@@ -1,10 +1,10 @@
 from django.urls import path
 from .views import (
-    UserRegistrationView,
+    OAuthLoginView,
+    TwitterCallbackView,
+    LegacyUserMigrationView,
     UserDetailView,
     UserPublicProfileView,
-    ChangePasswordView,
-    GoogleLoginView,
     LogoutView,
     UserActivityView,
     UserSettingsUpdateView,
@@ -17,14 +17,19 @@ from .views import (
 )
 
 urlpatterns = [
-    # Authentication
-    path('register/', UserRegistrationView.as_view(), name='register'),
+    # OAuth Authentication
+    path('oauth/<str:provider>/', OAuthLoginView.as_view(), name='oauth-login'),
+
+    # Twitter OAuth Callback
+    path('twitter/callback/', TwitterCallbackView.as_view(), name='twitter-callback'),
+
+    # Legacy User Migration
+    path('migration/status/', LegacyUserMigrationView.as_view(), name='migration-status'),
+    path('migration/link/', LegacyUserMigrationView.as_view(), name='migration-link'),
+
+    # Session Management
     path('me/', UserDetailView.as_view(), name='user-detail'),
     path('me/settings/', UserSettingsUpdateView.as_view(), name='user-settings'),
-    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
-
-    # Social Authentication
-    path('google/', GoogleLoginView.as_view(), name='google-login'),
     path('logout/', LogoutView.as_view(), name='logout'),
 
     # Follow Management
