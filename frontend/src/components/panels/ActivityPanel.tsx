@@ -117,7 +117,7 @@ const ActivityPanel: React.FC = () => {
           <h2 className="panel-title">Your Activity</h2>
         </div>
         <button
-          className="home-button"
+          className="home-button refresh-button"
           onClick={fetchFeed}
           disabled={loading}
           aria-label="Refresh activity"

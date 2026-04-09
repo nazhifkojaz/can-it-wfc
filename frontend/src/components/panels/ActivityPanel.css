@@ -7,6 +7,13 @@
   display: flex;
   flex-direction: column;
   background: var(--neo-bg);
+  position: relative;
+}
+
+/* Override panel header for activity panel to allow absolute positioning of refresh button */
+.activity-panel .panel-header {
+  position: relative;
+  padding-right: 56px; /* Make room for refresh button */
 }
 
 /* Override: Different padding for empty state in activity panel */
@@ -35,6 +42,13 @@
 .error-state p {
   color: var(--neo-danger);
   font-weight: var(--neo-font-bold);
+}
+
+/* Refresh button positioned in top right corner - extends home-button base styles */
+.refresh-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }
 
 /* Refresh button spin animation */
