@@ -33,7 +33,7 @@ const LandingPage: React.FC = () => {
       {/* ── NAV ── */}
       <nav className="lp6-nav">
         <div className="lp6-nav-logo">
-          <img src="/logo192.png" alt="Can-It-WFC" width="36" height="36" />
+          <img src={`${import.meta.env.BASE_URL}logo192.png`} alt="Can-It-WFC" width="36" height="36" />
           <span>CAN-IT-WFC</span>
         </div>
         <div className="lp6-nav-actions">

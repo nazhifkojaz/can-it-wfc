@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User } from '../types';
 import { authApi, userApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
@@ -80,9 +80,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasCheckedAuth = useRef(false);
 
   // Check if user is logged in on mount
   useEffect(() => {
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
     checkAuth();
   }, []);
 
