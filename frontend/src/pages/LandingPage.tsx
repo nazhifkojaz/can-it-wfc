@@ -37,8 +37,8 @@ const LandingPage: React.FC = () => {
           <span>CAN-IT-WFC</span>
         </div>
         <div className="lp6-nav-actions">
-          <button className="lp6-btn-ghost" onClick={() => navigate('/login')}>Log In</button>
-          <button className="lp6-btn-primary" onClick={() => navigate('/register')}>Sign Up</button>
+          <button className="lp6-btn-ghost" onClick={() => navigate('/auth')}>Log In</button>
+          <button className="lp6-btn-primary" onClick={() => navigate('/auth')}>Sign Up</button>
         </div>
       </nav>
 
@@ -55,8 +55,8 @@ const LandingPage: React.FC = () => {
           WiFi speed · Power outlets · Noise level · All verified.
         </p>
         <div className="lp6-hero-ctas">
-          <button className="lp6-btn-hero" onClick={() => navigate('/register')}>JOIN THE COMMUNITY</button>
-          <button className="lp6-btn-hero-alt" onClick={() => navigate('/login')}>I HAVE AN ACCOUNT</button>
+          <button className="lp6-btn-hero" onClick={() => navigate('/auth')}>JOIN THE COMMUNITY</button>
+          <button className="lp6-btn-hero-alt" onClick={() => navigate('/auth')}>I HAVE AN ACCOUNT</button>
         </div>
         <div className="lp6-deco" aria-hidden="true">
           <div className="lp6-deco-circle" />

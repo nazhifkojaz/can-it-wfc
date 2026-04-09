@@ -5,9 +5,10 @@ import { extractApiError } from '../utils/errorUtils';
 import { logger } from '../utils/logger';
 
 const TwitterCallbackPage: React.FC = () => {
+
+const TwitterCallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(true);
 

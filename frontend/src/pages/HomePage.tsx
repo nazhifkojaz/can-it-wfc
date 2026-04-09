@@ -20,15 +20,15 @@ const HomePage: React.FC = () => {
         <p>Discover the best cafes for remote work</p>
         
         <div className="cta-buttons">
-          <button 
+          <button
             className="btn-primary"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/auth')}
           >
             Get Started
           </button>
-          <button 
+          <button
             className="btn-secondary"
-            onClick={() => navigate('/register')}
+            onClick={() => navigate('/auth')}
           >
             Sign Up
           </button>

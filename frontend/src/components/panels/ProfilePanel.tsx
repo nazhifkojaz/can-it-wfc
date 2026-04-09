@@ -22,7 +22,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useResultModal, useVisits, useFavorites } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { ResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
-import ChangePasswordModal from '../profile/ChangePasswordModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
@@ -64,7 +63,6 @@ const ProfilePanel: React.FC = () => {
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [savingUsername, setSavingUsername] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
 
   // Visits tab state and hooks
   const {
@@ -996,20 +994,6 @@ const ProfilePanel: React.FC = () => {
                 </label>
               </div>
 
-              {/* Change Password */}
-              <button
-                className="setting-item clickable"
-                onClick={() => setShowChangePassword(true)}
-              >
-                <div className="setting-info">
-                  <div className="setting-icon">
-                    <Edit size={20} />
-                  </div>
-                  <p className="setting-label">Change Password</p>
-                </div>
-                <ChevronRight size={20} />
-              </button>
-
               {/* Logout */}
               <button className="setting-item clickable danger" onClick={handleLogout}>
                 <div className="setting-info">
@@ -1168,15 +1152,6 @@ const ProfilePanel: React.FC = () => {
           onSuccess={handleReviewSuccessFromFavorites}
         />
       )}
-
-      {/* ChangePasswordModal */}
-      <ChangePasswordModal
-        isOpen={showChangePassword}
-        onClose={() => setShowChangePassword(false)}
-        onSuccess={() => {
-          // Password changed successfully - modal handles the success message
-        }}
-      />
 
       {/* ResultModal for logout confirmation and other actions */}
       <ResultModal
