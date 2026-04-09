@@ -5,26 +5,21 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from google.oauth2 import id_token
-from google.auth.transport import requests
 from core.exceptions import (
     UserNotFound,
     SelfFollowNotAllowed,
     AlreadyFollowing,
     NotFollowing,
-    GoogleAuthError,
-    GoogleAuthTokenRequired,
-    GoogleEmailNotProvided,
+    OAuthTokenInvalid,
+    OAuthTokenRequired,
+    OAuthEmailNotProvided,
+    OAuthEmailMismatch,
 )
 
 
 # Custom throttle classes for authentication endpoints
 class AuthThrottle(AnonRateThrottle):
     scope = 'auth'
-
-
-class RegistrationThrottle(AnonRateThrottle):
-    scope = 'registration'
 
 
 class PublicApiThrottle(AnonRateThrottle):
@@ -34,9 +29,7 @@ class PublicApiThrottle(AnonRateThrottle):
 from .serializers import (
     UserSerializer,
     UserDetailSerializer,
-    UserRegistrationSerializer,
     UserUpdateSerializer,
-    ChangePasswordSerializer,
     UserProfileSerializer,
     UserSettingsSerializer,
     UserActivityItemSerializer,
@@ -48,28 +41,6 @@ from core.logging import get_logger
 logger = get_logger(__name__)
 
 User = get_user_model()
-
-
-class UserRegistrationView(generics.CreateAPIView):
-    """
-    Register a new user.
-
-    POST /api/auth/register/
-    """
-    queryset = User.objects.all()
-    serializer_class = UserRegistrationSerializer
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [RegistrationThrottle]
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'message': 'User registered successfully. Please login to get your token.'
-        }, status=status.HTTP_201_CREATED)
 
 
 class UserDetailView(generics.RetrieveUpdateAPIView):
@@ -120,138 +91,230 @@ class UserPublicProfileView(generics.RetrieveAPIView):
         return super().get_object()
 
 
-class ChangePasswordView(APIView):
+class OAuthLoginView(APIView):
     """
-    Change user password.
+    Generic OAuth login endpoint.
 
-    POST /api/auth/change-password/
+    POST /api/auth/oauth/{provider}/
+    Body: { "access_token": "..." }
+
+    Supported providers: google, twitter
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthThrottle]
+
+    def post(self, request, provider: str):
+        from apps.accounts.services.oauth_service import authenticate_via_oauth, get_provider
+
+        token = request.data.get('access_token')
+        if not token:
+            raise OAuthTokenRequired()
+
+        # Validate provider name
+        try:
+            get_provider(provider)
+        except ValueError:
+            return Response(
+                {'detail': f'Unsupported OAuth provider: {provider}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user, created = authenticate_via_oauth(provider, token)
+        except (OAuthTokenInvalid, OAuthEmailNotProvided) as e:
+            raise  # Re-raise our custom exceptions
+        except Exception as e:
+            logger.error(f'OAuth login failed for {provider}: {str(e)}', exc_info=True)
+            raise OAuthTokenInvalid(detail='Authentication failed. Please try again.')
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response({
+            'user': UserDetailSerializer(user).data,
+            'message': 'Login successful',
+            'created': created,
+        }, status=status.HTTP_200_OK)
+
+        # Set httpOnly cookies (24hr access, 30-day refresh)
+        response.set_cookie(
+            key='access_token',
+            value=access_token,
+            max_age=86400,       # 24 hours
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='None' if not settings.DEBUG else 'Lax',
+            path='/',
+        )
+        response.set_cookie(
+            key='refresh_token',
+            value=refresh_token,
+            max_age=2592000,     # 30 days
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='None' if not settings.DEBUG else 'Lax',
+            path='/',
+        )
+
+        return response
+
+
+class LegacyUserMigrationView(APIView):
+    """
+    Check and handle legacy user migration to OAuth.
+
+    GET  /api/auth/migration/status/  — Check if user needs migration
+    POST /api/auth/migration/link/    — Link an OAuth provider to legacy account
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    def get(self, request):
+        """Check if current user needs to link an OAuth provider."""
+        from apps.accounts.models import LinkedProvider
+
+        has_linked = LinkedProvider.objects.filter(user=request.user).exists()
+        needs_migration = not has_linked and not request.user.oauth_only
+
+        return Response({
+            'needs_migration': needs_migration,
+            'has_linked_providers': has_linked,
+            'linked_providers': list(
+                LinkedProvider.objects.filter(user=request.user)
+                .values_list('provider', flat=True)
+            ),
+        })
+
     def post(self, request):
-        serializer = ChangePasswordSerializer(
-            data=request.data,
-            context={'request': request}
+        """Link an OAuth provider to the current legacy account."""
+        from apps.accounts.services.oauth_service import get_provider
+        from apps.accounts.models import LinkedProvider
+
+        provider_name = request.data.get('provider')
+        token = request.data.get('access_token')
+
+        if not provider_name or not token:
+            raise OAuthTokenRequired()
+
+        # Verify token with provider
+        try:
+            provider = get_provider(provider_name)
+            user_info = provider.verify_token(token)
+        except (ValueError, OAuthTokenInvalid, OAuthEmailNotProvided):
+            raise
+
+        # Security: OAuth email must match the user's account email
+        if user_info.email.lower() != request.user.email.lower():
+            raise OAuthEmailMismatch(
+                detail=(
+                    f"Your {provider_name.capitalize()} account email "
+                    f"({user_info.email}) doesn't match your account email "
+                    f"({request.user.email}). Please use the matching account."
+                )
+            )
+
+        # Create the link
+        LinkedProvider.objects.get_or_create(
+            user=request.user,
+            provider=provider_name,
+            provider_user_id=user_info.provider_user_id,
+            defaults={
+                'email': user_info.email,
+                'display_name': user_info.display_name,
+                'avatar_url': user_info.avatar_url,
+            },
         )
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'message': 'Password changed successfully.'
-            }, status=status.HTTP_200_OK)
+        # Update avatar if provider has one
+        if user_info.avatar_url and not request.user.avatar_url:
+            request.user.avatar_url = user_info.avatar_url
+            request.user.save(update_fields=['avatar_url'])
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'message': f'{provider_name.capitalize()} account linked successfully',
+            'provider': provider_name,
+        })
 
 
-class GoogleLoginView(APIView):
+class TwitterCallbackView(APIView):
     """
-    Google OAuth2 login endpoint using ID token from @react-oauth/google.
+    Exchange Twitter OAuth authorization code for access token.
 
-    POST /api/auth/google/
+    POST /api/auth/twitter/callback/
+    Body: { "code": "...", "code_verifier": "..." }
 
-    Body:
-    {
-        "access_token": "google_id_token_jwt_here"
-    }
-
-    Returns JWT tokens and user data.
+    This endpoint proxies the token exchange to avoid exposing
+    the client secret to the browser.
     """
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AuthThrottle]
 
     def post(self, request):
-        token = request.data.get('access_token')
+        import requests as http_requests
 
-        if not token:
-            raise GoogleAuthTokenRequired()
+        code = request.data.get('code')
+        code_verifier = request.data.get('code_verifier')
 
+        if not code or not code_verifier:
+            raise OAuthTokenRequired()
+
+        # Exchange code for access token
         try:
-            # Verify the Google ID token
-            idinfo = id_token.verify_oauth2_token(
-                token,
-                requests.Request(),
-                settings.SOCIALACCOUNT_PROVIDERS['google']['APP']['client_id']
+            response = http_requests.post(
+                'https://twitter.com/i/oauth2/token',
+                headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                data={
+                    'code': code,
+                    'grant_type': 'authorization_code',
+                    'client_id': settings.TWITTER_OAUTH_CLIENT_ID,
+                    'client_secret': settings.TWITTER_OAUTH_CLIENT_SECRET,
+                    'redirect_uri': request.data.get(
+                        'redirect_uri',
+                        f"{'https' if not settings.DEBUG else 'http'}://"
+                        f"{request.get_host()}/auth/twitter/callback"
+                    ),
+                    'code_verifier': code_verifier,
+                },
+                timeout=10,
             )
+            response.raise_for_status()
+        except http_requests.RequestException as e:
+            logger.error(f'Twitter token exchange failed: {str(e)}')
+            raise OAuthTokenInvalid(detail='Twitter authentication failed.')
 
-            # Get user info from token
-            email = idinfo.get('email')
-            picture = idinfo.get('picture', '')
+        access_token = response.json().get('access_token')
+        if not access_token:
+            raise OAuthTokenInvalid(detail='No access token received from Twitter.')
 
-            if not email:
-                raise GoogleEmailNotProvided()
+        # Use the generic OAuth flow to authenticate
+        from apps.accounts.services.oauth_service import authenticate_via_oauth
+        user, created = authenticate_via_oauth('twitter', access_token)
 
-            # Get or create user
-            user = User.objects.filter(email=email).first()
+        # Generate JWT tokens and set cookies (same as OAuthLoginView)
+        refresh = RefreshToken.for_user(user)
+        response = Response({
+            'user': UserDetailSerializer(user).data,
+            'message': 'Login successful',
+            'created': created,
+        }, status=status.HTTP_200_OK)
 
-            if not user:
-                # Generate unique username from email
-                base_username = email.split('@')[0]
-                username = base_username
-                counter = 1
+        response.set_cookie(
+            key='access_token', value=str(refresh.access_token),
+            max_age=86400, httponly=True,
+            secure=not settings.DEBUG,
+            samesite='None' if not settings.DEBUG else 'Lax',
+            path='/',
+        )
+        response.set_cookie(
+            key='refresh_token', value=str(refresh),
+            max_age=2592000, httponly=True,
+            secure=not settings.DEBUG,
+            samesite='None' if not settings.DEBUG else 'Lax',
+            path='/',
+        )
 
-                # Ensure username is unique
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{counter}"
-                    counter += 1
-
-                # Create new user
-                user = User.objects.create(
-                    email=email,
-                    username=username,
-                    is_active=True,
-                )
-                created = True
-            else:
-                created = False
-
-            # Update avatar if provided by Google (always update to get latest)
-            if picture:
-                user.avatar_url = picture
-                user.save()
-
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-
-            # Create response without tokens in body (security improvement)
-            response = Response({
-                'user': UserDetailSerializer(user).data,
-                'message': 'Login successful',
-                'created': created,
-            }, status=status.HTTP_200_OK)
-
-            # Set tokens as httpOnly cookies (XSS protection)
-            response.set_cookie(
-                key='access_token',
-                value=access_token,
-                max_age=3600,  # 1 hour
-                httponly=True,  # Prevent JavaScript access
-                secure=not settings.DEBUG,  # HTTPS only in production
-                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
-                path='/',
-            )
-
-            response.set_cookie(
-                key='refresh_token',
-                value=refresh_token,
-                max_age=604800,  # 7 days
-                httponly=True,
-                secure=not settings.DEBUG,
-                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
-                path='/',
-            )
-
-            return response
-
-        except ValueError as e:
-            # Log full error for debugging, return generic message to client
-            logger.warning(f'Google auth - invalid token: {str(e)}')
-            raise GoogleAuthError(detail='Authentication failed. Please try again.')
-        except Exception as e:
-            # Log full error with stack trace for debugging
-            logger.error(f'Google auth failed: {str(e)}', exc_info=True)
-            raise GoogleAuthError(detail='Authentication failed. Please try again.')
+        return response
 
 
 class LogoutView(APIView):
