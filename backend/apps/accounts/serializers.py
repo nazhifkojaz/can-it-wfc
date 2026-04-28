@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import UserSettings, Follow
+from .utils import is_own_profile
 
 User = get_user_model()
 
@@ -239,11 +240,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_own_profile(self, obj):
-        """Check if this is the current user's own profile."""
         request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            return request.user.is_authenticated and request.user.id == obj.id
-        return False
+        return is_own_profile(request, obj)
 
     def get_is_following(self, obj):
         """Check if current user is following this user."""
@@ -271,14 +269,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ret['settings'] = UserSettingsSerializer(settings).data
 
         # If profile is private and not own profile, hide sensitive data
-        is_own_profile = (
-            request and
-            hasattr(request, 'user') and
-            request.user.is_authenticated and
-            request.user.id == instance.id
-        )
+        own_profile = is_own_profile(request, instance)
 
-        if settings.profile_visibility == 'private' and not is_own_profile:
+        if settings.profile_visibility == 'private' and not own_profile:
             # For private profiles, only show minimal information
             return {
                 'id': ret['id'],

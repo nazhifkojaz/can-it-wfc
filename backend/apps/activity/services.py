@@ -155,27 +155,11 @@ class ActivityService:
 
     @classmethod
     def _get_visible_followers(cls, user) -> List[User]:
-        """
-        Get followers who can see this user's activity.
-        Respects privacy settings.
-
-        Args:
-            user: User whose followers to get
-
-        Returns:
-            List of User objects who can see the activity
-        """
-        from apps.accounts.models import Follow
         from apps.accounts.utils import can_view_user_activity
 
-        # Get all follower IDs
-        follower_ids = Follow.objects.filter(
-            followed=user
-        ).values_list('follower_id', flat=True)
-
+        follower_ids = user.get_follower_ids()
         followers = User.objects.filter(id__in=follower_ids)
 
-        # Filter by privacy settings
         visible_followers = []
         for follower in followers:
             if can_view_user_activity(follower, user):
@@ -185,22 +169,7 @@ class ActivityService:
 
     @classmethod
     def _get_all_followers(cls, user) -> List[User]:
-        """
-        Get all followers (no privacy check).
-        Used for follow activities which are always public.
-
-        Args:
-            user: User whose followers to get
-
-        Returns:
-            List of User objects
-        """
-        from apps.accounts.models import Follow
-
-        follower_ids = Follow.objects.filter(
-            followed=user
-        ).values_list('follower_id', flat=True)
-
+        follower_ids = user.get_follower_ids()
         return list(User.objects.filter(id__in=follower_ids))
 
     @classmethod

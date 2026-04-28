@@ -34,6 +34,7 @@ from .serializers import (
     UserActivityItemSerializer,
     FollowUserSerializer,
 )
+from .utils import get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
 
@@ -79,14 +80,12 @@ class UserPublicProfileView(generics.RetrieveAPIView):
         """Get user by username or ID."""
         lookup_value = self.kwargs.get(self.lookup_field)
 
-        # Try to get by ID first (if it's a number)
         if lookup_value and lookup_value.isdigit():
             try:
-                return User.objects.get(id=int(lookup_value))
+                return get_user_by_username_or_id(lookup_value)
             except User.DoesNotExist:
                 pass
 
-        # Otherwise, get by username
         return super().get_object()
 
 
@@ -224,25 +223,13 @@ class UserActivityView(APIView):
         """Fetch recent activity combining visits and reviews."""
         from apps.reviews.models import Visit, Review
 
-        # Get user by username or ID
-        if username and username.isdigit():
-            try:
-                user = User.objects.get(id=int(username))
-            except User.DoesNotExist:
-                raise UserNotFound()
-        else:
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                raise UserNotFound()
+        try:
+            user = get_user_by_username_or_id(username)
+        except User.DoesNotExist:
+            raise UserNotFound()
 
         # Check privacy settings
-        is_own_profile = (
-            request.user.is_authenticated and
-            request.user.id == user.id
-        )
-
-        if not is_own_profile:
+        if not is_own_profile(request, user):
             from apps.accounts.utils import can_view_user_activity
             if not can_view_user_activity(request.user, user):
                 return Response({
@@ -411,10 +398,7 @@ class MyFollowersListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Return users who follow the current user."""
-        follower_ids = Follow.objects.filter(
-            followed=self.request.user
-        ).values_list('follower_id', flat=True)
-
+        follower_ids = self.request.user.get_follower_ids()
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
 
 
@@ -429,10 +413,7 @@ class MyFollowingListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Return users the current user follows."""
-        following_ids = Follow.objects.filter(
-            follower=self.request.user
-        ).values_list('followed_id', flat=True)
-
+        following_ids = self.request.user.get_following_ids()
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
 
 
@@ -458,18 +439,13 @@ class UserFollowersListView(generics.ListAPIView):
         # Check privacy settings
         settings = user.settings
 
-        is_own_profile = (
-            self.request.user.is_authenticated and
-            self.request.user.id == user.id
-        )
+        own_profile = is_own_profile(self.request, user)
 
         # If show_followers is False and not own profile, return empty
-        if not settings.show_followers and not is_own_profile:
+        if not settings.show_followers and not own_profile:
             return User.objects.none()
 
-        follower_ids = Follow.objects.filter(
-            followed=user
-        ).values_list('follower_id', flat=True)
+        follower_ids = user.get_follower_ids()
 
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
 
@@ -496,17 +472,12 @@ class UserFollowingListView(generics.ListAPIView):
         # Check privacy settings
         settings = user.settings
 
-        is_own_profile = (
-            self.request.user.is_authenticated and
-            self.request.user.id == user.id
-        )
+        own_profile = is_own_profile(self.request, user)
 
         # If show_following is False and not own profile, return empty
-        if not settings.show_following and not is_own_profile:
+        if not settings.show_following and not own_profile:
             return User.objects.none()
 
-        following_ids = Follow.objects.filter(
-            follower=user
-        ).values_list('followed_id', flat=True)
+        following_ids = user.get_following_ids()
 
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')

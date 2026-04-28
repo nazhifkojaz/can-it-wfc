@@ -56,6 +56,12 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+    def get_follower_ids(self):
+        return list(Follow.objects.filter(followed=self).values_list('follower_id', flat=True))
+
+    def get_following_ids(self):
+        return list(Follow.objects.filter(follower=self).values_list('followed_id', flat=True))
+
     @property
     def effective_display_name(self):
         """

@@ -22,7 +22,7 @@ def api_client():
 class TestOAuthLoginView:
     """Test generic OAuth login endpoint."""
 
-    def test_oauth_login_with_google_provider_success(self, api_client, no_throttle):
+    def test_oauth_login_with_google_provider_success(self, api_client, disable_throttle):
         """Test successful Google OAuth login returns tokens in cookies."""
         user = User.objects.create_user(
             username='testuser',
@@ -45,14 +45,12 @@ class TestOAuthLoginView:
             assert 'access_token' in response.cookies
             assert 'refresh_token' in response.cookies
 
-    def test_oauth_login_creates_new_user(self, api_client, no_throttle):
+    def test_oauth_login_creates_new_user(self, api_client, disable_throttle):
         """Test OAuth login creates new user when email doesn't exist."""
-        # Create a real user in database (will be cleaned up by pytest-django)
         new_user = User.objects.create_user(
             username='newuser',
             email='new@example.com',
             password='testpass123',
-            oauth_only=True
         )
 
         with patch('apps.accounts.services.oauth_service.authenticate_via_oauth') as mock_auth:
@@ -66,14 +64,14 @@ class TestOAuthLoginView:
             assert response.data['created'] is True
             assert response.data['user']['username'] == 'newuser'
 
-    def test_oauth_login_missing_token(self, api_client, no_throttle):
+    def test_oauth_login_missing_token(self, api_client, disable_throttle):
         """Test OAuth login fails without access token."""
         response = api_client.post('/api/auth/oauth/google/', {})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert 'oauth_token_required' in str(response.data).lower()
 
-    def test_oauth_login_unsupported_provider(self, api_client, no_throttle):
+    def test_oauth_login_unsupported_provider(self, api_client, disable_throttle):
         """Test OAuth login fails with unsupported provider."""
         response = api_client.post('/api/auth/oauth/github/', {
             'access_token': 'some-token'
@@ -82,7 +80,7 @@ class TestOAuthLoginView:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert 'Unsupported OAuth provider' in str(response.data)
 
-    def test_oauth_login_token_verification_failure(self, api_client, no_throttle):
+    def test_oauth_login_token_verification_failure(self, api_client, disable_throttle):
         """Test OAuth login handles token verification errors."""
         from core.exceptions import OAuthTokenInvalid
 
@@ -193,10 +191,7 @@ class TestUserActivityView:
         mock_target_user.id = 1
         mock_target_user.username = 'testuser'
 
-        # Mock User.objects.get to return our mock user
-        with patch('apps.accounts.views.User') as MockUser:
-            MockUser.objects.get.return_value = mock_target_user
-
+        with patch('apps.accounts.views.get_user_by_username_or_id', return_value=mock_target_user):
             with patch('apps.accounts.utils.can_view_user_activity', return_value=False):
                 from apps.accounts.views import UserActivityView
                 view = UserActivityView()
