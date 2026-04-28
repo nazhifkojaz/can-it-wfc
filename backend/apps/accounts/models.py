@@ -97,17 +97,9 @@ class User(AbstractUser):
         min_age = getattr(settings, 'MIN_ACCOUNT_AGE_HOURS', 0) # will adjust later
         return self.account_age_hours >= min_age
     
-    @transaction.atomic
     def update_stats(self):
-        """
-        Update denormalized statistics.
-        Uses @transaction.atomic to ensure all-or-nothing updates.
-        """
-        from apps.reviews.models import Review, Visit
-
-        self.total_reviews = Review.objects.filter(user=self).count()
-        self.total_visits = Visit.objects.filter(user=self).count()
-        self.save(update_fields=['total_reviews', 'total_visits'])
+        from apps.core.stats_utils import update_user_stats
+        update_user_stats(self)
 
     @transaction.atomic
     def update_follow_counts(self):
