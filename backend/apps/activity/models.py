@@ -2,7 +2,7 @@
 Activity stream models.
 
 This module implements a fan-out on write activity stream pattern,
-similar to Twitter, Instagram, and LinkedIn.
+similar to Instagram and LinkedIn.
 
 Only reviews and follows appear in the social feed.
 Visits are private and not shown in activity feeds.
@@ -17,7 +17,6 @@ User = get_user_model()
 
 class ActivityType(models.TextChoices):
     """Activity types enum."""
-    VISIT = 'visit', 'Visit (deprecated)'
     REVIEW = 'review', 'Review'
     FOLLOW = 'follow', 'Follow'
 

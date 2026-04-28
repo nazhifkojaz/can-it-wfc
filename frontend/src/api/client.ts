@@ -20,7 +20,6 @@ import {
   ReviewUpdate,
   Favorite,
 } from '../types';
-import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
@@ -128,16 +127,6 @@ const getWithSignal = async <T>(
   return response.data;
 };
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
 // Response interceptor to handle authentication errors
 api.interceptors.response.use(
   (response) => response,
@@ -145,9 +134,6 @@ api.interceptors.response.use(
     // If error is 401 (Unauthorized), cookies may have expired
     // Redirect to auth page
     if (error.response?.status === 401) {
-      // Clear legacy localStorage tokens
-      tokenStorage.clearTokens();
-
       // Redirect to landing page only if not already on a public page
       const path = window.location.pathname;
       const base = import.meta.env.BASE_URL || '/';
@@ -179,24 +165,8 @@ export const authApi = {
       `/auth/oauth/${provider}/`,
       { access_token: accessToken },
     );
-    tokenStorage.clearTokens(); // Clear legacy localStorage tokens
     return { user: response.user, created: response.created ?? false };
   },
-
-  // Get migration status for legacy users
-  getMigrationStatus: () =>
-    get<{
-      needs_migration: boolean;
-      has_linked_providers: boolean;
-      linked_providers: string[];
-    }>('/auth/migration/status/'),
-
-  // Link OAuth provider to legacy account
-  linkOAuthProvider: (provider: 'google', accessToken: string) =>
-    post<{ message: string; provider: string }>('/auth/migration/link/', {
-      provider,
-      access_token: accessToken,
-    }),
 
   // Logout user
   logout: async () => {
@@ -206,8 +176,6 @@ export const authApi = {
     } catch (error) {
       log.error('Logout failed', error);
     }
-    // Clear legacy localStorage tokens
-    tokenStorage.clearTokens();
   },
 
   // Get current user
@@ -216,8 +184,6 @@ export const authApi = {
   // Update profile (for username, bio, etc.)
   updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
 
-  // Get public profile by username
-  getUserByUsername: (username: string) => get<User>(`/auth/users/${username}/`),
 };
 
 // ===========================
@@ -225,12 +191,6 @@ export const authApi = {
 // ===========================
 
 export const userApi = {
-  // Get user profile
-  getProfile: () => get<User>('/auth/me/'),
-
-  // Update user profile
-  updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
-
   // Get user by ID
   getById: (userId: number) => get<User>(`/auth/users/${userId}/`),
 

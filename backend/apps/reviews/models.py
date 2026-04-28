@@ -192,7 +192,7 @@ class Review(models.Model):
         help_text="Time of visit (1=Morning, 2=Afternoon, 3=Evening)"
     )
     
-    # Text review (Twitter-style, 160 chars)
+    # Text review (max 160 chars)
     comment = models.TextField(
         blank=True,
         max_length=160,
