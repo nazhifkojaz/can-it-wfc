@@ -140,7 +140,6 @@ def authenticate_via_oauth(provider_name: str, token: str) -> tuple:
         username=username,
         avatar_url=user_info.avatar_url or '',
         is_active=True,
-        oauth_only=True,
     )
 
     LinkedProvider.objects.create(

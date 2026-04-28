@@ -43,10 +43,6 @@ class User(AbstractUser):
     total_visits = models.IntegerField(default=0)
     followers_count = models.IntegerField(default=0)
     following_count = models.IntegerField(default=0)
-    oauth_only = models.BooleanField(
-        default=False,
-        help_text="True if user was created via OAuth and never had a password",
-    )
 
     class Meta:
         db_table = 'users'

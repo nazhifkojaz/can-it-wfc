@@ -1,7 +1,6 @@
 from django.urls import path
 from .views import (
     OAuthLoginView,
-    LegacyUserMigrationView,
     UserDetailView,
     UserPublicProfileView,
     LogoutView,
@@ -18,10 +17,6 @@ from .views import (
 urlpatterns = [
     # OAuth Authentication
     path('oauth/<str:provider>/', OAuthLoginView.as_view(), name='oauth-login'),
-
-    # Legacy User Migration
-    path('migration/status/', LegacyUserMigrationView.as_view(), name='migration-status'),
-    path('migration/link/', LegacyUserMigrationView.as_view(), name='migration-link'),
 
     # Session Management
     path('me/', UserDetailView.as_view(), name='user-detail'),

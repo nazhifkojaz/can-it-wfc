@@ -13,7 +13,6 @@ from core.exceptions import (
     OAuthTokenInvalid,
     OAuthTokenRequired,
     OAuthEmailNotProvided,
-    OAuthEmailMismatch,
 )
 
 
@@ -159,82 +158,6 @@ class OAuthLoginView(APIView):
         )
 
         return response
-
-
-class LegacyUserMigrationView(APIView):
-    """
-    Check and handle legacy user migration to OAuth.
-
-    GET  /api/auth/migration/status/  — Check if user needs migration
-    POST /api/auth/migration/link/    — Link an OAuth provider to legacy account
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """Check if current user needs to link an OAuth provider."""
-        from apps.accounts.models import LinkedProvider
-
-        has_linked = LinkedProvider.objects.filter(user=request.user).exists()
-        needs_migration = not has_linked and not request.user.oauth_only
-
-        return Response({
-            'needs_migration': needs_migration,
-            'has_linked_providers': has_linked,
-            'linked_providers': list(
-                LinkedProvider.objects.filter(user=request.user)
-                .values_list('provider', flat=True)
-            ),
-        })
-
-    def post(self, request):
-        """Link an OAuth provider to the current legacy account."""
-        from apps.accounts.services.oauth_service import get_provider
-        from apps.accounts.models import LinkedProvider
-
-        provider_name = request.data.get('provider')
-        token = request.data.get('access_token')
-
-        if not provider_name or not token:
-            raise OAuthTokenRequired()
-
-        # Verify token with provider
-        try:
-            provider = get_provider(provider_name)
-            user_info = provider.verify_token(token)
-        except (ValueError, OAuthTokenInvalid, OAuthEmailNotProvided):
-            raise
-
-        # Security: OAuth email must match the user's account email
-        if user_info.email.lower() != request.user.email.lower():
-            raise OAuthEmailMismatch(
-                detail=(
-                    f"Your {provider_name.capitalize()} account email "
-                    f"({user_info.email}) doesn't match your account email "
-                    f"({request.user.email}). Please use the matching account."
-                )
-            )
-
-        # Create the link
-        LinkedProvider.objects.get_or_create(
-            user=request.user,
-            provider=provider_name,
-            provider_user_id=user_info.provider_user_id,
-            defaults={
-                'email': user_info.email,
-                'display_name': user_info.display_name,
-                'avatar_url': user_info.avatar_url,
-            },
-        )
-
-        # Update avatar if provider has one
-        if user_info.avatar_url and not request.user.avatar_url:
-            request.user.avatar_url = user_info.avatar_url
-            request.user.save(update_fields=['avatar_url'])
-
-        return Response({
-            'message': f'{provider_name.capitalize()} account linked successfully',
-            'provider': provider_name,
-        })
 
 
 class LogoutView(APIView):

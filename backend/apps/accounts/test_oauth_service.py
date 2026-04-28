@@ -23,25 +23,6 @@ User = get_user_model()
 
 
 @pytest.mark.django_db
-class TestUserOAuthOnlyField:
-    """Test the oauth_only field on User model."""
-
-    def test_oauth_only_defaults_to_false(self):
-        user = User.objects.create_user(
-            username='legacy', email='legacy@example.com', password='pass'
-        )
-        assert user.oauth_only is False
-
-    def test_oauth_only_can_be_set_true(self):
-        user = User.objects.create_user(
-            username='oauth', email='oauth@example.com', password='pass',
-            oauth_only=True,
-        )
-        user.refresh_from_db()
-        assert user.oauth_only is True
-
-
-@pytest.mark.django_db
 class TestLinkedProviderModel:
     """Test LinkedProvider model constraints and behavior."""
 
@@ -217,8 +198,8 @@ class TestAuthenticateViaOAuth:
         assert result_user.avatar_url == 'https://google.com/photo.jpg'
 
     @patch.object(PROVIDERS['google'], 'verify_token')
-    def test_new_user_created_with_oauth_only(self, mock_verify):
-        """No existing link or email → create new user with oauth_only=True."""
+    def test_new_user_created_via_oauth(self, mock_verify):
+        """No existing link or email → create new user."""
         mock_verify.return_value = self._mock_user_info(
             display_name='googlehandle'
         )
@@ -228,7 +209,6 @@ class TestAuthenticateViaOAuth:
         assert created is True
         assert result_user.username == 'googlehandle'
         assert result_user.email == 'user@example.com'
-        assert result_user.oauth_only is True
         assert result_user.is_active is True
         assert LinkedProvider.objects.filter(
             user=result_user, provider='google'

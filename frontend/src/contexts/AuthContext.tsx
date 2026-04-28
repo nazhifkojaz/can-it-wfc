@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User } from '../types';
-import { authApi, userApi } from '../api/client';
+import { authApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
 import { extractApiError } from '../utils/errorUtils';
 import { createLogger } from '../utils/logger';
@@ -63,11 +63,6 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
-  checkMigrationStatus: () => Promise<{
-    needs_migration: boolean;
-    has_linked_providers: boolean;
-    linked_providers: string[];
-  }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -104,9 +99,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // User not authenticated (cookies expired/invalid)
       setUser(null);
 
-      // Clean up any old localStorage tokens and auth method
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
       clearStoredAuthMethod();
     } finally {
       setLoading(false);
@@ -129,10 +121,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const checkMigrationStatus = async () => {
-    return await authApi.getMigrationStatus();
   };
 
   const logout = async () => {
@@ -167,7 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     try {
-      const userData = await userApi.getProfile();
+      const userData = await authApi.getCurrentUser();
       setUser(userData);
     } catch (err) {
       log.error('Failed to refresh user', err);
@@ -182,7 +170,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateUser,
     refreshUser,
-    checkMigrationStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

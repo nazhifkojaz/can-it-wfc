@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 import UsernameSetupModal from '../components/auth/UsernameSetupModal';
-import LegacyUserMigrationModal from '../components/auth/LegacyUserMigrationModal';
 import { trackUserSignedUp, trackUserLoggedIn, trackUsernameSetupCompleted } from '../lib/analytics';
 import { User } from '../types';
 import styles from './LandingPage.module.css';
@@ -14,30 +13,19 @@ import styles from './LandingPage.module.css';
  */
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, loading, checkMigrationStatus } = useAuth();
+  const { user, loading } = useAuth();
   const didCheckAuth = useRef(false);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
-  const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [newUser, setNewUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const checkAuthAndMigration = async () => {
-      if (!loading && !didCheckAuth.current) {
-        didCheckAuth.current = true;
-        if (user) {
-          try {
-            const migrationStatus = await checkMigrationStatus();
-            if (migrationStatus.needs_migration) {
-              setShowMigrationModal(true);
-              return;
-            }
-          } catch {}
-          navigate('/map', { replace: true });
-        }
+    if (!loading && !didCheckAuth.current) {
+      didCheckAuth.current = true;
+      if (user) {
+        navigate('/map', { replace: true });
       }
-    };
-    checkAuthAndMigration();
-  }, [user, loading, navigate, checkMigrationStatus]);
+    }
+  }, [user, loading, navigate]);
 
   const handleOAuthSuccess = async (
     provider: 'google',
@@ -61,11 +49,6 @@ const LandingPage: React.FC = () => {
   const handleUsernameSetupComplete = (_newUsername: string, skipped: boolean) => {
     setShowUsernameSetup(false);
     trackUsernameSetupCompleted({ action: skipped ? 'skipped' : 'set_username' });
-    navigate('/map');
-  };
-
-  const handleMigrationComplete = () => {
-    setShowMigrationModal(false);
     navigate('/map');
   };
 
@@ -106,12 +89,6 @@ const LandingPage: React.FC = () => {
           currentUsername={newUser.username}
           email={newUser.email}
           onComplete={handleUsernameSetupComplete}
-        />
-      )}
-      {user && (
-        <LegacyUserMigrationModal
-          isOpen={showMigrationModal}
-          onComplete={handleMigrationComplete}
         />
       )}
     </div>

@@ -37,13 +37,13 @@ def test_create_activity(user, cafe):
     activity = Activity.objects.create(
         recipient=user,
         actor=user,
-        activity_type=ActivityType.VISIT,
+        activity_type=ActivityType.REVIEW,
         data={'cafe_name': 'Test Cafe', 'cafe_id': cafe.id}
     )
 
     assert activity.recipient == user
     assert activity.actor == user
-    assert activity.activity_type == ActivityType.VISIT
+    assert activity.activity_type == ActivityType.REVIEW
     assert activity.data['cafe_name'] == 'Test Cafe'
     assert activity.is_deleted is False
 
@@ -54,11 +54,11 @@ def test_activity_str(user):
     activity = Activity.objects.create(
         recipient=user,
         actor=user,
-        activity_type=ActivityType.VISIT,
+        activity_type=ActivityType.REVIEW,
         data={}
     )
 
-    expected = f"testuser -> visit (seen by testuser)"
+    expected = f"testuser -> review (seen by testuser)"
     assert str(activity) == expected
 
 
@@ -68,7 +68,7 @@ def test_soft_delete(user):
     activity = Activity.objects.create(
         recipient=user,
         actor=user,
-        activity_type=ActivityType.VISIT,
+        activity_type=ActivityType.REVIEW,
         data={}
     )
 
@@ -87,14 +87,14 @@ def test_ordering(user):
     activity1 = Activity.objects.create(
         recipient=user,
         actor=user,
-        activity_type=ActivityType.VISIT,
+        activity_type=ActivityType.REVIEW,
         data={}
     )
 
     activity2 = Activity.objects.create(
         recipient=user,
         actor=user,
-        activity_type=ActivityType.VISIT,
+        activity_type=ActivityType.REVIEW,
         data={}
     )
 
