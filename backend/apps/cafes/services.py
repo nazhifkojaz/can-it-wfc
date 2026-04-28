@@ -7,6 +7,7 @@ from apps.core.constants import (
     GOOGLE_PLACE_DETAILS_TIMEOUT_SECONDS,
     MAX_AUTOCOMPLETE_PREDICTIONS
 )
+from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)
 
@@ -75,7 +76,6 @@ class GooglePlacesService:
                 place_lng = place['geometry']['location']['lng']
 
                 # Calculate distance from search center
-                from apps.cafes.models import Cafe
                 distance_km = Cafe.calculate_distance(
                     latitude, longitude,
                     float(place_lat), float(place_lng)
@@ -173,7 +173,6 @@ class GooglePlacesService:
                     place_lng = details['geometry']['location']['lng']
 
                     # Calculate distance
-                    from apps.cafes.models import Cafe
                     distance_km = Cafe.calculate_distance(
                         latitude, longitude,
                         float(place_lat), float(place_lng)
@@ -265,7 +264,6 @@ class CafeService:
         Raises:
             ValueError: If required fields are missing from cafe_data
         """
-        from apps.cafes.models import Cafe
         from django.utils import timezone
 
         # Check if cafe already exists

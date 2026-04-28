@@ -5,6 +5,7 @@ from core.logging import get_logger
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
+from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)
 
@@ -64,7 +65,6 @@ class VisitSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Validate visit data and handle cafe creation if needed."""
         request = self.context.get('request')
-        from apps.cafes.models import Cafe
 
         # Skip most validation for updates (only allow amount_spent and visit_time)
         if self.instance is not None:
@@ -349,8 +349,6 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
     def validate_cafe_id(self, value):
         """Validate that cafe exists."""
-        from apps.cafes.models import Cafe
-
         try:
             cafe = Cafe.objects.get(id=value, is_closed=False)
         except Cafe.DoesNotExist:
@@ -592,7 +590,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        from apps.cafes.models import Cafe
 
         # Validate that either cafe_id or google_place_id is provided
         cafe = None
@@ -687,7 +684,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
 
         The transaction only wraps visit+review creation.
         """
-        from apps.cafes.models import Cafe
         from apps.cafes.services import CafeService
 
         request = self.context['request']

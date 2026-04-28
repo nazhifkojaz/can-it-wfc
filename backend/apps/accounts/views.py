@@ -37,6 +37,7 @@ from .serializers import (
 from .utils import get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
+from apps.reviews.models import Visit, Review
 
 logger = get_logger(__name__)
 
@@ -221,8 +222,6 @@ class UserActivityView(APIView):
 
     def get(self, request, username=None):
         """Fetch recent activity combining visits and reviews."""
-        from apps.reviews.models import Visit, Review
-
         try:
             user = get_user_by_username_or_id(username)
         except User.DoesNotExist:
