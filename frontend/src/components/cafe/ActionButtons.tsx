@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigation, Coffee } from 'lucide-react';
-import { ResultModal } from '../common';
+import { SharedResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import styles from './ActionButtons.module.css';
 
@@ -58,18 +58,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         <span>Log Visit</span>
       </button>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
     </div>
   );
 };

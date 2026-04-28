@@ -19,7 +19,7 @@ interface ShowResultModalOptions {
   onClose?: () => void;
 }
 
-interface UseResultModalReturn {
+export interface UseResultModalReturn {
   isOpen: boolean;
   type: ResultType;
   title: string;

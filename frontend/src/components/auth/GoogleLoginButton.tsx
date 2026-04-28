@@ -2,7 +2,7 @@ import React from 'react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../../contexts/AuthContext';
 import { useResultModal } from '../../hooks';
-import { ResultModal } from '../common';
+import { SharedResultModal } from '../common';
 import { User } from '../../types';
 import { extractApiError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
@@ -76,18 +76,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin', 
         />
       </div>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
     </>
   );
 };

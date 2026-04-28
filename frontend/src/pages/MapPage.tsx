@@ -6,7 +6,7 @@ import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
-import { ResultModal } from '../components/common';
+import { SharedResultModal } from '../components/common';
 import { SearchOverlay } from '../components/map/SearchOverlay';
 import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
 import { Cafe, SearchResult } from '../types';
@@ -288,18 +288,7 @@ const MapPage: React.FC = () => {
           preselectedCafe={visitCafe}
         />
 
-        <ResultModal
-          isOpen={resultModal.isOpen}
-          onClose={resultModal.closeResultModal}
-          type={resultModal.type}
-          title={resultModal.title}
-          message={resultModal.message}
-          details={resultModal.details}
-          primaryButton={resultModal.primaryButton}
-          secondaryButton={resultModal.secondaryButton}
-          autoClose={resultModal.autoClose}
-          autoCloseDelay={resultModal.autoCloseDelay}
-        />
+        <SharedResultModal resultModal={resultModal} />
 
         {/* Search Overlay */}
         <SearchOverlay

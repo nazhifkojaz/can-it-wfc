@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2, Flag } from 'lucide-react';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
-import { ConfirmDialog, ResultModal } from '../common';
+import { ConfirmDialog, SharedResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { extractApiError } from '../../utils/errorUtils';
 import FlagReviewModal from './FlagReviewModal';
@@ -333,18 +333,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         isLoading={isDeleting}
       />
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
 
       {/* Flag review modal */}
       <FlagReviewModal

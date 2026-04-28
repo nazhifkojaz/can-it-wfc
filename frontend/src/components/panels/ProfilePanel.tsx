@@ -21,7 +21,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useResultModal, useVisits, useFavorites } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
-import { ResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
+import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
 import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
@@ -1154,18 +1154,7 @@ const ProfilePanel: React.FC = () => {
       )}
 
       {/* ResultModal for logout confirmation and other actions */}
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
 
       {/* Followers/Following Modal */}
       <FollowersModal
