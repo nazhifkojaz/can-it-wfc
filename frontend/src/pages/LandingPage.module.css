@@ -1,0 +1,170 @@
+/* Landing Page - Neobrutalist Login Card */
+
+.container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--neo-gray-50);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: var(--neo-shadow-offset) var(--neo-shadow-offset) 0 var(--neo-shadow-color);
+  padding: 48px 32px;
+  text-align: center;
+}
+
+/* Animated Coffee Cup */
+.cupContainer {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px auto;
+  position: relative;
+}
+
+.cup {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  width: 44px;
+  height: 40px;
+  background: var(--neo-primary);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+/* Coffee liquid surface */
+.cup::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  right: 6px;
+  height: 6px;
+  background: var(--neo-black);
+  border-radius: 50%;
+  opacity: 0.35;
+}
+
+.handle {
+  position: absolute;
+  bottom: 14px;
+  right: 10px;
+  width: 18px;
+  height: 24px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+  background: var(--neo-white);
+}
+
+.steam {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: steamRise 2s ease-in-out infinite;
+}
+
+.steam1 {
+  left: 20px;
+  height: 14px;
+  background: var(--neo-accent);
+  animation-delay: 0s;
+}
+
+.steam2 {
+  left: 32px;
+  height: 10px;
+  background: var(--neo-accent-light);
+  animation-delay: 0.4s;
+}
+
+.steam3 {
+  left: 44px;
+  height: 16px;
+  background: var(--neo-accent);
+  animation-delay: 0.8s;
+}
+
+@keyframes steamRise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  40% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(1.2);
+  }
+}
+
+.logoSection {
+  margin-bottom: 32px;
+}
+
+.logo {
+  font-size: clamp(28px, 6vw, 36px);
+  font-weight: var(--neo-font-black, 900);
+  letter-spacing: 3px;
+  color: var(--neo-black);
+  text-transform: uppercase;
+  margin: 0 0 8px 0;
+  line-height: 1.1;
+}
+
+.logoUnderline {
+  width: 60px;
+  height: 4px;
+  background: var(--neo-primary);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  margin: 0 auto 12px auto;
+}
+
+.tagline {
+  font-size: 15px;
+  color: var(--neo-gray-600);
+  margin: 0;
+  font-weight: 500;
+}
+
+.divider {
+  border: none;
+  border-top: var(--neo-border-width) solid var(--neo-black);
+  margin: 0 0 32px 0;
+}
+
+.loginSection {
+  margin-bottom: 8px;
+}
+
+.footer {
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--neo-gray-500);
+  text-align: center;
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .card {
+    padding: 40px 24px;
+  }
+
+  .logo {
+    letter-spacing: 2px;
+  }
+}
