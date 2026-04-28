@@ -24,13 +24,6 @@ class AlreadyFavorited(APIException):
     default_code = 'already_favorited'
 
 
-class NotFavorited(APIException):
-    """Raised when trying to unfavorite a cafe that isn't favorited."""
-    status_code = status.HTTP_400_BAD_REQUEST
-    default_detail = 'Cafe is not in favorites'
-    default_code = 'not_favorited'
-
-
 # =============================================================================
 # USER/ACCOUNT EXCEPTIONS
 # =============================================================================
@@ -93,12 +86,6 @@ class OAuthEmailMismatch(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = 'OAuth email does not match your account email'
     default_code = 'oauth_email_mismatch'
-
-
-# Backward compatibility aliases
-GoogleAuthError = OAuthTokenInvalid
-GoogleAuthTokenRequired = OAuthTokenRequired
-GoogleEmailNotProvided = OAuthEmailNotProvided
 
 
 # =============================================================================
