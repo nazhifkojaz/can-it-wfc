@@ -212,16 +212,9 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         """
         Delete review (hard delete).
         Allowed at any time (no time restrictions).
-        Stats are updated automatically via signals.
-        Activities are soft-deleted to maintain user feed integrity.
+        Stats and activity soft-deletion are handled automatically via signals.
         Uses @transaction.atomic to ensure all-or-nothing deletion.
         """
-        from apps.activity.services import ActivityService
-
-        # Soft-delete related activities first
-        ActivityService.soft_delete_activities(Review, instance.id)
-
-        # Then hard-delete review (triggers signal → update_stats)
         instance.delete()
 
 
