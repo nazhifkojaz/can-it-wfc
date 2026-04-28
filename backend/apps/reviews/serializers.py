@@ -365,14 +365,12 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
         # Auto-compute wfc_rating if missing
         if attrs.get('wfc_rating') is None:
-            ratings = [
+            attrs['wfc_rating'] = Review.compute_wfc_rating(
                 attrs.get('wifi_quality', 3),
                 attrs.get('noise_level', 3),
                 attrs.get('seating_comfort', 3),
-            ]
-            if attrs.get('power_outlets_rating') is not None:
-                ratings.append(attrs['power_outlets_rating'])
-            attrs['wfc_rating'] = min(5, max(1, round(sum(ratings) / len(ratings))))
+                attrs.get('power_outlets_rating'),
+            )
 
         # Check if user can review (account age)
         if not request.user.can_review():
@@ -449,17 +447,15 @@ class ReviewUpdateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Auto-compute wfc_rating if missing."""
         if self.instance and attrs.get('wfc_rating') is None:
-            ratings = [
-                attrs.get('wifi_quality', self.instance.wifi_quality),
-                attrs.get('noise_level', self.instance.noise_level),
-                attrs.get('seating_comfort', self.instance.seating_comfort),
-            ]
             power = attrs.get('power_outlets_rating')
             if power is None and self.instance.power_outlets_rating is not None:
                 power = self.instance.power_outlets_rating
-            if power is not None:
-                ratings.append(power)
-            attrs['wfc_rating'] = min(5, max(1, round(sum(ratings) / len(ratings))))
+            attrs['wfc_rating'] = Review.compute_wfc_rating(
+                attrs.get('wifi_quality', self.instance.wifi_quality),
+                attrs.get('noise_level', self.instance.noise_level),
+                attrs.get('seating_comfort', self.instance.seating_comfort),
+                power,
+            )
         return attrs
 
 
@@ -673,14 +669,12 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
             if data.get('seating_comfort') is None:
                 data['seating_comfort'] = 3
             if not data.get('wfc_rating'):
-                ratings = [
+                data['wfc_rating'] = Review.compute_wfc_rating(
                     data['wifi_quality'],
                     data['noise_level'],
                     data['seating_comfort'],
-                ]
-                if data.get('power_outlets_rating') is not None:
-                    ratings.append(data['power_outlets_rating'])
-                data['wfc_rating'] = min(5, max(1, round(sum(ratings) / len(ratings))))
+                    data.get('power_outlets_rating'),
+                )
         return data
 
     def create(self, validated_data):

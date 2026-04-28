@@ -250,12 +250,18 @@ class Review(models.Model):
     def __str__(self):
         return f"{self.user.username}'s review of {self.cafe.name} ({self.wfc_rating}⭐)"
 
+    @staticmethod
+    def compute_wfc_rating(wifi_quality, noise_level, seating_comfort, power_outlets_rating=None):
+        ratings = [wifi_quality, noise_level, seating_comfort]
+        if power_outlets_rating is not None:
+            ratings.append(power_outlets_rating)
+        return min(5, max(1, round(sum(ratings) / len(ratings))))
+
     def save(self, *args, **kwargs):
-        """Auto-compute overall WFC rating from sub-criteria."""
-        ratings = [self.wifi_quality, self.noise_level, self.seating_comfort]
-        if self.power_outlets_rating is not None:
-            ratings.append(self.power_outlets_rating)
-        self.wfc_rating = min(5, max(1, round(sum(ratings) / len(ratings))))
+        self.wfc_rating = self.compute_wfc_rating(
+            self.wifi_quality, self.noise_level, self.seating_comfort,
+            self.power_outlets_rating,
+        )
         super().save(*args, **kwargs)
 
     @property
