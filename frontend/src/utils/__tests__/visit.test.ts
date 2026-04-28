@@ -2,7 +2,7 @@
  * Unit tests for visit utility functions
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../visit';
 import { VISIT_TIME } from '../../config/constants';
 import { Visit, Cafe, User } from '../../types';

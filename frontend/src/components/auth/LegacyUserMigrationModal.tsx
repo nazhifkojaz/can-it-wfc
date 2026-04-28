@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Modal } from '../common';
-import { useAuth } from '../../contexts/AuthContext';
 import { useResultModal } from '../../hooks';
 import { ResultModal } from '../common';
 import GoogleLoginButton from './GoogleLoginButton';
-import { extractApiError } from '../../utils/errorUtils';
-import { logger } from '../../utils/logger';
 import styles from './LegacyUserMigrationModal.module.css';
 
 interface LegacyUserMigrationModalProps {
@@ -15,40 +12,8 @@ interface LegacyUserMigrationModalProps {
 
 const LegacyUserMigrationModal: React.FC<LegacyUserMigrationModalProps> = ({
   isOpen,
-  onComplete,
 }) => {
-  const { checkMigrationStatus } = useAuth();
   const resultModal = useResultModal();
-  const [linking, setLinking] = useState(false);
-
-  const handleOAuthSuccess = async () => {
-    try {
-      setLinking(true);
-      // Check migration status after successful OAuth link
-      const status = await checkMigrationStatus();
-
-      if (!status.needs_migration) {
-        resultModal.showResultModal({
-          type: 'success',
-          title: 'Account Linked Successfully!',
-          message: 'Your social account has been linked. You can now continue using the app.',
-          autoClose: true,
-          autoCloseDelay: 2000,
-          onClose: onComplete,
-        });
-      }
-    } catch (error) {
-      logger.error('Migration status check failed', error as Error, 'LegacyUserMigrationModal');
-      const apiError = extractApiError(error);
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Migration Failed',
-        message: apiError.message || 'Failed to link your account. Please try again.',
-      });
-    } finally {
-      setLinking(false);
-    }
-  };
 
   return (
     <>
@@ -75,13 +40,6 @@ const LegacyUserMigrationModal: React.FC<LegacyUserMigrationModalProps> = ({
           <div className={styles.buttons}>
             <GoogleLoginButton mode="signin" />
           </div>
-
-          {linking && (
-            <div className={styles.loadingState}>
-              <div className={styles.spinner}></div>
-              <p>Linking your account...</p>
-            </div>
-          )}
 
           <p className={styles.helpText}>
             If you need help, please contact support with your username and email.

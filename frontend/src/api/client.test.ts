@@ -109,7 +109,6 @@ describe('ApiClient - 401 Interceptor', () => {
   });
 
   async function trigger401(pathname: string) {
-    // @ts-expect-error - overriding readonly for test
     window.location.pathname = pathname;
     window.location.href = '';
 
@@ -152,7 +151,6 @@ describe('ApiClient - 401 Interceptor', () => {
 
   it('does not redirect on non-401 errors', async () => {
     const handler = responseInterceptorHandlers[0];
-    // @ts-expect-error - overriding readonly for test
     window.location.pathname = '/map';
     window.location.href = '';
 
