@@ -198,32 +198,3 @@ export const useAuth = (): AuthContextType => {
   
   return context;
 };
-
-// HOC to protect routes
-export const withAuth = <P extends object>(
-  Component: React.ComponentType<P>
-): React.FC<P> => {
-  return (props: P) => {
-    const { user, loading } = useAuth();
-
-    if (loading) {
-      return (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-        }}>
-          <div>Loading...</div>
-        </div>
-      );
-    }
-
-    if (!user) {
-      window.location.href = buildAppPath('/');
-      return null;
-    }
-
-    return <Component {...props} />;
-  };
-};

@@ -137,10 +137,4 @@ export function formatCurrency(amount: number | string | null | undefined, curre
   return `${symbol}${numAmount.toFixed(2)}`;
 }
 
-/**
- * Get currency symbol by code
- */
-export function getCurrencySymbol(currencyCode: string): string {
-  const currency = CURRENCIES.find(c => c.code === currencyCode);
-  return currency?.symbol || currencyCode;
-}
+

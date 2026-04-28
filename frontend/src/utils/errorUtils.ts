@@ -109,49 +109,4 @@ export function getFieldError(error: any, fieldName: string): string | null {
   return null;
 }
 
-/**
- * Check if error matches a specific error code.
- */
-export function isErrorCode(error: any, code: string): boolean {
-  const apiError = extractApiError(error);
-  return apiError.code === code;
-}
 
-/**
- * Get human-readable message for common error codes.
- */
-export function getErrorMessageByCode(code: string): string {
-  const errorMessages: Record<string, string> = {
-    // Cafe errors
-    'cafe_not_found': 'Cafe not found',
-    'already_favorited': 'This cafe is already in your favorites',
-    'not_favorited': 'This cafe is not in your favorites',
-
-    // User errors
-    'user_not_found': 'User not found',
-    'self_follow_not_allowed': 'You cannot follow yourself',
-    'already_following': 'You are already following this user',
-    'not_following': 'You are not following this user',
-
-    // Auth errors
-    'google_auth_error': 'Google authentication failed',
-    'google_token_required': 'Google access token is required',
-    'google_email_not_provided': 'Email not provided by Google',
-    'not_authenticated': 'Please log in to continue',
-    'authentication_failed': 'Authentication failed',
-
-    // Review errors
-    'review_not_found': 'Review not found',
-    'self_helpful_not_allowed': 'You cannot mark your own review as helpful',
-    'invalid_cafe_ids': 'Invalid cafe IDs provided',
-    'too_many_cafe_ids': 'Too many cafe IDs requested',
-
-    // Generic errors
-    'validation_error': 'Please check your input',
-    'rate_limit_exceeded': 'Too many requests. Please try again later.',
-    'permission_denied': 'You do not have permission to perform this action',
-    'not_found': 'Resource not found',
-  };
-
-  return errorMessages[code] || code;
-}
