@@ -185,7 +185,4 @@ export const createLogger = (component: string) => ({
   error: (message: string, error?: Error | unknown) => logger.error(message, error, component),
 });
 
-/**
- * Type for a scoped logger instance.
- */
-export type Logger = ReturnType<typeof createLogger>;
+

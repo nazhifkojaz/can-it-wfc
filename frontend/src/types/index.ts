@@ -376,18 +376,6 @@ export interface ReviewCreate {
   comment?: string;
 }
 
-// ===========================
-// Review Flag Types
-// ===========================
-
-export interface ReviewFlag {
-  id: number;
-  review: number;
-  user: User;
-  reason: string;
-  created_at: string;
-}
-
 export interface ReviewUpdate {
   // WFC Ratings (1-5)
   wifi_quality?: number;
@@ -421,15 +409,6 @@ export interface Favorite {
 }
 
 // ===========================
-// Location Types
-// ===========================
-
-export interface Location {
-  lat: number;
-  lng: number;
-}
-
-// ===========================
 // Search Types
 // ===========================
 
@@ -450,145 +429,6 @@ export interface SearchResult {
   result_type: 'cafe' | 'location';
 }
 
-export interface GeolocationState {
-  latitude: number | null;
-  longitude: number | null;
-  error: string | null;
-  loading: boolean;
-}
 
-// ===========================
-// API Response Types
-// ===========================
-
-export interface ApiError {
-  message: string;
-  errors?: Record<string, string[]>;
-}
-
-// ===========================
-// Form State Types
-// ===========================
-
-export interface LoginFormState {
-  username: string;
-  password: string;
-}
-
-export interface RegisterFormState {
-  username: string;
-  email: string;
-  password: string;
-  password2: string;
-}
-
-export interface ReviewFormState extends ReviewCreate {
-  // Additional UI state if needed
-}
-
-// ===========================
-// Filter/Sort Types
-// ===========================
-
-export type SortOption = 'distance' | 'rating' | 'visits' | 'recent';
-
-export interface CafeFilters {
-  priceRange?: (1 | 2 | 3 | 4)[];
-  minRating?: number;
-  hasWifi?: boolean;
-  hasOutlets?: boolean;
-  maxDistance?: number;
-}
-
-// ===========================
-// Map Types
-// ===========================
-
-export interface MarkerData {
-  id: string;
-  position: [number, number];
-  cafe: Cafe;
-  status: 'visited' | 'reviewed' | 'new';
-}
-
-export interface MapBounds {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}
-
-// ===========================
-// UI State Types
-// ===========================
-
-export type ViewMode = 'map' | 'list';
-
-export interface BottomSheetState {
-  isOpen: boolean;
-  cafe: Cafe | null;
-}
-
-export interface ModalState {
-  isOpen: boolean;
-  type: 'add-visit' | 'review' | 'edit-profile' | null;
-  data?: any;
-}
-
-// ===========================
-// Stats Types
-// ===========================
-
-export interface UserStats {
-  total_visits: number;
-  total_reviews: number;
-  favorite_cafes: number;
-  avg_wfc_rating: number;
-  most_visited_cafe?: Cafe;
-}
-
-export interface CafeStats {
-  wifi_quality_avg: number;
-  power_outlets_avg: number;
-  noise_level_avg: number;
-  seating_comfort_avg: number;
-  menu_selection_avg: number;
-  price_value_avg: number;
-  overall_avg: number;
-}
-
-// ===========================
-// Notification Types
-// ===========================
-
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  message: string;
-  duration?: number;
-}
-
-// ===========================
-// Time Periods
-// ===========================
-
-export enum TimePeriod {
-  MORNING = 'morning',
-  AFTERNOON = 'afternoon',
-  EVENING = 'evening',
-}
-
-// ===========================
-// Price Range
-// ===========================
-
-export enum PriceRange {
-  BUDGET = 1,
-  MODERATE = 2,
-  UPSCALE = 3,
-  LUXURY = 4,
-}
 
 

@@ -3,7 +3,7 @@
  * Auto-detects currency based on cafe location
  */
 
-export interface Currency {
+interface Currency {
   code: string;
   name: string;
   symbol: string;
