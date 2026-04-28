@@ -179,7 +179,6 @@ class Review(models.Model):
     )
     
     # Visit time (1=morning, 2=afternoon, 3=evening)
-    # Deprecated: now stored in Visit model
     VISIT_TIME_CHOICES = [
         (1, 'Morning (Open - 1pm)'),
         (2, 'Afternoon (1pm - 6pm)'),
@@ -190,7 +189,7 @@ class Review(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(3)],
         null=True,
         blank=True,
-        help_text="Time of visit (deprecated, now stored in Visit model)"
+        help_text="Time of visit (1=Morning, 2=Afternoon, 3=Evening)"
     )
     
     # Text review (Twitter-style, 160 chars)
