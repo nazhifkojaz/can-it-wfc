@@ -2,15 +2,15 @@
 @import './styles/neobrutalism.css';
 
 :root {
-  /* Primary Colors */
-  --primary: #10b981;
-  --primary-hover: #059669;
-  --primary-dark: #047857;
-  --primary-light: #34d399;
+  /* Primary Colors - Terracotta / Coffee Palette */
+  --primary: #C2410C;
+  --primary-hover: #9A3412;
+  --primary-dark: #9A3412;
+  --primary-light: #F97316;
 
   /* Secondary Colors */
-  --secondary: #8b5cf6;
-  --secondary-hover: #7c3aed;
+  --secondary: #F97316;
+  --secondary-hover: #C2410C;
 
   /* Neutral Colors - Gray Scale */
   --white: #ffffff;

@@ -4,15 +4,15 @@
  */
 
 export const colors = {
-  // Primary Colors
-  primary: '#6366f1',
-  primaryHover: '#4f46e5',
-  primaryDark: '#4338ca',
-  primaryLight: '#818cf8',
+  // Primary Colors - Terracotta / Coffee Palette
+  primary: '#C2410C',
+  primaryHover: '#9A3412',
+  primaryDark: '#9A3412',
+  primaryLight: '#F97316',
 
   // Secondary Colors
-  secondary: '#8b5cf6',
-  secondaryHover: '#7c3aed',
+  secondary: '#F97316',
+  secondaryHover: '#C2410C',
 
   // Neutral Colors
   white: '#ffffff',
