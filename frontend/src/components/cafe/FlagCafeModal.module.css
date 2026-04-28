@@ -175,8 +175,8 @@
 
 .textarea:focus {
   outline: none;
-  border-color: var(--neo-primary, #8B5CF6);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  border-color: var(--neo-primary, #C2410C);
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.1);
 }
 
 .charCount {
