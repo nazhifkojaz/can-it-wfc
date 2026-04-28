@@ -245,7 +245,11 @@ class Cafe(models.Model):
             # Cache average ratings for all criteria
             self.average_ratings_cache = {
                 'wifi_quality': round(sum(r.wifi_quality for r in recent_reviews_list) / total_recent, 1),
-                'power_outlets_rating': round(sum(r.power_outlets_rating for r in recent_reviews_list) / total_recent, 1),
+                'power_outlets_rating': (
+                    round(sum(power_ratings) / len(power_ratings), 1)
+                    if (power_ratings := [r.power_outlets_rating for r in recent_reviews_list if r.power_outlets_rating is not None])
+                    else None
+                ),
                 'seating_comfort': round(sum(r.seating_comfort for r in recent_reviews_list) / total_recent, 1),
                 'noise_level': round(sum(r.noise_level for r in recent_reviews_list) / total_recent, 1),
                 'wfc_rating': round(sum(r.wfc_rating for r in recent_reviews_list) / total_recent, 1),

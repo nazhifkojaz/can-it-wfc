@@ -328,6 +328,9 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
     """
 
     cafe_id = serializers.IntegerField(write_only=True)
+    wfc_rating = serializers.IntegerField(
+        min_value=1, max_value=5, required=False, allow_null=True
+    )
 
     class Meta:
         model = Review
@@ -356,9 +359,20 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         return cafe
 
     def validate(self, attrs):
-        """Additional validation."""
+        """Additional validation and auto-compute wfc_rating."""
         request = self.context.get('request')
         cafe = attrs.get('cafe_id')
+
+        # Auto-compute wfc_rating if missing
+        if attrs.get('wfc_rating') is None:
+            ratings = [
+                attrs.get('wifi_quality', 3),
+                attrs.get('noise_level', 3),
+                attrs.get('seating_comfort', 3),
+            ]
+            if attrs.get('power_outlets_rating') is not None:
+                ratings.append(attrs['power_outlets_rating'])
+            attrs['wfc_rating'] = min(5, max(1, round(sum(ratings) / len(ratings))))
 
         # Check if user can review (account age)
         if not request.user.can_review():
@@ -414,6 +428,10 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 class ReviewUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating a review."""
 
+    wfc_rating = serializers.IntegerField(
+        min_value=1, max_value=5, required=False, allow_null=True
+    )
+
     class Meta:
         model = Review
         fields = [
@@ -427,6 +445,22 @@ class ReviewUpdateSerializer(serializers.ModelSerializer):
             'visit_time',
             'comment'
         ]
+
+    def validate(self, attrs):
+        """Auto-compute wfc_rating if missing."""
+        if self.instance and attrs.get('wfc_rating') is None:
+            ratings = [
+                attrs.get('wifi_quality', self.instance.wifi_quality),
+                attrs.get('noise_level', self.instance.noise_level),
+                attrs.get('seating_comfort', self.instance.seating_comfort),
+            ]
+            power = attrs.get('power_outlets_rating')
+            if power is None and self.instance.power_outlets_rating is not None:
+                power = self.instance.power_outlets_rating
+            if power is not None:
+                ratings.append(power)
+            attrs['wfc_rating'] = min(5, max(1, round(sum(ratings) / len(ratings))))
+        return attrs
 
 
 class ReviewFlagSerializer(serializers.ModelSerializer):
@@ -520,7 +554,8 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         min_value=1,
         max_value=5,
         required=False,
-        allow_null=True
+        allow_null=True,
+        help_text="Overall WFC suitability (1=not suitable, 5=perfect for WFC). Auto-computed from sub-criteria if omitted."
     )
     wifi_quality = serializers.IntegerField(
         min_value=1,
@@ -629,11 +664,23 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                     ]
                 })
 
+        # Set defaults for missing review sub-criteria and auto-compute wfc_rating
         if data.get('include_review', False):
+            if data.get('wifi_quality') is None:
+                data['wifi_quality'] = 3
+            if data.get('noise_level') is None:
+                data['noise_level'] = 3
+            if data.get('seating_comfort') is None:
+                data['seating_comfort'] = 3
             if not data.get('wfc_rating'):
-                raise serializers.ValidationError({
-                    'wfc_rating': 'Overall WFC rating is required when adding a review.'
-                })
+                ratings = [
+                    data['wifi_quality'],
+                    data['noise_level'],
+                    data['seating_comfort'],
+                ]
+                if data.get('power_outlets_rating') is not None:
+                    ratings.append(data['power_outlets_rating'])
+                data['wfc_rating'] = min(5, max(1, round(sum(ratings) / len(ratings))))
         return data
 
     def create(self, validated_data):

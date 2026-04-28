@@ -110,7 +110,8 @@ class ReviewAdmin(admin.ModelAdmin):
         'updated_at',
         'flag_count',
         'average_rating_display',
-        'spam_check_result'
+        'spam_check_result',
+        'wfc_rating',
     ]
     
     fieldsets = (

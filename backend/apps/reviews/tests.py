@@ -179,8 +179,8 @@ class TestCombinedVisitReview:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['review'] is None
 
-    def test_create_review_missing_wfc_rating(self, authenticated_client, test_cafe):
-        """Test creating review without required wfc_rating fails"""
+    def test_create_review_auto_computes_wfc_rating(self, authenticated_client, test_cafe, test_user):
+        """Test creating review without wfc_rating auto-computes it from sub-criteria"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
@@ -188,11 +188,36 @@ class TestCombinedVisitReview:
             'check_in_longitude': 106.8456,
             'include_review': True,
             'wifi_quality': 5,
-            # Missing wfc_rating
+            # Missing wfc_rating — should be auto-computed
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['review'] is not None
+        # wifi=5, noise=3(default), seating=3(default), no power → avg=11/3≈3.67 → round=4
+        review = Review.objects.get(user=test_user, cafe=test_cafe)
+        assert review.wfc_rating == 4
+
+    def test_create_review_auto_computes_wfc_rating_with_power(self, authenticated_client, test_cafe, test_user):
+        """Test auto-computation includes power_outlets_rating when provided"""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today() + timedelta(days=1)),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wifi_quality': 5,
+            'power_outlets_rating': 5,
+            'seating_comfort': 4,
+            'noise_level': 3,
+            # Missing wfc_rating — should be auto-computed
+        }
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        review = Review.objects.get(user=test_user, cafe=test_cafe)
+        # (5+5+4+3)/4 = 4.25 → round=4
+        assert review.wfc_rating == 4
 
     def test_create_review_invalid_rating(self, authenticated_client, test_cafe):
         """Test creating review with invalid rating value fails"""

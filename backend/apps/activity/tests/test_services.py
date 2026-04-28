@@ -89,9 +89,10 @@ def test_create_review_activity(users, cafe, follows):
     assert activities.count() == 3
 
     # Check Alice's own activity
+    # wfc_rating is auto-computed: (5+2+4)/3 ≈ 3.67 → round = 4
     alice_activity = activities.get(recipient=alice)
     assert alice_activity.actor == alice
-    assert alice_activity.data['wfc_rating'] == 5.0
+    assert alice_activity.data['wfc_rating'] == 4.0
     assert alice_activity.data['comment'] == 'Great wifi!'
 
 

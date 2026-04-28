@@ -250,7 +250,15 @@ class Review(models.Model):
     
     def __str__(self):
         return f"{self.user.username}'s review of {self.cafe.name} ({self.wfc_rating}⭐)"
-    
+
+    def save(self, *args, **kwargs):
+        """Auto-compute overall WFC rating from sub-criteria."""
+        ratings = [self.wifi_quality, self.noise_level, self.seating_comfort]
+        if self.power_outlets_rating is not None:
+            ratings.append(self.power_outlets_rating)
+        self.wfc_rating = min(5, max(1, round(sum(ratings) / len(ratings))))
+        super().save(*args, **kwargs)
+
     @property
     def average_rating(self):
         """Calculate average of all rated criteria."""
