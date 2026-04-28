@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home } from 'lucide-react';
 import { Cafe, CombinedVisitReviewCreate, Review, Visit } from '../../types';
-import { Modal, ResultModal } from '../common';
+import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
 import ReviewForm from '../review/ReviewForm';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
-import { calculateDistance, formatVisitTime } from '../../utils';
+import { calculateDistance, formatVisitTime, computeWfcRating } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
 import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
@@ -112,12 +112,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
   // Auto-compute overall WFC rating
   const wfcRating = useMemo(() => {
-    const ratings = [wifiQuality, seatingComfort, noiseLevel];
-    if (powerOutlets !== undefined && powerOutlets !== null) {
-      ratings.push(powerOutlets);
-    }
-    const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-    return Math.min(5, Math.max(1, Math.round(avg)));
+    return computeWfcRating(wifiQuality, noiseLevel, seatingComfort, powerOutlets);
   }, [wifiQuality, powerOutlets, seatingComfort, noiseLevel]);
   const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(null);
   const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(null);
@@ -494,30 +489,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     }
   };
 
-  const renderStarRating = (value: number, onChange: (val: number) => void, label: string, icon: React.ReactNode) => {
-    return (
-      <div className={styles.ratingField}>
-        <label className={styles.ratingLabel}>
-          {icon}
-          {label}
-        </label>
-        <div className={styles.starContainer}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              className={`${styles.starButton} ${star <= value ? styles.starActive : ''}`}
-              onClick={() => onChange(star)}
-              aria-label={`Rate ${star} stars`}
-            >
-              <Star size={24} fill={star <= value ? 'currentColor' : 'none'} />
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const renderContent = () => {
     if (!selectedCafe) return null;
 
@@ -741,84 +712,50 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
                 Overall WFC Rating
                 <span className={styles.optional}>(Auto)</span>
               </label>
-              <div className={styles.starContainer}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <span
-                    key={star}
-                    className={`${styles.starButton} ${star <= wfcRating ? styles.starActive : ''}`}
-                    style={{ cursor: 'default' }}
-                    aria-label={`Overall rating ${wfcRating} stars`}
-                  >
-                    <Star size={24} fill={star <= wfcRating ? 'currentColor' : 'none'} />
-                  </span>
-                ))}
-              </div>
+              <StarRating value={wfcRating} disabled />
             </div>
-            {renderStarRating(wifiQuality, setWifiQuality, 'WiFi Quality', <Wifi size={18} />)}
-            {renderStarRating(powerOutlets, setPowerOutlets, 'Power Outlets', <Zap size={18} />)}
-            {renderStarRating(seatingComfort, setSeatingComfort, 'Seat/Desk Comfort', <Armchair size={18} />)}
-            {renderStarRating(noiseLevel, setNoiseLevel, 'Audio Comfort', <Volume2 size={18} />)}
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Wifi size={18} />
+                WiFi Quality
+              </label>
+              <StarRating value={wifiQuality} onChange={setWifiQuality} />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Zap size={18} />
+                Power Outlets
+              </label>
+              <StarRating value={powerOutlets} onChange={setPowerOutlets} />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Armchair size={18} />
+                Seat/Desk Comfort
+              </label>
+              <StarRating value={seatingComfort} onChange={setSeatingComfort} />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Volume2 size={18} />
+                Audio Comfort
+              </label>
+              <StarRating value={noiseLevel} onChange={setNoiseLevel} />
+            </div>
 
             <div className={styles.toggleGroup}>
-              <div className={styles.toggleField}>
-                <label className={styles.toggleLabel}>
-                  <Cigarette size={18} />
-                  Has Smoking Area?
-                </label>
-                <div className={styles.toggleButtons}>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasSmokingArea === true ? styles.toggleActive : ''}`}
-                    onClick={() => setHasSmokingArea(true)}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasSmokingArea === false ? styles.toggleActive : ''}`}
-                    onClick={() => setHasSmokingArea(false)}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasSmokingArea === null ? styles.toggleActive : ''}`}
-                    onClick={() => setHasSmokingArea(null)}
-                  >
-                    Don't Know
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.toggleField}>
-                <label className={styles.toggleLabel}>
-                  <Home size={18} />
-                  Has Prayer Room?
-                </label>
-                <div className={styles.toggleButtons}>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasPrayerRoom === true ? styles.toggleActive : ''}`}
-                    onClick={() => setHasPrayerRoom(true)}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasPrayerRoom === false ? styles.toggleActive : ''}`}
-                    onClick={() => setHasPrayerRoom(false)}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasPrayerRoom === null ? styles.toggleActive : ''}`}
-                    onClick={() => setHasPrayerRoom(null)}
-                  >
-                    Don't Know
-                  </button>
-                </div>
-              </div>
+              <FacilityToggle
+                label="Has Smoking Area?"
+                icon={<Cigarette size={18} />}
+                value={hasSmokingArea}
+                onChange={setHasSmokingArea}
+              />
+              <FacilityToggle
+                label="Has Prayer Room?"
+                icon={<Home size={18} />}
+                value={hasPrayerRoom}
+                onChange={setHasPrayerRoom}
+              />
             </div>
 
             <div className={styles.formGroup}>
@@ -873,18 +810,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         {renderContent()}
       </Modal>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
 
       {showEditReviewForm && existingReviewData && selectedCafe?.is_registered && (
         <ReviewForm

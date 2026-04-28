@@ -103,6 +103,20 @@ export const roundToDecimal = (value: number, decimals: number = 2): number => {
   return Math.round(value * multiplier) / multiplier;
 };
 
+export const computeWfcRating = (
+  wifiQuality: number,
+  noiseLevel: number,
+  seatingComfort: number,
+  powerOutletsRating?: number | null,
+): number => {
+  const ratings = [wifiQuality, noiseLevel, seatingComfort];
+  if (powerOutletsRating !== undefined && powerOutletsRating !== null) {
+    ratings.push(powerOutletsRating);
+  }
+  const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+  return Math.min(5, Math.max(1, Math.round(avg)));
+};
+
 const GOOGLE_RATING_STALE_HOURS = 24;
 
 export const isGoogleRatingStale = (updatedAt: string | null | undefined): boolean => {

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, Zap, Volume2, Armchair, Cigarette, Home } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
-import { Modal, ResultModal } from '../common';
+import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
 import { useReviews, useResultModal } from '../../hooks';
 import { reviewApi } from '../../api/client';
-import { isValidReviewComment } from '../../utils';
+import { isValidReviewComment, computeWfcRating } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import { logger } from '../../utils/logger';
@@ -64,16 +64,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   // Auto-compute overall WFC rating from sub-criteria
   useEffect(() => {
-    const ratings = [
+    const computed = computeWfcRating(
       formData.wifi_quality,
-      formData.seating_comfort,
       formData.noise_level,
-    ];
-    if (formData.power_outlets_rating !== undefined && formData.power_outlets_rating !== null) {
-      ratings.push(formData.power_outlets_rating);
-    }
-    const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-    const computed = Math.min(5, Math.max(1, Math.round(avg)));
+      formData.seating_comfort,
+      formData.power_outlets_rating,
+    );
     setFormData(prev => ({ ...prev, wfc_rating: computed }));
   }, [formData.wifi_quality, formData.power_outlets_rating, formData.seating_comfort, formData.noise_level]);
 
@@ -214,26 +210,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     },
   ];
 
-  const renderStarRating = (field: keyof ReviewCreate, value: number) => {
-    return (
-      <div className={styles.starRating}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            className={`${styles.star} ${value >= star ? styles.active : ''}`}
-            onClick={() => !isViewMode && handleRatingChange(field, star)}
-            aria-label={`Rate ${star} stars`}
-            disabled={isViewMode}
-            style={isViewMode ? { cursor: 'default' } : undefined}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-    );
-  };
-
   const getModalTitle = () => {
     if (isViewMode) return "Your Review";
     if (isEditMode) return "Edit Your Review";
@@ -270,7 +246,11 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
                     <p className={styles.categoryDescription}>{category.description}</p>
                   </div>
                 </div>
-                {renderStarRating(category.field, formData[category.field] as number)}
+                <StarRating
+                  value={formData[category.field] as number}
+                  onChange={(val) => handleRatingChange(category.field, val)}
+                  disabled={isViewMode}
+                />
               </div>
             ))}
           </div>
@@ -283,18 +263,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             Auto-calculated from your ratings above
           </p>
           <div className={styles.ratingCategory}>
-            <div className={styles.starRating}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span
-                  key={star}
-                  className={`${styles.star} ${(formData.wfc_rating || 3) >= star ? styles.active : ''}`}
-                  style={{ cursor: 'default' }}
-                  aria-label={`Overall rating ${formData.wfc_rating || 3} stars`}
-                >
-                  ★
-                </span>
-              ))}
-            </div>
+            <StarRating value={formData.wfc_rating || 3} disabled />
           </div>
         </div>
 
@@ -306,71 +275,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </p>
 
           <div className={styles.toggleGroup}>
-            <div className={styles.toggleField}>
-              <label className={styles.toggleLabel}>
-                <Cigarette size={18} />
-                Has Smoking Area?
-              </label>
-              <div className={styles.toggleButtons}>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasSmokingArea === true ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasSmokingArea(true)}
-                  disabled={isViewMode}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasSmokingArea === false ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasSmokingArea(false)}
-                  disabled={isViewMode}
-                >
-                  No
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasSmokingArea === null ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasSmokingArea(null)}
-                  disabled={isViewMode}
-                >
-                  Don't Know
-                </button>
-              </div>
-            </div>
+            <FacilityToggle
+              label="Has Smoking Area?"
+              icon={<Cigarette size={18} />}
+              value={hasSmokingArea}
+              onChange={setHasSmokingArea}
+              disabled={isViewMode}
+            />
 
-            <div className={styles.toggleField}>
-              <label className={styles.toggleLabel}>
-                <Home size={18} />
-                Has Prayer Room?
-              </label>
-              <div className={styles.toggleButtons}>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasPrayerRoom === true ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasPrayerRoom(true)}
-                  disabled={isViewMode}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasPrayerRoom === false ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasPrayerRoom(false)}
-                  disabled={isViewMode}
-                >
-                  No
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasPrayerRoom === null ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasPrayerRoom(null)}
-                  disabled={isViewMode}
-                >
-                  Don't Know
-                </button>
-              </div>
-            </div>
+            <FacilityToggle
+              label="Has Prayer Room?"
+              icon={<Home size={18} />}
+              value={hasPrayerRoom}
+              onChange={setHasPrayerRoom}
+              disabled={isViewMode}
+            />
           </div>
         </div>
 
@@ -422,18 +341,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       </form>
       </Modal>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
     </>
   );
 };
