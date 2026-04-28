@@ -2,7 +2,6 @@
 
 .googleButton {
   width: 100%;
-  margin-bottom: 20px;
   border: var(--neo-border-width) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
   box-shadow: 3px 3px 0 var(--neo-black);
@@ -20,6 +19,18 @@
 .googleButton:active {
   transform: translate(1px, 1px);
   box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+/* Nav variant: compact, no margin */
+.nav {
+  width: auto;
+  margin-bottom: 0;
+}
+
+/* Hero variant: prominent CTA sizing */
+.hero {
+  width: auto;
+  margin-bottom: 0;
 }
 
 .error {

@@ -12,10 +12,11 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || '';
 
 interface GoogleLoginButtonProps {
   mode?: 'signin' | 'signup';
+  variant?: 'default' | 'nav' | 'hero';
   onSuccess?: (provider: 'google', result: { user: User; created: boolean }) => void;
 }
 
-const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin', onSuccess }) => {
+const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin', variant = 'default', onSuccess }) => {
   const { login } = useAuth();
   const resultModal = useResultModal();
 
@@ -65,13 +66,13 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin', 
 
   return (
     <>
-      <div className={styles.googleButton}>
+      <div className={`${styles.googleButton} ${styles[variant]}`}>
         <GoogleLogin
           onSuccess={handleSuccess}
           onError={handleError}
           text={mode === 'signup' ? 'signup_with' : 'signin_with'}
           theme="outline"
-          size="large"
+          size={variant === 'nav' ? 'medium' : 'large'}
         />
       </div>
 
