@@ -106,7 +106,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
   // Review fields (simplified form with 4 key criteria + auto-computed overall)
   const [wifiQuality, setWifiQuality] = useState<number>(3);
-  const [powerOutlets, setPowerOutlets] = useState<number | undefined>(undefined);
+  const [powerOutlets, setPowerOutlets] = useState<number>(3);
   const [seatingComfort, setSeatingComfort] = useState<number>(3);
   const [noiseLevel, setNoiseLevel] = useState<number>(3);
 
@@ -191,7 +191,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setVisitTime(null);
       setIncludeReview(false);
       setWifiQuality(3);
-      setPowerOutlets(undefined);
+      setPowerOutlets(3);
       setSeatingComfort(3);
       setNoiseLevel(3);
       setHasSmokingArea(null);
@@ -755,7 +755,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
               </div>
             </div>
             {renderStarRating(wifiQuality, setWifiQuality, 'WiFi Quality', <Wifi size={18} />)}
-            {renderStarRating(powerOutlets || 0, setPowerOutlets, 'Power Outlets', <Zap size={18} />)}
+            {renderStarRating(powerOutlets, setPowerOutlets, 'Power Outlets', <Zap size={18} />)}
             {renderStarRating(seatingComfort, setSeatingComfort, 'Seat/Desk Comfort', <Armchair size={18} />)}
             {renderStarRating(noiseLevel, setNoiseLevel, 'Audio Comfort', <Volume2 size={18} />)}
 
