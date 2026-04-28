@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Wifi, Zap, Volume2, Armchair, Cigarette, Home } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
 import { Modal, ResultModal } from '../common';
@@ -61,6 +61,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-compute overall WFC rating from sub-criteria
+  useEffect(() => {
+    const ratings = [
+      formData.wifi_quality,
+      formData.seating_comfort,
+      formData.noise_level,
+    ];
+    if (formData.power_outlets_rating !== undefined && formData.power_outlets_rating !== null) {
+      ratings.push(formData.power_outlets_rating);
+    }
+    const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    const computed = Math.min(5, Math.max(1, Math.round(avg)));
+    setFormData(prev => ({ ...prev, wfc_rating: computed }));
+  }, [formData.wifi_quality, formData.power_outlets_rating, formData.seating_comfort, formData.noise_level]);
 
   const handleRatingChange = (field: keyof ReviewCreate, value: number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -136,7 +151,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         trackReviewCreated({
           cafeId,
           cafeName,
-          wfcRating: formData.wfc_rating,
+          wfcRating: formData.wfc_rating || 3,
           wifiQuality: formData.wifi_quality,
           hasComment: !!formData.comment?.trim(),
           commentLength: formData.comment?.length || 0,
@@ -261,14 +276,25 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </div>
         </div>
 
-        {/* Overall WFC Rating */}
+        {/* Overall WFC Rating — Auto-computed */}
         <div className={styles.section}>
           <h3 className={styles.sectionTitle}>Overall WFC Suitability</h3>
           <p className={styles.sectionDescription}>
-            How suitable is this cafe for working from?
+            Auto-calculated from your ratings above
           </p>
           <div className={styles.ratingCategory}>
-            {renderStarRating('wfc_rating', formData.wfc_rating as number)}
+            <div className={styles.starRating}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span
+                  key={star}
+                  className={`${styles.star} ${(formData.wfc_rating || 3) >= star ? styles.active : ''}`}
+                  style={{ cursor: 'default' }}
+                  aria-label={`Overall rating ${formData.wfc_rating || 3} stars`}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 

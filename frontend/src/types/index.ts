@@ -366,8 +366,8 @@ export interface ReviewCreate {
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
 
-  // Overall WFC rating (required)
-  wfc_rating: number;
+  // Overall WFC rating (auto-computed from sub-criteria)
+  wfc_rating?: number;
 
   // Visit time (1=morning, 2=afternoon, 3=evening)
   visit_time: number;
@@ -591,30 +591,4 @@ export enum PriceRange {
   LUXURY = 4,
 }
 
-// ===========================
-// Helper Type Guards
-// ===========================
 
-export function isUser(obj: any): obj is User {
-  return obj && typeof obj.id === 'number' && typeof obj.username === 'string';
-}
-
-export function isCafe(obj: any): obj is Cafe {
-  return obj && typeof obj.id === 'number' && typeof obj.name === 'string';
-}
-
-export function isReview(obj: any): obj is Review {
-  return obj && typeof obj.id === 'number' && typeof obj.average_rating === 'number';
-}
-
-// ===========================
-// Utility Types
-// ===========================
-
-export type Nullable<T> = T | null;
-export type Optional<T> = T | undefined;
-export type AsyncState<T> = {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-};
