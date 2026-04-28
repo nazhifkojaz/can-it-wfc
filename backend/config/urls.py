@@ -7,17 +7,10 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     # Admin panel (obscure path for security - not documented in API)
     path('mimin-wfc-nih/', admin.site.urls),
-
-    # JWT Refresh (for token renewal)
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
-    # Django Allauth (for social authentication)
-    path('accounts/', include('allauth.urls')),  # Required by allauth
 
     # API endpoints
     path('api/auth/', include('apps.accounts.urls')),

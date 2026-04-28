@@ -1,6 +1,6 @@
 /**
  * Centralized error extraction utility.
- * Handles both new standardized format and legacy formats for backward compatibility.
+ * Handles both the standardized custom format and DRF's default error formats.
  */
 
 export interface ApiError {
@@ -12,14 +12,14 @@ export interface ApiError {
 
 /**
  * Extract error information from API response.
- * Supports new standardized format and legacy formats.
+ * Supports the standardized custom format and DRF's default error formats.
  */
 export function extractApiError(error: any): ApiError {
   const response = error?.response;
   const data = response?.data;
   const status = response?.status || null;
 
-  // New standardized format: { error: { code, message, details } }
+  // Standardized format: { error: { code, message, details } }
   if (data?.error?.message) {
     return {
       code: data.error.code || null,
@@ -29,24 +29,24 @@ export function extractApiError(error: any): ApiError {
     };
   }
 
-  // Legacy formats (backward compatibility)
+  // DRF default formats (detail, message, non_field_errors, field-level errors)
   let message = 'An unexpected error occurred';
   let details: Record<string, string[]> | null = null;
 
   if (data) {
-    // Legacy: { detail: "message" }
+    // DRF: { detail: "message" }
     if (typeof data.detail === 'string') {
       message = data.detail;
     }
-    // Legacy: { message: "message" }
+    // Custom: { message: "message" }
     else if (typeof data.message === 'string') {
       message = data.message;
     }
-    // Legacy: { non_field_errors: ["message"] }
+    // DRF: { non_field_errors: ["message"] }
     else if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
       message = data.non_field_errors[0];
     }
-    // Legacy: Field-level errors { fieldName: ["error"] }
+    // DRF: Field-level errors { fieldName: ["error"] }
     else if (typeof data === 'object') {
       const fieldErrors: Record<string, string[]> = {};
       let firstError: string | null = null;
@@ -93,7 +93,7 @@ export function extractApiError(error: any): ApiError {
 export function getFieldError(error: any, fieldName: string): string | null {
   const apiError = extractApiError(error);
 
-  // New format: check details
+  // Standardized format: check details
   if (apiError.details?.[fieldName]) {
     const fieldErrors = apiError.details[fieldName];
     return Array.isArray(fieldErrors) ? fieldErrors[0] : fieldErrors;

@@ -8,12 +8,9 @@ import {
   handleApiError,
   getApiError,
 } from './client';
-// Note: tokenStorage is mocked below via vi.mock — use mockClearTokens in assertions
 
-// Hoist mocks so they're available when vi.mock factories execute
-const { responseInterceptorHandlers, mockClearTokens, mockAxiosInstance } = vi.hoisted(() => {
+const { responseInterceptorHandlers, mockAxiosInstance } = vi.hoisted(() => {
   const handlers: Array<(error: any) => any> = [];
-  const clearTokens = vi.fn();
   const instance = {
     get: vi.fn(),
     post: vi.fn(),
@@ -29,18 +26,12 @@ const { responseInterceptorHandlers, mockClearTokens, mockAxiosInstance } = vi.h
       },
     },
   };
-  return { responseInterceptorHandlers: handlers, mockClearTokens: clearTokens, mockAxiosInstance: instance };
+  return { responseInterceptorHandlers: handlers, mockAxiosInstance: instance };
 });
 
 vi.mock('axios', () => ({
   default: {
     create: () => mockAxiosInstance,
-  },
-}));
-
-vi.mock('../utils/storage', () => ({
-  tokenStorage: {
-    clearTokens: mockClearTokens,
   },
 }));
 
@@ -94,7 +85,6 @@ describe('ApiClient - 401 Interceptor', () => {
   const originalLocation = window.location;
 
   beforeEach(() => {
-    mockClearTokens.mockClear();
     Object.defineProperty(window, 'location', {
       value: { href: '' },
       writable: true,
@@ -118,18 +108,6 @@ describe('ApiClient - 401 Interceptor', () => {
     // Handler re-rejects the error after processing — catch it
     await handler(error).catch(() => {});
   }
-
-  it('clears tokens on every 401', async () => {
-    await trigger401('/map');
-
-    expect(mockClearTokens).toHaveBeenCalled();
-  });
-
-  it('clears tokens even on public pages', async () => {
-    await trigger401('/');
-
-    expect(mockClearTokens).toHaveBeenCalled();
-  });
 
   it('redirects to landing page when on a protected page', async () => {
     await trigger401('/map');
