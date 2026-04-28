@@ -153,8 +153,10 @@ api.interceptors.response.use(
       const base = import.meta.env.BASE_URL || '/';
       const normalizedBase = base === '/' ? '' : base.replace(/\/$/, '');
       const rootPaths = ['/', `${normalizedBase}/`, normalizedBase || '/'];
+      const landingVariants = [2, 4].map(n => `${normalizedBase}/${n}`);
+      const publicPaths = [...rootPaths, ...landingVariants];
 
-      if (!rootPaths.some(p => path === p || path === `${p}/`)) {
+      if (!publicPaths.some(p => path === p || path === `${p}/`)) {
         window.location.href = buildAppPath('/');
       }
     }

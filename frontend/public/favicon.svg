@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Mug body -->
+  <rect x="12" y="24" width="30" height="30" rx="3" fill="#FFD600" stroke="#1A1A2E" stroke-width="4"/>
+  <!-- Mug handle -->
+  <path d="M42 32 C54 32 54 48 42 48" fill="none" stroke="#1A1A2E" stroke-width="4" stroke-linecap="round"/>
+  <!-- Steam lines (coral) -->
+  <path d="M20 20 C20 14 24 14 24 8" fill="none" stroke="#FF6B6B" stroke-width="3" stroke-linecap="round"/>
+  <path d="M28 18 C28 12 32 12 32 6" fill="none" stroke="#FF6B6B" stroke-width="3" stroke-linecap="round"/>
+  <path d="M36 20 C36 14 40 14 40 8" fill="none" stroke="#FF6B6B" stroke-width="3" stroke-linecap="round"/>
+</svg>
