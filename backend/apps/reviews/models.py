@@ -3,7 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.utils import timezone
 from apps.core.currency_utils import CURRENCY_CHOICES
-from apps.core.constants import REVIEW_AUTO_HIDE_FLAG_THRESHOLD
+from apps.core.constants import REVIEW_AUTO_HIDE_FLAG_THRESHOLD, VISIT_TIME_CHOICES
 
 
 class Visit(models.Model):
@@ -46,11 +46,6 @@ class Visit(models.Model):
     )
 
     # Visit time (new field)
-    VISIT_TIME_CHOICES = [
-        (1, 'Morning (6AM - 12PM)'),
-        (2, 'Afternoon (12PM - 6PM)'),
-        (3, 'Evening (6PM - 12AM)'),
-    ]
     visit_time = models.IntegerField(
         choices=VISIT_TIME_CHOICES,
         validators=[MinValueValidator(1), MaxValueValidator(3)],
@@ -179,11 +174,6 @@ class Review(models.Model):
     )
     
     # Visit time (1=morning, 2=afternoon, 3=evening)
-    VISIT_TIME_CHOICES = [
-        (1, 'Morning (Open - 1pm)'),
-        (2, 'Afternoon (1pm - 6pm)'),
-        (3, 'Evening (6pm - Close)'),
-    ]
     visit_time = models.IntegerField(
         choices=VISIT_TIME_CHOICES,
         validators=[MinValueValidator(1), MaxValueValidator(3)],

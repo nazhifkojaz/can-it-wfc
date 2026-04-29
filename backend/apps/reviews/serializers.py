@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from apps.core.constants import MAX_CHECKIN_DISTANCE_KM
+from apps.core.constants import MAX_CHECKIN_DISTANCE_KM, VISIT_TIME_CHOICES
 from core.logging import get_logger
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
@@ -526,7 +526,7 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         allow_null=True
     )
     visit_time = serializers.ChoiceField(
-        choices=Visit.VISIT_TIME_CHOICES,
+        choices=VISIT_TIME_CHOICES,
         required=False,
         allow_null=True
     )
