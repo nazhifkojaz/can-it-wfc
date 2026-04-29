@@ -2,7 +2,9 @@
  * Currency utilities for visit spending tracking
  * Auto-detects currency based on cafe location
  *
- * KEEP IN SYNC with backend/apps/core/currency_utils.py:detect_currency_from_coordinates()
+ * KEEP IN SYNC with:
+ * - backend/apps/core/currency_utils.py CURRENCY_CHOICES and CURRENCY_SYMBOLS (currency list)
+ * - backend/apps/core/currency_utils.py detect_currency_from_coordinates() (detection logic)
  */
 
 interface Currency {

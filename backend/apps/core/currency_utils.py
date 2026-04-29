@@ -3,7 +3,9 @@ Currency detection utility based on geographic location.
 Maps latitude/longitude to country and default currency.
 No external API needed - completely free!
 
-KEEP IN SYNC with frontend/src/utils/currency.ts:detectCurrencyFromCoordinates()
+KEEP IN SYNC with:
+- frontend/src/utils/currency.ts CURRENCIES array (currency list with codes, names, symbols)
+- frontend/src/utils/currency.ts detectCurrencyFromCoordinates() (detection logic)
 """
 
 from decimal import Decimal
