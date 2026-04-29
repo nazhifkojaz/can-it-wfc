@@ -12,6 +12,7 @@ import {
   CafeCreate,
   CafeUpdate,
   NearbyCafesParams,
+  NearbyCafesResponse,
   Visit,
   VisitCreate,
   CombinedVisitReviewCreate,
@@ -238,12 +239,7 @@ export const cafeApi = {
 
   // NEW: Get all nearby cafes (database + Google Places)
   getAllNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
-    getWithSignal<{
-      count: number;
-      registered_count: number;
-      unregistered_count: number;
-      results: Cafe[];
-    }>('/cafes/nearby/all/', params, signal),
+    getWithSignal<NearbyCafesResponse>('/cafes/nearby/all/', params, signal),
 
   // Search cafes
   search: (query: string) => getPaginated<Cafe>('/cafes/', { search: query }),

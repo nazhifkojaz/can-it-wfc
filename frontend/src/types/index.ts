@@ -2,14 +2,17 @@
 // User Types
 // ===========================
 
-export interface User {
+export interface UserBase {
   id: number;
   username: string;
-  email: string;
   display_name: string;
-  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
-  bio: string;
+  effective_display_name: string;
   avatar_url?: string;
+}
+
+export interface User extends UserBase {
+  email: string;
+  bio: string;
   is_anonymous_display: boolean;
   total_reviews: number;
   total_visits: number;
@@ -50,13 +53,8 @@ export interface UserSettings {
   activity_visibility: 'public' | 'followers' | 'private';
 }
 
-export interface UserProfile {
-  id: number;
-  username: string;
-  display_name: string;
-  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
+export interface UserProfile extends UserBase {
   bio: string;
-  avatar_url?: string;
   total_reviews: number;
   total_visits: number;
   followers_count: number;
@@ -66,7 +64,6 @@ export interface UserProfile {
   is_own_profile?: boolean;
   is_following?: boolean;
   is_followed_by?: boolean;
-  // For private profiles
   profile_visibility?: 'private';
   message?: string;
 }
@@ -136,12 +133,7 @@ export interface ActivityFeedResponse {
   count: number;
 }
 
-export interface FollowUser {
-  id: number;
-  username: string;
-  display_name: string;
-  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
-  avatar_url?: string;
+export interface FollowUser extends UserBase {
   bio: string;
   total_visits: number;
   total_reviews: number;
@@ -228,12 +220,19 @@ export interface CafeUpdate {
 }
 
 export interface NearbyCafesParams {
-  latitude: number;       // Search center latitude
-  longitude: number;      // Search center longitude
+  latitude: number;
+  longitude: number;
   radius_km?: number;
   limit?: number;
-  user_latitude?: number;  // User's actual location (for distance calculation)
-  user_longitude?: number; // User's actual location (for distance calculation)
+  user_latitude?: number;
+  user_longitude?: number;
+}
+
+export interface NearbyCafesResponse {
+  count: number;
+  registered_count: number;
+  unregistered_count: number;
+  results: Cafe[];
 }
 
 // ===========================
@@ -310,92 +309,40 @@ export interface CombinedVisitReviewCreate {
 // Review Types
 // ===========================
 
-export interface Review {
-  id: number;
-  user: User;
-  cafe: Cafe;
-
-  // WFC Ratings (1-5)
+export interface ReviewContent {
   wifi_quality: number;
   power_outlets_rating?: number;
   noise_level: number;
   seating_comfort: number;
-
-  // Additional facilities (three-state: true/false/null)
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
-
-  // Overall WFC rating
-  wfc_rating: number;
-
-  // Visit time (1=morning, 2=afternoon, 3=evening)
+  wfc_rating?: number;
   visit_time: number;
-  visit_time_display?: string; // Computed property
-
-  // Calculated
-  average_rating?: number;
-
-  // Text review (max 160 chars)
   comment?: string;
+}
 
-  // Moderation
+export interface Review extends ReviewContent {
+  id: number;
+  user: User;
+  cafe: Cafe;
+  wfc_rating: number;
+  visit_time_display?: string;
+  average_rating?: number;
   is_flagged: boolean;
   flag_count: number;
   is_hidden: boolean;
-
-  // Helpful votes
   helpful_count: number;
-  is_helpful: boolean; // Whether current user marked as helpful
-  user_has_flagged: boolean; // Whether current user has flagged this review
-
-  // Timestamps
+  is_helpful: boolean;
+  user_has_flagged: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface ReviewCreate {
+export interface ReviewCreate extends ReviewContent {
   cafe_id: number;
-
-  // WFC Ratings (1-5)
-  wifi_quality: number;
-  power_outlets_rating?: number;
-  noise_level: number;
-  seating_comfort: number;
-
-  // Additional facilities (three-state: true/false/null)
-  has_smoking_area?: boolean | null;
-  has_prayer_room?: boolean | null;
-
-  // Overall WFC rating (auto-computed from sub-criteria)
-  wfc_rating?: number;
-
-  // Visit time (1=morning, 2=afternoon, 3=evening)
-  visit_time: number;
-
-  // Optional text review (max 160 chars)
-  comment?: string;
 }
 
-export interface ReviewUpdate {
-  // WFC Ratings (1-5)
-  wifi_quality?: number;
-  power_outlets_rating?: number;
-  noise_level?: number;
-  seating_comfort?: number;
-
-  // Additional facilities (three-state: true/false/null)
-  has_smoking_area?: boolean | null;
-  has_prayer_room?: boolean | null;
-
-  // Overall WFC rating
-  wfc_rating?: number;
-
-  // Visit time (1=morning, 2=afternoon, 3=evening)
-  visit_time?: number;
-
-  // Optional text review (max 160 chars)
-  comment?: string;
-}
+export interface ReviewUpdate extends Partial<ReviewContent> {}
 
 // ===========================
 // Favorite Types

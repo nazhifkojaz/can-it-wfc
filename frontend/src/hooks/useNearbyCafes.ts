@@ -1,21 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { cafeApi } from '../api/client';
-import { Cafe } from '../types';
+import { NearbyCafesResponse } from '../types';
 import { queryKeys } from '../config/queryKeys';
 
 interface UseNearbyCafesParams {
-  latitude: number;       // Search center latitude
-  longitude: number;      // Search center longitude
+  latitude: number;
+  longitude: number;
   radius_km?: number;
   enabled?: boolean;
-  userLatitude?: number;  // User's actual location (for distance calculation)
-  userLongitude?: number; // User's actual location (for distance calculation)
-}
-
-interface NearbyCafesResponse {
-  results: Cafe[];
-  registered_count: number;
-  unregistered_count: number;
+  userLatitude?: number;
+  userLongitude?: number;
 }
 
 export const useNearbyCafes = ({
