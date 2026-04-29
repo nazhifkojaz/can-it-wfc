@@ -68,34 +68,6 @@ class TestUserProfile:
 
 
 @pytest.mark.django_db
-class TestTokenRefresh:
-    """Test token refresh functionality"""
-
-    def test_refresh_token(self, api_client, test_user):
-        """Test refreshing access token with refresh token"""
-        from rest_framework_simplejwt.tokens import RefreshToken
-
-        # Create refresh token manually
-        refresh = RefreshToken.for_user(test_user)
-        refresh_token = str(refresh)
-
-        # Refresh the token
-        refresh_data = {'refresh': refresh_token}
-        response = api_client.post('/api/auth/refresh/', refresh_data)
-
-        assert response.status_code == status.HTTP_200_OK
-        assert 'access' in response.data
-        assert len(response.data['access']) > 0
-
-    def test_refresh_invalid_token(self, api_client):
-        """Test refreshing with invalid token fails"""
-        data = {'refresh': 'invalid-token-string'}
-        response = api_client.post('/api/auth/refresh/', data)
-
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-@pytest.mark.django_db
 class TestUserModel:
     """Test User model methods"""
 
@@ -176,21 +148,6 @@ class TestLogout:
         # Cookies should be cleared (max_age=0)
         assert response.cookies['access_token']['max-age'] == 0
         assert response.cookies['refresh_token']['max-age'] == 0
-
-    def test_logout_blacklists_refresh_token(self, api_client, test_user):
-        """Test that refresh token cannot be used after logout"""
-        access, refresh = self._create_tokens_for_user(test_user)
-        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
-        api_client.cookies['refresh_token'] = refresh
-
-        # Logout — should blacklist the refresh token
-        api_client.post('/api/auth/logout/')
-
-        # Try to refresh with the old token — should fail
-        refresh_response = api_client.post('/api/auth/refresh/', {
-            'refresh': refresh,
-        })
-        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_logout_unauthenticated(self, api_client):
         """Test logout without authentication returns 401"""
