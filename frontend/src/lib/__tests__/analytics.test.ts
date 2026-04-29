@@ -687,12 +687,12 @@ describe('Analytics - Cafe Flagging Events', () => {
     it('should capture cafe_flagged event', () => {
       trackCafeFlagged({
         cafeId: 42,
-        reason: 'not_a_cafe',
+        reason: 'not_cafe',
       });
 
       expect(mockCapture).toHaveBeenCalledWith('cafe_flagged', {
         cafe_id: 42,
-        reason: 'not_a_cafe',
+        reason: 'not_cafe',
       });
     });
   });

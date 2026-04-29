@@ -14,10 +14,8 @@ import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
-import { trackMapAreaSearched, trackViewModeToggled } from '../lib/analytics';
+import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
 import './MapPage.css';
-
-type ViewMode = 'map' | 'list';
 
 const MapPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();

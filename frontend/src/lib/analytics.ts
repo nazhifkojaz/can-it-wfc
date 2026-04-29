@@ -372,7 +372,7 @@ export const trackReviewFlagged = (props: {
 // UX EVENTS (Medium Priority)
 // ============================================================================
 
-type ViewMode = 'map' | 'list';
+export type ViewMode = 'map' | 'list';
 
 /**
  * Track when a user switches between Map and List view.
@@ -432,14 +432,11 @@ export const trackProfileTabViewed = (props: {
 // ACTIVITY FEED EVENTS (Medium Priority)
 // ============================================================================
 
-type ActivityType = 'review' | 'visit' | 'follow';
+type AnalyticsActivityCategory = 'review' | 'visit' | 'follow';
 type ActivityAction = 'view_cafe' | 'view_profile';
 
-/**
- * Track when a user clicks an item in the Activity Feed.
- */
 export const trackActivityItemClicked = (props: {
-  activityType: ActivityType;
+  activityType: AnalyticsActivityCategory;
   actionTaken: ActivityAction;
 }) => {
   posthog.capture('activity_item_clicked', {
@@ -453,10 +450,10 @@ export const trackActivityItemClicked = (props: {
 // ============================================================================
 
 type CafeFlagReason =
-  | 'not_a_cafe'
+  | 'not_cafe'
   | 'wrong_location'
   | 'permanently_closed'
-  | 'duplicate_entry';
+  | 'duplicate';
 
 /**
  * Track when a user submits a cafe report.
