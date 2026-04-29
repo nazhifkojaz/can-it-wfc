@@ -20,14 +20,14 @@
   --neo-shadow-offset-lg: 8px;
   --neo-shadow-color: #000000;
 
-  /* Colors - Keep your existing purple! */
-  --neo-primary: #8B5CF6;      /* Purple */
-  --neo-primary-dark: #7C3AED;
-  --neo-primary-light: #A78BFA;
+  /* Colors - Terracotta / Coffee Palette (Option C) */
+  --neo-primary: #C2410C;      /* Terracotta */
+  --neo-primary-dark: #9A3412;
+  --neo-primary-light: #F97316;
 
-  --neo-accent: #F59E0B;       /* Amber - for Google ratings */
+  --neo-accent: #FBBF24;       /* Golden amber */
   --neo-accent-dark: #D97706;
-  --neo-accent-light: #FBBF24;
+  --neo-accent-light: #FDE68A;
 
   --neo-danger: #DC2626;       /* Red */
   --neo-danger-dark: #B91C1C;

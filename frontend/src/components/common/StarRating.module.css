@@ -1,0 +1,55 @@
+.starContainer {
+  display: flex;
+  gap: 6px;
+}
+
+.starButton {
+  width: 44px;
+  height: 44px;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  padding: 6px;
+  cursor: pointer;
+  color: var(--neo-gray-300);
+  transition: all var(--neo-transition-fast);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.starButton:hover {
+  color: var(--neo-warning);
+  background: var(--neo-warning-light);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.starButton:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.starActive {
+  color: var(--neo-warning);
+  background: var(--neo-warning-light);
+}
+
+.starButton:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.starButton:disabled:hover {
+  transform: none;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  color: var(--neo-gray-300);
+  background: var(--neo-white);
+}
+
+.starActive:disabled,
+.starActive:disabled:hover {
+  color: var(--neo-warning);
+  background: var(--neo-warning-light);
+}

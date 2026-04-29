@@ -30,7 +30,7 @@ urlpatterns = [
     path('reviews/<int:pk>/mark_helpful/', MarkReviewHelpfulView.as_view(), name='review-mark-helpful'),
 
     # Cafe reviews
-    path('cafes/<uuid:cafe_id>/reviews/', CafeReviewsView.as_view(), name='cafe-reviews'),
+    path('cafes/<int:cafe_id>/reviews/', CafeReviewsView.as_view(), name='cafe-reviews'),
 
     # Review flags
     path('reviews/flags/', ReviewFlagCreateView.as_view(), name='review-flag-create'),

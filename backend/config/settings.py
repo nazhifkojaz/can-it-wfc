@@ -34,7 +34,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',  # Required by allauth
 
     # Third-party apps
     'rest_framework',
@@ -44,14 +43,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
-
-    # Django Allauth
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
 
     # Local apps
     'apps.accounts',
@@ -70,7 +61,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # Required by django-allauth
     'core.middleware.SecurityHeadersMiddleware',  # Custom security headers
 ]
 
@@ -101,34 +91,31 @@ DATABASES = {
 }
 
 # Password validation
+# Minimal validation for Django admin superusers only (OAuth-only auth for users)
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
             'min_length': 8,
         }
     },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-    {
-        'NAME': 'validators.ComplexityValidator',
-    },
 ]
 
 # Cache Configuration (required for DRF throttling)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+if DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'cache_table',
+        }
+    }
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -187,8 +174,8 @@ REST_FRAMEWORK = {
 
 # JWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -246,11 +233,10 @@ SUPABASE_SERVICE_KEY = env('SUPABASE_SERVICE_KEY', default='')
 GOOGLE_PLACES_API_KEY = env('GOOGLE_PLACES_API_KEY', default='')
 
 # Google Places Search Configuration
-GOOGLE_PLACES_MAX_RESULTS = env.int('GOOGLE_PLACES_MAX_RESULTS', default=60)  # Max: 60 (3 pages × 20)
-GOOGLE_PLACES_ENABLE_PAGINATION = env.bool('GOOGLE_PLACES_ENABLE_PAGINATION', default=True)
+GOOGLE_PLACES_MAX_RESULTS = env.int('GOOGLE_PLACES_MAX_RESULTS', default=20)  # Single page (max 20)
 GOOGLE_PLACES_TIMEOUT = env.int('GOOGLE_PLACES_TIMEOUT', default=10)  # seconds
 
-# Email Configuration (for password reset, etc.)
+# Email Configuration (for admin notifications)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Development
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Production
 
@@ -312,48 +298,6 @@ LOGGING = {
 MAX_REVIEWS_PER_DAY = 10
 MIN_ACCOUNT_AGE_HOURS = 0
 DUPLICATE_CAFE_DISTANCE_METERS = 50  # Distance threshold for duplicate detection
-
-# Django Sites Framework (required by allauth)
-SITE_ID = 1
-
-# Django Allauth Configuration
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_EMAIL_VERIFICATION = 'optional'  # Can be 'none', 'optional', 'mandatory'
-ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Use email for authentication
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
-ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
-SOCIALACCOUNT_AUTO_SIGNUP = True  # Automatically create account on social login
-SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'  # Skip email verification for social accounts
-
-# dj-rest-auth configuration
-REST_USE_JWT = True
-JWT_AUTH_COOKIE = 'can-it-wfc-auth'
-JWT_AUTH_REFRESH_COOKIE = 'can-it-wfc-refresh'
-JWT_AUTH_HTTPONLY = env.bool('JWT_AUTH_HTTPONLY', default=not DEBUG)  # True in production (DEBUG=False)
-
-# Configure dj-rest-auth to not use token auth (using JWT instead)
-REST_AUTH = {
-    'TOKEN_MODEL': None,
-}
-
-# Google OAuth Settings
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        },
-        'APP': {
-            'client_id': env('GOOGLE_OAUTH_CLIENT_ID', default=''),
-            'secret': env('GOOGLE_OAUTH_CLIENT_SECRET', default=''),
-            'key': ''
-        }
-    }
-}
 
 # Google OAuth Callback URL
 GOOGLE_OAUTH_CALLBACK_URL = env('GOOGLE_OAUTH_CALLBACK_URL', default='http://localhost:3000/auth/google/callback')

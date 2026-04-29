@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from django.db import transaction
-from apps.core.constants import MAX_CHECKIN_DISTANCE_KM
+from apps.core.constants import MAX_CHECKIN_DISTANCE_KM, VISIT_TIME_CHOICES
 from core.logging import get_logger
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
 from apps.cafes.serializers import CafeListSerializer
+from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)
 
@@ -64,7 +65,6 @@ class VisitSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Validate visit data and handle cafe creation if needed."""
         request = self.context.get('request')
-        from apps.cafes.models import Cafe
 
         # Skip most validation for updates (only allow amount_spent and visit_time)
         if self.instance is not None:
@@ -294,10 +294,6 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'power_outlets_rating',
             'noise_level',
             'seating_comfort',
-            'space_availability',
-            'coffee_quality',
-            'menu_options',
-            'bathroom_quality',
             'has_smoking_area',
             'has_prayer_room',
             'wfc_rating',
@@ -306,6 +302,7 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'comment',
             'helpful_count',
             'is_helpful',
+            'is_hidden',
             'average_rating',
             'created_at',
             'updated_at'
@@ -331,6 +328,9 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
     """
 
     cafe_id = serializers.IntegerField(write_only=True)
+    wfc_rating = serializers.IntegerField(
+        min_value=1, max_value=5, required=False, allow_null=True
+    )
 
     class Meta:
         model = Review
@@ -340,10 +340,6 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             'power_outlets_rating',
             'noise_level',
             'seating_comfort',
-            'space_availability',
-            'coffee_quality',
-            'menu_options',
-            'bathroom_quality',
             'has_smoking_area',
             'has_prayer_room',
             'wfc_rating',
@@ -353,8 +349,6 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
     def validate_cafe_id(self, value):
         """Validate that cafe exists."""
-        from apps.cafes.models import Cafe
-
         try:
             cafe = Cafe.objects.get(id=value, is_closed=False)
         except Cafe.DoesNotExist:
@@ -363,9 +357,18 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         return cafe
 
     def validate(self, attrs):
-        """Additional validation."""
+        """Additional validation and auto-compute wfc_rating."""
         request = self.context.get('request')
         cafe = attrs.get('cafe_id')
+
+        # Auto-compute wfc_rating if missing
+        if attrs.get('wfc_rating') is None:
+            attrs['wfc_rating'] = Review.compute_wfc_rating(
+                attrs.get('wifi_quality', 3),
+                attrs.get('noise_level', 3),
+                attrs.get('seating_comfort', 3),
+                attrs.get('power_outlets_rating'),
+            )
 
         # Check if user can review (account age)
         if not request.user.can_review():
@@ -421,6 +424,10 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 class ReviewUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating a review."""
 
+    wfc_rating = serializers.IntegerField(
+        min_value=1, max_value=5, required=False, allow_null=True
+    )
+
     class Meta:
         model = Review
         fields = [
@@ -428,16 +435,26 @@ class ReviewUpdateSerializer(serializers.ModelSerializer):
             'power_outlets_rating',
             'noise_level',
             'seating_comfort',
-            'space_availability',
-            'coffee_quality',
-            'menu_options',
-            'bathroom_quality',
             'has_smoking_area',
             'has_prayer_room',
             'wfc_rating',
             'visit_time',
             'comment'
         ]
+
+    def validate(self, attrs):
+        """Auto-compute wfc_rating if missing."""
+        if self.instance and attrs.get('wfc_rating') is None:
+            power = attrs.get('power_outlets_rating')
+            if power is None and self.instance.power_outlets_rating is not None:
+                power = self.instance.power_outlets_rating
+            attrs['wfc_rating'] = Review.compute_wfc_rating(
+                attrs.get('wifi_quality', self.instance.wifi_quality),
+                attrs.get('noise_level', self.instance.noise_level),
+                attrs.get('seating_comfort', self.instance.seating_comfort),
+                power,
+            )
+        return attrs
 
 
 class ReviewFlagSerializer(serializers.ModelSerializer):
@@ -509,7 +526,7 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         allow_null=True
     )
     visit_time = serializers.ChoiceField(
-        choices=Visit.VISIT_TIME_CHOICES,
+        choices=VISIT_TIME_CHOICES,
         required=False,
         allow_null=True
     )
@@ -531,7 +548,8 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         min_value=1,
         max_value=5,
         required=False,
-        allow_null=True
+        allow_null=True,
+        help_text="Overall WFC suitability (1=not suitable, 5=perfect for WFC). Auto-computed from sub-criteria if omitted."
     )
     wifi_quality = serializers.IntegerField(
         min_value=1,
@@ -572,7 +590,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        from apps.cafes.models import Cafe
 
         # Validate that either cafe_id or google_place_id is provided
         cafe = None
@@ -616,11 +633,45 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                     'visit_date': 'You have already logged a visit to this cafe on this date.'
                 })
 
-        if data.get('include_review', False):
-            if not data.get('wfc_rating'):
+        # Validate check-in distance
+        if cafe:
+            check_in_lat = data.get('check_in_latitude')
+            check_in_lng = data.get('check_in_longitude')
+
+            if not check_in_lat or not check_in_lng:
                 raise serializers.ValidationError({
-                    'wfc_rating': 'Overall WFC rating is required when adding a review.'
+                    'non_field_errors': [
+                        'Check-in location is required to verify you are at the cafe.'
+                    ]
                 })
+
+            distance = Cafe.calculate_distance(
+                check_in_lat, check_in_lng,
+                cafe.latitude, cafe.longitude
+            )
+            if distance > MAX_CHECKIN_DISTANCE_KM:
+                raise serializers.ValidationError({
+                    'check_in_latitude': [
+                        f'You are {distance:.2f}km away from {cafe.name}. '
+                        f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
+                    ]
+                })
+
+        # Set defaults for missing review sub-criteria and auto-compute wfc_rating
+        if data.get('include_review', False):
+            if data.get('wifi_quality') is None:
+                data['wifi_quality'] = 3
+            if data.get('noise_level') is None:
+                data['noise_level'] = 3
+            if data.get('seating_comfort') is None:
+                data['seating_comfort'] = 3
+            if not data.get('wfc_rating'):
+                data['wfc_rating'] = Review.compute_wfc_rating(
+                    data['wifi_quality'],
+                    data['noise_level'],
+                    data['seating_comfort'],
+                    data.get('power_outlets_rating'),
+                )
         return data
 
     def create(self, validated_data):
@@ -633,7 +684,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
 
         The transaction only wraps visit+review creation.
         """
-        from apps.cafes.models import Cafe
         from apps.cafes.services import CafeService
 
         request = self.context['request']
@@ -700,16 +750,6 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
                     # Create new review
                     # Copy visit_time from Visit to Review for backward compatibility
                     review_data['visit_time'] = visit.visit_time
-
-                    wfc_rating = review_data['wfc_rating']
-                    review_data.setdefault('wifi_quality', review_data.get('wifi_quality', wfc_rating))
-                    review_data.setdefault('power_outlets_rating', review_data.get('power_outlets_rating', wfc_rating))
-                    review_data.setdefault('seating_comfort', review_data.get('seating_comfort', wfc_rating))
-                    review_data.setdefault('noise_level', review_data.get('noise_level', wfc_rating))
-                    review_data.setdefault('space_availability', wfc_rating)
-                    review_data.setdefault('coffee_quality', wfc_rating)
-                    review_data.setdefault('menu_options', wfc_rating)
-                    review_data.setdefault('bathroom_quality', wfc_rating)
 
                     review = Review.objects.create(
                         user=user,

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home } from 'lucide-react';
-import { Cafe, CombinedVisitReviewCreate, Visit } from '../../types';
-import { Modal, ResultModal } from '../common';
+import { Cafe, CombinedVisitReviewCreate, Review, Visit } from '../../types';
+import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
+import ReviewForm from '../review/ReviewForm';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
-import { calculateDistance, formatVisitTime } from '../../utils';
+import { calculateDistance, formatVisitTime, computeWfcRating } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
-import { VISIT_TIME_OPTIONS } from '../../config/constants';
+import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
@@ -63,12 +64,10 @@ const visitReviewValidation = {
     return null;
   },
 
-  validateReviewFields: (includeReview: boolean, wfcRating: number): string | null => {
-    if (includeReview && (!wfcRating || wfcRating < 1 || wfcRating > 5)) {
-      return 'Overall WFC rating is required when adding a review';
+    validateReviewFields: (_includeReview: boolean, _wfcRating: number): string | null => {
+      // wfcRating is auto-computed, so this check is no longer needed
+      return null;
     }
-    return null;
-  }
 };
 
 interface AddVisitReviewModalProps {
@@ -98,16 +97,23 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   // Existing review detection
   const [hasExistingReview, setHasExistingReview] = useState(false);
   const [existingReviewLoading, setExistingReviewLoading] = useState(false);
+  const [existingReviewData, setExistingReviewData] = useState<Review | null>(null);
+  const [showEditReviewForm, setShowEditReviewForm] = useState(false);
+  const [reviewCheckFailed, setReviewCheckFailed] = useState(false);
 
   // Result modal
   const resultModal = useResultModal();
 
-  // Review fields (simplified form with 5 key criteria)
-  const [wfcRating, setWfcRating] = useState<number>(3);
+  // Review fields (simplified form with 4 key criteria + auto-computed overall)
   const [wifiQuality, setWifiQuality] = useState<number>(3);
   const [powerOutlets, setPowerOutlets] = useState<number>(3);
   const [seatingComfort, setSeatingComfort] = useState<number>(3);
   const [noiseLevel, setNoiseLevel] = useState<number>(3);
+
+  // Auto-compute overall WFC rating
+  const wfcRating = useMemo(() => {
+    return computeWfcRating(wifiQuality, noiseLevel, seatingComfort, powerOutlets);
+  }, [wifiQuality, powerOutlets, seatingComfort, noiseLevel]);
   const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(null);
   const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(null);
   const [comment, setComment] = useState('');
@@ -155,17 +161,21 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     const checkExistingReview = async () => {
       if (isOpen && selectedCafe?.is_registered) {
         setExistingReviewLoading(true);
+        setReviewCheckFailed(false);
         try {
           const review = await reviewApi.getUserCafeReview(selectedCafe.id);
           setHasExistingReview(!!review);
+          setExistingReviewData(review);
         } catch (error) {
           logger.error('Error checking existing review', error, 'AddVisitReviewModal');
-          setHasExistingReview(false);
+          setReviewCheckFailed(true);
         } finally {
           setExistingReviewLoading(false);
         }
       } else {
         setHasExistingReview(false);
+        setExistingReviewData(null);
+        setReviewCheckFailed(false);
       }
     };
 
@@ -175,7 +185,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setAmountSpent('');
       setVisitTime(null);
       setIncludeReview(false);
-      setWfcRating(3);
       setWifiQuality(3);
       setPowerOutlets(3);
       setSeatingComfort(3);
@@ -183,6 +192,9 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setHasSmokingArea(null);
       setHasPrayerRoom(null);
       setComment('');
+      setShowEditReviewForm(false);
+      setExistingReviewData(null);
+      setReviewCheckFailed(false);
 
       // Auto-detect currency based on cafe location
       if (preselectedCafe) {
@@ -215,6 +227,22 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     }
   }, [isOpen, locationError, locationLoading]);
 
+  const retryReviewCheck = async () => {
+    if (!selectedCafe?.is_registered) return;
+    setExistingReviewLoading(true);
+    setReviewCheckFailed(false);
+    try {
+      const review = await reviewApi.getUserCafeReview(selectedCafe.id);
+      setHasExistingReview(!!review);
+      setExistingReviewData(review);
+    } catch (error) {
+      logger.error('Error retrying review check', error, 'AddVisitReviewModal');
+      setReviewCheckFailed(true);
+    } finally {
+      setExistingReviewLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedCafe) return;
 
@@ -244,24 +272,25 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     if (amountError) validationErrors.push(amountError);
 
     // Validate review fields if review is included
-    if (includeReview) {
-      const reviewError = visitReviewValidation.validateReviewFields(includeReview, wfcRating);
-      if (reviewError) validationErrors.push(reviewError);
+      if (includeReview) {
+        const reviewError = visitReviewValidation.validateReviewFields(includeReview, wfcRating);
+        if (reviewError) validationErrors.push(reviewError);
 
-      const commentError = visitReviewValidation.validateComment(comment);
-      if (commentError) validationErrors.push(commentError);
+        const commentError = visitReviewValidation.validateComment(comment);
+        if (commentError) validationErrors.push(commentError);
 
-      // Validate all rating fields
-      const ratingErrors = [
-        visitReviewValidation.validateRating(wfcRating, 'Overall WFC rating'),
-        visitReviewValidation.validateRating(wifiQuality, 'WiFi quality'),
-        visitReviewValidation.validateRating(powerOutlets, 'Power outlets'),
-        visitReviewValidation.validateRating(seatingComfort, 'Seating comfort'),
-        visitReviewValidation.validateRating(noiseLevel, 'Noise level'),
-      ].filter(Boolean);
+        // Validate sub-criteria rating fields (overall is auto-computed)
+        const ratingErrors = [
+          visitReviewValidation.validateRating(wifiQuality, 'WiFi quality'),
+          visitReviewValidation.validateRating(seatingComfort, 'Seating comfort'),
+          visitReviewValidation.validateRating(noiseLevel, 'Noise level'),
+        ];
+        if (powerOutlets !== undefined) {
+          ratingErrors.push(visitReviewValidation.validateRating(powerOutlets, 'Power outlets'));
+        }
 
-      validationErrors.push(...ratingErrors as string[]);
-    }
+        validationErrors.push(...ratingErrors.filter(Boolean) as string[]);
+      }
 
     // Show validation errors if any
     if (validationErrors.length > 0) {
@@ -333,17 +362,11 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       await createWithReview(visitReviewData);
 
       // Track analytics
-      const visitTimeLabelMap: Record<number, 'morning' | 'afternoon' | 'evening'> = {
-        0: 'morning',
-        1: 'afternoon',
-        2: 'afternoon',
-        3: 'evening',
-      };
       trackVisitLogged({
         cafeId: selectedCafe.id,
         cafeName: selectedCafe.name,
         includesReview: includeReview,
-        visitTime: visitTime !== null ? visitTimeLabelMap[visitTime] : null,
+        visitTime: visitTime !== null ? VISIT_TIME_ANALYTICS_MAP[visitTime] : null,
         amountSpent: amountSpent ? parseFloat(amountSpent) : null,
         currency: amountSpent ? currency : null,
         isDuplicateVisit: showDuplicateInfo && !!existingVisit,
@@ -464,30 +487,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         details: errorDetails,
       });
     }
-  };
-
-  const renderStarRating = (value: number, onChange: (val: number) => void, label: string, icon: React.ReactNode) => {
-    return (
-      <div className={styles.ratingField}>
-        <label className={styles.ratingLabel}>
-          {icon}
-          {label}
-        </label>
-        <div className={styles.starContainer}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              className={`${styles.starButton} ${star <= value ? styles.starActive : ''}`}
-              onClick={() => onChange(star)}
-              aria-label={`Rate ${star} stars`}
-            >
-              <Star size={24} fill={star <= value ? 'currentColor' : 'none'} />
-            </button>
-          ))}
-        </div>
-      </div>
-    );
   };
 
   const renderContent = () => {
@@ -664,13 +663,29 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           <div className={styles.reviewToggle}>
             <p>Checking review status...</p>
           </div>
+        ) : reviewCheckFailed ? (
+          <div className={styles.infoBanner}>
+            <p>Could not check your review status.</p>
+            <button
+              className={styles.buttonPrimary}
+              onClick={retryReviewCheck}
+              style={{ marginTop: '0.5rem' }}
+            >
+              Retry
+            </button>
+          </div>
         ) : hasExistingReview ? (
           <div className={styles.infoBanner}>
             <p>
-              ℹ️ You already have a review for this cafe.
-              <br />
-              <small>You can edit your review from your visits page.</small>
+              You already have a review for this cafe.
             </p>
+            <button
+              className={styles.buttonPrimary}
+              onClick={() => setShowEditReviewForm(true)}
+              style={{ marginTop: '0.5rem' }}
+            >
+              Edit Your Review
+            </button>
           </div>
         ) : (
           <div className={styles.reviewToggle}>
@@ -691,72 +706,56 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           <div className={styles.reviewSection}>
             <h4 className={styles.reviewSectionTitle}>Work From Cafe Review</h4>
 
-            {renderStarRating(wfcRating, setWfcRating, 'Overall WFC Rating', <Star size={18} />)}
-            {renderStarRating(wifiQuality, setWifiQuality, 'WiFi Quality', <Wifi size={18} />)}
-            {renderStarRating(powerOutlets, setPowerOutlets, 'Power Outlets', <Zap size={18} />)}
-            {renderStarRating(seatingComfort, setSeatingComfort, 'Seat/Desk Comfort', <Armchair size={18} />)}
-            {renderStarRating(noiseLevel, setNoiseLevel, 'Audio Comfort', <Volume2 size={18} />)}
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Star size={18} />
+                Overall WFC Rating
+                <span className={styles.optional}>(Auto)</span>
+              </label>
+              <StarRating value={wfcRating} disabled />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Wifi size={18} />
+                WiFi Quality
+              </label>
+              <StarRating value={wifiQuality} onChange={setWifiQuality} />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Zap size={18} />
+                Power Outlets
+              </label>
+              <StarRating value={powerOutlets} onChange={setPowerOutlets} />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Armchair size={18} />
+                Seat/Desk Comfort
+              </label>
+              <StarRating value={seatingComfort} onChange={setSeatingComfort} />
+            </div>
+            <div className={styles.ratingField}>
+              <label className={styles.ratingLabel}>
+                <Volume2 size={18} />
+                Audio Comfort
+              </label>
+              <StarRating value={noiseLevel} onChange={setNoiseLevel} />
+            </div>
 
             <div className={styles.toggleGroup}>
-              <div className={styles.toggleField}>
-                <label className={styles.toggleLabel}>
-                  <Cigarette size={18} />
-                  Has Smoking Area?
-                </label>
-                <div className={styles.toggleButtons}>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasSmokingArea === true ? styles.toggleActive : ''}`}
-                    onClick={() => setHasSmokingArea(true)}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasSmokingArea === false ? styles.toggleActive : ''}`}
-                    onClick={() => setHasSmokingArea(false)}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasSmokingArea === null ? styles.toggleActive : ''}`}
-                    onClick={() => setHasSmokingArea(null)}
-                  >
-                    Don't Know
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.toggleField}>
-                <label className={styles.toggleLabel}>
-                  <Home size={18} />
-                  Has Prayer Room?
-                </label>
-                <div className={styles.toggleButtons}>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasPrayerRoom === true ? styles.toggleActive : ''}`}
-                    onClick={() => setHasPrayerRoom(true)}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasPrayerRoom === false ? styles.toggleActive : ''}`}
-                    onClick={() => setHasPrayerRoom(false)}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.toggleButton} ${hasPrayerRoom === null ? styles.toggleActive : ''}`}
-                    onClick={() => setHasPrayerRoom(null)}
-                  >
-                    Don't Know
-                  </button>
-                </div>
-              </div>
+              <FacilityToggle
+                label="Has Smoking Area?"
+                icon={<Cigarette size={18} />}
+                value={hasSmokingArea}
+                onChange={setHasSmokingArea}
+              />
+              <FacilityToggle
+                label="Has Prayer Room?"
+                icon={<Home size={18} />}
+                value={hasPrayerRoom}
+                onChange={setHasPrayerRoom}
+              />
             </div>
 
             <div className={styles.formGroup}>
@@ -811,18 +810,21 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         {renderContent()}
       </Modal>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
+
+      {showEditReviewForm && existingReviewData && selectedCafe?.is_registered && (
+        <ReviewForm
+          cafeId={selectedCafe.id}
+          cafeName={selectedCafe.name}
+          existingReview={existingReviewData}
+          isOpen={showEditReviewForm}
+          onClose={() => setShowEditReviewForm(false)}
+          onSuccess={() => {
+            setShowEditReviewForm(false);
+            onSuccess();
+          }}
+        />
+      )}
     </>
   );
 };

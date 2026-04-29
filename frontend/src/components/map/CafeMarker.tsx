@@ -133,7 +133,7 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
 
           .popup-price {
             font-size: 14px;
-            color: var(--neo-primary, #8B5CF6);
+            color: var(--neo-primary, #C2410C);
             font-weight: var(--neo-font-bold, 700);
           }
 
@@ -154,7 +154,7 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
           .popup-button {
             width: 100%;
             padding: 8px 16px;
-            background: var(--neo-primary, #8B5CF6);
+            background: var(--neo-primary, #C2410C);
             color: var(--neo-white, #fff);
             border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
             border-radius: var(--neo-border-radius, 4px);
@@ -168,7 +168,7 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
           }
 
           .popup-button:hover {
-            background: var(--neo-primary-dark, #7C3AED);
+            background: var(--neo-primary-dark, #9A3412);
             transform: translate(-1px, -1px);
             box-shadow: 4px 4px 0 var(--neo-black, #000);
           }

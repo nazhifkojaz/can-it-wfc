@@ -6,7 +6,7 @@ import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
 import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
-import { ResultModal } from '../components/common';
+import { SharedResultModal } from '../components/common';
 import { SearchOverlay } from '../components/map/SearchOverlay';
 import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
 import { Cafe, SearchResult } from '../types';
@@ -14,10 +14,8 @@ import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
-import { trackMapAreaSearched, trackViewModeToggled } from '../lib/analytics';
+import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
 import './MapPage.css';
-
-type ViewMode = 'map' | 'list';
 
 const MapPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -288,18 +286,7 @@ const MapPage: React.FC = () => {
           preselectedCafe={visitCafe}
         />
 
-        <ResultModal
-          isOpen={resultModal.isOpen}
-          onClose={resultModal.closeResultModal}
-          type={resultModal.type}
-          title={resultModal.title}
-          message={resultModal.message}
-          details={resultModal.details}
-          primaryButton={resultModal.primaryButton}
-          secondaryButton={resultModal.secondaryButton}
-          autoClose={resultModal.autoClose}
-          autoCloseDelay={resultModal.autoCloseDelay}
-        />
+        <SharedResultModal resultModal={resultModal} />
 
         {/* Search Overlay */}
         <SearchOverlay

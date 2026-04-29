@@ -56,6 +56,12 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+    def get_follower_ids(self):
+        return list(Follow.objects.filter(followed=self).values_list('follower_id', flat=True))
+
+    def get_following_ids(self):
+        return list(Follow.objects.filter(follower=self).values_list('followed_id', flat=True))
+
     @property
     def effective_display_name(self):
         """
@@ -91,17 +97,9 @@ class User(AbstractUser):
         min_age = getattr(settings, 'MIN_ACCOUNT_AGE_HOURS', 0) # will adjust later
         return self.account_age_hours >= min_age
     
-    @transaction.atomic
     def update_stats(self):
-        """
-        Update denormalized statistics.
-        Uses @transaction.atomic to ensure all-or-nothing updates.
-        """
-        from apps.reviews.models import Review, Visit
-
-        self.total_reviews = Review.objects.filter(user=self).count()
-        self.total_visits = Visit.objects.filter(user=self).count()
-        self.save(update_fields=['total_reviews', 'total_visits'])
+        from apps.core.stats_utils import update_user_stats
+        update_user_stats(self)
 
     @transaction.atomic
     def update_follow_counts(self):
@@ -177,6 +175,48 @@ class UserSettings(models.Model):
         return f"{self.user.username}'s settings"
 
 
+class LinkedProvider(models.Model):
+    """Tracks OAuth providers linked to a user account."""
+    PROVIDER_CHOICES = [
+        ('google', 'Google'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='linked_providers',
+    )
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider_user_id = models.CharField(
+        max_length=255,
+        help_text="External user ID from OAuth provider (e.g. Google sub)",
+    )
+    email = models.EmailField(
+        db_index=True,
+        help_text="Email from OAuth provider, used for account linking",
+    )
+    display_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Username/handle from OAuth provider",
+    )
+    avatar_url = models.URLField(blank=True, null=True)
+    linked_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'linked_providers'
+        unique_together = [('provider', 'provider_user_id')]
+        indexes = [
+            models.Index(fields=['user', 'provider'], name='lp_user_provider_idx'),
+            models.Index(fields=['email'], name='lp_email_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.provider}"
+
+
 class Follow(models.Model):
     """
     User follow relationships.
@@ -235,17 +275,7 @@ from django.dispatch import receiver
 def create_user_settings(sender, instance, created, **kwargs):
     """
     Automatically create UserSettings when a new User is created.
-    This eliminates the need for get_or_create() calls throughout the codebase.
+    Uses get_or_create to avoid IntegrityError on race conditions.
     """
     if created:
-        UserSettings.objects.create(user=instance)
-
-
-@receiver(post_save, sender=User)
-def ensure_user_settings(sender, instance, **kwargs):
-    """
-    Ensure UserSettings exists for all users (handles edge cases).
-    If settings don't exist for some reason, create them.
-    """
-    if not hasattr(instance, 'settings'):
         UserSettings.objects.get_or_create(user=instance)

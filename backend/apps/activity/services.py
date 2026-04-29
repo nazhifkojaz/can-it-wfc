@@ -31,69 +31,6 @@ class ActivityService:
     Current implementation: All synchronous for simplicity.
     """
 
-    # Future: Add thresholds for async fan-out
-    SYNC_FANOUT_THRESHOLD = 1000
-
-    @classmethod
-    @transaction.atomic
-    def create_visit_activity(cls, visit: 'Visit') -> int:
-        """
-        DEPRECATED: Visit activities are no longer distributed to followers.
-
-        This method is retained but not called by any signal.
-
-        Args:
-            visit: Visit object
-
-        Returns:
-            int: Number of activity records created (0 if disabled)
-        """
-        user = visit.user
-
-        # Prepare denormalized data
-        # Store everything needed to display the activity
-        activity_data = {
-            'cafe_id': visit.cafe.id,
-            'cafe_name': visit.cafe.name,
-            'cafe_google_place_id': visit.cafe.google_place_id or '',
-            'visit_time': visit.visit_time,
-            'amount_spent': str(visit.amount_spent) if visit.amount_spent else None,
-            'currency': visit.currency,
-            'actor_username': user.username,
-            'actor_display_name': user.display_name,
-            'actor_avatar_url': user.avatar_url or '',
-        }
-
-        activities_to_create = []
-
-        # 1. Activity for user's own feed (own_visit type)
-        activities_to_create.append(Activity(
-            recipient=user,
-            actor=user,
-            activity_type=ActivityType.VISIT,
-            target_content_type=ContentType.objects.get_for_model(visit),
-            target_object_id=visit.id,
-            data=activity_data
-        ))
-
-        # 2. Fan-out to followers (following_visit type)
-        followers = cls._get_visible_followers(user)
-
-        for follower in followers:
-            activities_to_create.append(Activity(
-                recipient=follower,
-                actor=user,
-                activity_type=ActivityType.VISIT,
-                target_content_type=ContentType.objects.get_for_model(visit),
-                target_object_id=visit.id,
-                data=activity_data
-            ))
-
-        # Bulk create for performance (1 INSERT instead of N)
-        Activity.objects.bulk_create(activities_to_create)
-
-        return len(activities_to_create)
-
     @classmethod
     @transaction.atomic
     def create_review_activity(cls, review: 'Review') -> int:
@@ -218,27 +155,11 @@ class ActivityService:
 
     @classmethod
     def _get_visible_followers(cls, user) -> List[User]:
-        """
-        Get followers who can see this user's activity.
-        Respects privacy settings.
-
-        Args:
-            user: User whose followers to get
-
-        Returns:
-            List of User objects who can see the activity
-        """
-        from apps.accounts.models import Follow
         from apps.accounts.utils import can_view_user_activity
 
-        # Get all follower IDs
-        follower_ids = Follow.objects.filter(
-            followed=user
-        ).values_list('follower_id', flat=True)
-
+        follower_ids = user.get_follower_ids()
         followers = User.objects.filter(id__in=follower_ids)
 
-        # Filter by privacy settings
         visible_followers = []
         for follower in followers:
             if can_view_user_activity(follower, user):
@@ -248,22 +169,7 @@ class ActivityService:
 
     @classmethod
     def _get_all_followers(cls, user) -> List[User]:
-        """
-        Get all followers (no privacy check).
-        Used for follow activities which are always public.
-
-        Args:
-            user: User whose followers to get
-
-        Returns:
-            List of User objects
-        """
-        from apps.accounts.models import Follow
-
-        follower_ids = Follow.objects.filter(
-            followed=user
-        ).values_list('follower_id', flat=True)
-
+        follower_ids = user.get_follower_ids()
         return list(User.objects.filter(id__in=follower_ids))
 
     @classmethod

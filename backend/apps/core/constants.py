@@ -32,10 +32,6 @@ MAX_AUTOCOMPLETE_PREDICTIONS = 10
 # Hours after which Google ratings are considered stale and need refreshing
 GOOGLE_RATING_FRESHNESS_HOURS = 24
 
-# Required delay between Google Places API pagination requests (seconds)
-# Google API requires 2-second delay between paginated requests
-GOOGLE_PAGINATION_DELAY_SECONDS = 2
-
 # Timeout for Google Places autocomplete API requests (seconds)
 GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS = 5
 
@@ -49,3 +45,15 @@ GOOGLE_PLACE_DETAILS_TIMEOUT_SECONDS = 3
 
 # Number of flags required to auto-hide a review
 REVIEW_AUTO_HIDE_FLAG_THRESHOLD = 3
+
+
+# ============================================================
+# VISIT TIME CHOICES (shared by Visit and Review models)
+# Keep in sync with frontend/src/config/constants.ts VISIT_TIME_LABELS
+# ============================================================
+
+VISIT_TIME_CHOICES = [
+    (1, 'Morning (6AM - 12PM)'),
+    (2, 'Afternoon (12PM - 6PM)'),
+    (3, 'Evening (6PM - 12AM)'),
+]

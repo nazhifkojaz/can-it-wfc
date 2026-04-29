@@ -8,9 +8,8 @@ import Loading from '../Loading';
 
 describe('Loading', () => {
   it('should render spinner', () => {
-    const { container } = render(<Loading />);
-    const spinner = container.querySelector('.spinner');
-    expect(spinner).toBeInTheDocument();
+    render(<Loading />);
+    expect(screen.getByTestId('spinner')).toBeInTheDocument();
   });
 
   it('should display message when provided', () => {
@@ -20,29 +19,27 @@ describe('Loading', () => {
 
   it('should not display message when not provided', () => {
     const { container } = render(<Loading />);
-    const message = container.querySelector('.loading-message');
+    const message = container.querySelector('.loadingMessage');
     expect(message).not.toBeInTheDocument();
   });
 
   it('should apply fullscreen class when fullScreen is true', () => {
-    const { container } = render(<Loading fullScreen={true} />);
-    const loadingContainer = container.querySelector('.loading-container');
-    expect(loadingContainer).toHaveClass('fullscreen');
+    render(<Loading fullScreen={true} />);
+    expect(screen.getByTestId('loading-container').className).toMatch(/fullscreen/);
   });
 
   it('should not apply fullscreen class by default', () => {
-    const { container } = render(<Loading />);
-    const loadingContainer = container.querySelector('.loading-container');
-    expect(loadingContainer).not.toHaveClass('fullscreen');
+    render(<Loading />);
+    expect(screen.getByTestId('loading-container').className).not.toMatch(/fullscreen/);
   });
 
   it('should apply correct size', () => {
-    const { container, rerender } = render(<Loading size="sm" />);
-    let spinner = container.querySelector('.spinner');
-    expect(spinner).toHaveStyle({ width: '24px', height: '24px' });
+    const { rerender } = render(<Loading size="sm" />);
+    let spinner = screen.getByTestId('spinner');
+    expect(spinner.className).toMatch(/spinnerSm/);
 
     rerender(<Loading size="lg" />);
-    spinner = container.querySelector('.spinner');
-    expect(spinner).toHaveStyle({ width: '60px', height: '60px' });
+    spinner = screen.getByTestId('spinner');
+    expect(spinner.className).toMatch(/spinnerLg/);
   });
 });

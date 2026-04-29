@@ -112,7 +112,7 @@ const RatingsComparison: React.FC<RatingsComparisonProps> = ({
         {/* WFC Rating Card - Always show */}
         <div className={styles.ratingCard + ' ' + styles.wfcCard} data-testid="wfc-card">
           <div className={styles.cardHeader}>
-            <Coffee size={20} color="#8B5CF6" />
+            <Coffee size={20} color="#C2410C" />
             <span className={styles.cardTitle}>Can-It-WFC</span>
           </div>
           {isRegistered ? (

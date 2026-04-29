@@ -13,7 +13,6 @@ dependencies = [
     "django-environ>=0.11.2",
     # Authentication
     "djangorestframework-simplejwt>=5.3.1",
-    "djoser>=2.2.2",
     # Geospatial (disabled for now - requires GDAL)
     # "django-geojson>=4.1.0",
     # Filtering & Search
@@ -32,8 +31,6 @@ dependencies = [
     # Production
     "gunicorn>=21.2.0",
     "whitenoise>=6.6.0",
-    "django-allauth>=65.13.0",
-    "dj-rest-auth>=7.0.1",
     "google-auth>=2.42.1",
 ]
 

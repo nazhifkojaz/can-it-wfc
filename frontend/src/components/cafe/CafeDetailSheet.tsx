@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
-import { Sheet, Loading, EmptyState, ResultModal } from '../common';
+import { Sheet, Loading, EmptyState, SharedResultModal } from '../common';
 import { useReviews, useFavorites, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
@@ -361,18 +361,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         )}
       </div>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
 
       {/* User Profile Modal */}
       {selectedUsername && (

@@ -5,7 +5,7 @@ import styles from './ResultModal.module.css';
 
 export type ResultType = 'success' | 'error' | 'warning' | 'info';
 
-export interface ResultModalProps {
+interface ResultModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: ResultType;

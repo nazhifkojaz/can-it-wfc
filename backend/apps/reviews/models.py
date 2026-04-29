@@ -3,7 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.utils import timezone
 from apps.core.currency_utils import CURRENCY_CHOICES
-from apps.core.constants import REVIEW_AUTO_HIDE_FLAG_THRESHOLD
+from apps.core.constants import REVIEW_AUTO_HIDE_FLAG_THRESHOLD, VISIT_TIME_CHOICES
 
 
 class Visit(models.Model):
@@ -46,11 +46,6 @@ class Visit(models.Model):
     )
 
     # Visit time (new field)
-    VISIT_TIME_CHOICES = [
-        (1, 'Morning (6AM - 12PM)'),
-        (2, 'Afternoon (12PM - 6PM)'),
-        (3, 'Evening (6PM - 12AM)'),
-    ]
     visit_time = models.IntegerField(
         choices=VISIT_TIME_CHOICES,
         validators=[MinValueValidator(1), MaxValueValidator(3)],
@@ -159,29 +154,6 @@ class Review(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         help_text="Seating comfort (1=very uncomfortable, 5=very comfortable)"
     )
-    space_availability = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="How crowded/available is space (1=always full, 5=plenty of space)"
-    )
-    
-    # Food & Beverage
-    coffee_quality = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Coffee quality (1=very poor, 5=excellent)"
-    )
-    menu_options = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Menu variety (1=very limited, 5=extensive)"
-    )
-    
-    # Facilities
-    bathroom_quality = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        null=True,
-        blank=True,
-        help_text="Bathroom quality (1=very poor, 5=excellent)"
-    )
-
     # Additional facilities (new fields - three-state: True/False/None)
     has_smoking_area = models.BooleanField(
         null=True,
@@ -202,21 +174,15 @@ class Review(models.Model):
     )
     
     # Visit time (1=morning, 2=afternoon, 3=evening)
-    # Deprecated: now stored in Visit model
-    VISIT_TIME_CHOICES = [
-        (1, 'Morning (Open - 1pm)'),
-        (2, 'Afternoon (1pm - 6pm)'),
-        (3, 'Evening (6pm - Close)'),
-    ]
     visit_time = models.IntegerField(
         choices=VISIT_TIME_CHOICES,
         validators=[MinValueValidator(1), MaxValueValidator(3)],
         null=True,
         blank=True,
-        help_text="Time of visit (deprecated, now stored in Visit model)"
+        help_text="Time of visit (1=Morning, 2=Afternoon, 3=Evening)"
     )
     
-    # Text review (Twitter-style, 160 chars)
+    # Text review (max 160 chars)
     comment = models.TextField(
         blank=True,
         max_length=160,
@@ -273,7 +239,21 @@ class Review(models.Model):
     
     def __str__(self):
         return f"{self.user.username}'s review of {self.cafe.name} ({self.wfc_rating}⭐)"
-    
+
+    @staticmethod
+    def compute_wfc_rating(wifi_quality, noise_level, seating_comfort, power_outlets_rating=None):
+        ratings = [wifi_quality, noise_level, seating_comfort]
+        if power_outlets_rating is not None:
+            ratings.append(power_outlets_rating)
+        return min(5, max(1, round(sum(ratings) / len(ratings))))
+
+    def save(self, *args, **kwargs):
+        self.wfc_rating = self.compute_wfc_rating(
+            self.wifi_quality, self.noise_level, self.seating_comfort,
+            self.power_outlets_rating,
+        )
+        super().save(*args, **kwargs)
+
     @property
     def average_rating(self):
         """Calculate average of all rated criteria."""
@@ -282,10 +262,6 @@ class Review(models.Model):
             self.power_outlets_rating or 0,
             self.noise_level,
             self.seating_comfort,
-            self.space_availability,
-            self.coffee_quality,
-            self.menu_options,
-            self.bathroom_quality or 0,
             self.wfc_rating,
         ]
         valid_ratings = [r for r in ratings if r > 0]
@@ -318,7 +294,7 @@ class Review(models.Model):
             created_at__date=timezone.now().date()
         ).count()
         
-        if today_count > max_reviews_per_day:
+        if today_count >= max_reviews_per_day:
             return True, "Too many reviews in one day"
         
         return False, "OK"

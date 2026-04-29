@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import styles from './common.module.css';
+import { lockBodyScroll, unlockBodyScroll } from './scrollLock';
 
 interface ModalProps {
   isOpen: boolean;
@@ -42,13 +43,13 @@ const Modal: React.FC<ModalProps> = ({
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      lockBodyScroll();
     } else {
-      document.body.style.overflow = 'unset';
+      unlockBodyScroll();
     }
 
     return () => {
-      document.body.style.overflow = 'unset';
+      unlockBodyScroll();
     };
   }, [isOpen]);
 

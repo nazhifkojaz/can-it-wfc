@@ -7,6 +7,7 @@ from .views import (
     CafeSearchView,
     FavoriteListCreateView,
     FavoriteDetailView,
+    FavoriteByCafeDetailView,
     CafeFlagCreateView,
     CafeFlagListView,
     CafeGoogleRatingRefreshView
@@ -23,6 +24,7 @@ urlpatterns = [
 
     # Favorites
     path('favorites/', FavoriteListCreateView.as_view(), name='favorite-list-create'),
+    path('favorites/by-cafe/<int:cafe_id>/', FavoriteByCafeDetailView.as_view(), name='favorite-by-cafe-detail'),
     path('favorites/<int:pk>/', FavoriteDetailView.as_view(), name='favorite-detail'),
 
     # Flags (reports)

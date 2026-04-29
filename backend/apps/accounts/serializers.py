@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from .models import UserSettings, Follow
+from .utils import is_own_profile
 
 User = get_user_model()
 
@@ -31,7 +31,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for authenticated user (private view)."""
+    """Detailed serializer for authenticated user's own profile only.
+
+    WARNING: Contains PII (email). Only use for endpoints that return
+    the requesting user's own data (e.g. /auth/me/, login response).
+    Never use in public-facing or other-user endpoints.
+    """
 
     effective_display_name = serializers.ReadOnlyField()
     account_age_hours = serializers.ReadOnlyField()
@@ -59,44 +64,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'followers_count', 'following_count',
             'date_joined', 'account_age_hours'
         ]
-
-
-class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Serializer for user registration."""
-    
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        validators=[validate_password],
-        style={'input_type': 'password'}
-    )
-    password2 = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'}
-    )
-    
-    class Meta:
-        model = User
-        fields = ['username', 'email', 'password', 'password2']
-    
-    def validate(self, attrs):
-        """Validate that passwords match."""
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
-        return attrs
-    
-    def create(self, validated_data):
-        """Create user with hashed password."""
-        validated_data.pop('password2')
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password']
-        )
-        return user
-
-
 class UserUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating user profile.
@@ -223,29 +190,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid avatar URL format.")
 
         return value
-
-
-class ChangePasswordSerializer(serializers.Serializer):
-    """Serializer for password change."""
-
-    old_password = serializers.CharField(required=True, write_only=True)
-    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
-
-    def validate_old_password(self, value):
-        """Validate old password."""
-        user = self.context['request'].user
-        if not user.check_password(value):
-            raise serializers.ValidationError("Old password is incorrect.")
-        return value
-
-    def save(self, **kwargs):
-        """Update password."""
-        user = self.context['request'].user
-        user.set_password(self.validated_data['new_password'])
-        user.save()
-        return user
-
-
 class UserSettingsSerializer(serializers.ModelSerializer):
     """Serializer for user privacy and display settings."""
 
@@ -296,11 +240,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_own_profile(self, obj):
-        """Check if this is the current user's own profile."""
         request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            return request.user.is_authenticated and request.user.id == obj.id
-        return False
+        return is_own_profile(request, obj)
 
     def get_is_following(self, obj):
         """Check if current user is following this user."""
@@ -328,14 +269,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ret['settings'] = UserSettingsSerializer(settings).data
 
         # If profile is private and not own profile, hide sensitive data
-        is_own_profile = (
-            request and
-            hasattr(request, 'user') and
-            request.user.is_authenticated and
-            request.user.id == instance.id
-        )
+        own_profile = is_own_profile(request, instance)
 
-        if settings.profile_visibility == 'private' and not is_own_profile:
+        if settings.profile_visibility == 'private' and not own_profile:
             # For private profiles, only show minimal information
             return {
                 'id': ret['id'],

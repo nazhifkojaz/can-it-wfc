@@ -11,22 +11,6 @@ export const CLOUDINARY_CONFIG = {
   AVATAR_TRANSFORM: 'w_200,h_200,c_fill,g_face,q_auto,f_auto',
 };
 
-// Helper to get optimized avatar URL from Cloudinary
-export const getOptimizedAvatarUrl = (url: string, width = 200): string => {
-  if (!url) return '';
-
-  // If it's already a Cloudinary URL, add transformations
-  if (url.includes('cloudinary.com')) {
-    // Insert transformation before the version number or filename
-    const parts = url.split('/upload/');
-    if (parts.length === 2) {
-      return `${parts[0]}/upload/w_${width},h_${width},c_fill,g_face,q_auto,f_auto/${parts[1]}`;
-    }
-  }
-
-  // Return original URL (e.g., Google profile pictures)
-  return url;
-};
 
 // Helper to validate file before upload
 export const validateAvatarFile = (file: File): { valid: boolean; error?: string } => {

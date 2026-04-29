@@ -15,7 +15,6 @@ dependencies = [
     
     # Authentication
     "djangorestframework-simplejwt>=5.3.1",
-    "djoser>=2.2.2",
     
     # Geospatial
     "django-geojson>=4.1.0",

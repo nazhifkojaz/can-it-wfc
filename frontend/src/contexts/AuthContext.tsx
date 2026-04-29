@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserLogin, UserRegistration } from '../types';
-import { authApi, userApi } from '../api/client';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { User } from '../types';
+import { authApi } from '../api/client';
 import { buildAppPath } from '../utils/url';
 import { extractApiError } from '../utils/errorUtils';
 import { createLogger } from '../utils/logger';
@@ -9,12 +9,12 @@ import { identifyUser, resetPostHog } from '../lib/posthog';
 const log = createLogger('AuthContext');
 
 const AUTH_METHOD_KEY = 'analytics_auth_method';
-type AuthMethod = 'google' | 'email';
+type AuthMethod = 'google';
 
 function getStoredAuthMethod(): AuthMethod | null {
   try {
     const stored = localStorage.getItem(AUTH_METHOD_KEY);
-    return stored === 'google' || stored === 'email' ? stored : null;
+    return stored === 'google' ? stored : null;
   } catch {
     return null;
   }
@@ -46,7 +46,6 @@ function identifyUserInPostHog(user: User, authMethod?: AuthMethod) {
 
   identifyUser(user.id, {
     username: user.username,
-    email: user.email,
     auth_method: method || undefined,
     created_at: user.date_joined,
     is_private_profile: user.is_anonymous_display,
@@ -60,9 +59,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (credentials: UserLogin | { user: User; access: string; refresh: string }) => Promise<void>;
-  register: (data: UserRegistration) => Promise<void>;
-  logout: () => Promise<void>;  // Changed to async
+  login: (provider: 'google', accessToken: string) => Promise<{ user: User; created: boolean }>;
+  logout: () => Promise<void>;
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
 }
@@ -77,9 +75,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasCheckedAuth = useRef(false);
 
   // Check if user is logged in on mount
   useEffect(() => {
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
     checkAuth();
   }, []);
 
@@ -98,71 +99,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // User not authenticated (cookies expired/invalid)
       setUser(null);
 
-      // Clean up any old localStorage tokens and auth method
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
       clearStoredAuthMethod();
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (credentials: UserLogin | { user: User; access: string; refresh: string }) => {
+  const login = async (provider: 'google', accessToken: string) => {
     setLoading(true);
     setError(null);
-
     try {
-      // Check if this is a Google login (with user data already provided)
-      if ('user' in credentials) {
-        // Google OAuth login - tokens already stored by authApi.googleLogin
-        setUser(credentials.user);
-
-        // Store auth method for analytics and identify user
-        setStoredAuthMethod('google');
-        identifyUserInPostHog(credentials.user, 'google');
-      } else {
-        // Regular email login
-        await authApi.login(credentials);
-
-        // Get user data
-        const userData = await authApi.getCurrentUser();
-        setUser(userData);
-
-        // Store auth method for analytics and identify user
-        setStoredAuthMethod('email');
-        identifyUserInPostHog(userData, 'email');
-      }
-    } catch (err: any) {
-      const apiError = extractApiError(err);
-      setError(apiError.message);
-      throw new Error(apiError.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (data: UserRegistration) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Validate passwords match
-      if (data.password !== data.password2) {
-        throw new Error('Passwords do not match');
-      }
-
-      // Register user
-      await authApi.register(data);
-
-      // Store auth method before login (login will overwrite it, so we need to be careful)
-      // Registration is always email auth
-      setStoredAuthMethod('email');
-
-      // Auto-login after registration
-      await login({
-        username: data.username,
-        password: data.password,
-      });
+      const { user: userData, created } = await authApi.oauthLogin(provider, accessToken);
+      setUser(userData);
+      setStoredAuthMethod(provider);
+      identifyUserInPostHog(userData, provider);
+      return { user: userData, created };
     } catch (err: any) {
       const apiError = extractApiError(err);
       setError(apiError.message);
@@ -204,7 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     try {
-      const userData = await userApi.getProfile();
+      const userData = await authApi.getCurrentUser();
       setUser(userData);
     } catch (err) {
       log.error('Failed to refresh user', err);
@@ -216,7 +167,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     error,
     login,
-    register,
     logout,
     updateUser,
     refreshUser,
@@ -234,33 +184,4 @@ export const useAuth = (): AuthContextType => {
   }
   
   return context;
-};
-
-// HOC to protect routes
-export const withAuth = <P extends object>(
-  Component: React.ComponentType<P>
-): React.FC<P> => {
-  return (props: P) => {
-    const { user, loading } = useAuth();
-
-    if (loading) {
-      return (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-        }}>
-          <div>Loading...</div>
-        </div>
-      );
-    }
-
-    if (!user) {
-      window.location.href = buildAppPath('/');
-      return null;
-    }
-
-    return <Component {...props} />;
-  };
 };

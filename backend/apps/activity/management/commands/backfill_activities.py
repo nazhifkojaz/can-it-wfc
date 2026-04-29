@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
-from apps.reviews.models import Visit, Review
+from apps.reviews.models import Review
 from apps.accounts.models import Follow
 from apps.activity.services import ActivityService
 from core.logging import get_logger
@@ -53,9 +53,6 @@ class Command(BaseCommand):
         self.stdout.write(f"Batch size: {batch_size}")
         self.stdout.write("")
 
-        # Backfill visits
-        self._backfill_visits(cutoff_date, batch_size, dry_run)
-
         # Backfill reviews
         self._backfill_reviews(cutoff_date, batch_size, dry_run)
 
@@ -66,29 +63,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("\nDRY RUN COMPLETE - No changes were made"))
         else:
             self.stdout.write(self.style.SUCCESS("\n✅ Backfill complete!"))
-
-    def _backfill_visits(self, cutoff_date, batch_size, dry_run):
-        """
-        Backfill visit activities - DEPRECATED (privacy fix).
-
-        Visit activities have been removed from the social feed for privacy/safety.
-        This method now skips visit backfilling with a notice.
-        """
-        visits = Visit.objects.filter(
-            created_at__gte=cutoff_date
-        ).select_related('user', 'cafe').order_by('created_at')
-
-        total_visits = visits.count()
-
-        self.stdout.write(f"Found {total_visits} visits...")
-        self.stdout.write(
-            self.style.WARNING(
-                "⚠️  Skipping visit activities (deprecated for privacy)\n"
-                "   Visits are now private and do not appear in social feeds.\n"
-                "   Only reviews and follows are backfilled."
-            )
-        )
-        self.stdout.write("")
 
     def _backfill_reviews(self, cutoff_date, batch_size, dry_run):
         """Backfill review activities."""

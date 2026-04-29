@@ -41,7 +41,7 @@ export const trackUserLoggedOut = () => {
 // CAFE EVENTS (Critical)
 // ============================================================================
 
-export type CafeViewSource =
+type CafeViewSource =
   | 'map_marker'
   | 'list_item'
   | 'search_result'
@@ -75,7 +75,7 @@ export const trackCafeViewed = (props: {
 // VISIT EVENTS (Critical)
 // ============================================================================
 
-export type VisitTimeLabel = 'morning' | 'afternoon' | 'evening';
+type VisitTimeLabel = 'morning' | 'afternoon' | 'evening';
 
 /**
  * Track when a user successfully logs a visit.
@@ -118,7 +118,7 @@ export const trackVisitDeleted = (props: {
 // REVIEW EVENTS (Critical)
 // ============================================================================
 
-export type ReviewSource = 'visit_modal' | 'standalone';
+type ReviewSource = 'visit_modal' | 'standalone';
 
 /**
  * Track when a user submits a new review.
@@ -180,7 +180,7 @@ export const trackReviewDeleted = (props: {
 // SEARCH & DISCOVERY EVENTS (High Priority)
 // ============================================================================
 
-export type SearchResultType = 'wfc' | 'google';
+type SearchResultType = 'wfc' | 'google';
 
 /**
  * Track when a user submits a search query.
@@ -223,8 +223,8 @@ export const trackMapAreaSearched = (props: {
   longitude: number;
 }) => {
   posthog.capture('map_area_searched', {
-    latitude: props.latitude,
-    longitude: props.longitude,
+    latitude: Math.round(props.latitude * 100) / 100,
+    longitude: Math.round(props.longitude * 100) / 100,
   });
 };
 
@@ -232,7 +232,7 @@ export const trackMapAreaSearched = (props: {
 // FAVORITE EVENTS (High Priority)
 // ============================================================================
 
-export type FavoriteSource = 'detail_sheet' | 'favorites_panel';
+type FavoriteSource = 'detail_sheet' | 'favorites_panel';
 
 /**
  * Track when a user adds a cafe to favorites.
@@ -285,13 +285,13 @@ export const trackDirectionsClicked = (props: {
 // SOCIAL EVENTS (High Priority)
 // ============================================================================
 
-export type FollowSource =
+type FollowSource =
   | 'user_profile_modal'
   | 'user_profile_panel'
   | 'review_card'
   | 'followers_modal';
 
-export type ProfileViewSource =
+type ProfileViewSource =
   | 'review_card'
   | 'activity_feed'
   | 'followers_modal'
@@ -385,7 +385,7 @@ export const trackViewModeToggled = (props: {
   });
 };
 
-export type SortBy = 'nearest' | 'top_rated' | 'popular';
+type SortBy = 'nearest' | 'top_rated' | 'popular';
 
 /**
  * Track when a user changes the sort order in List View.
@@ -402,7 +402,7 @@ export const trackListSorted = (props: {
 // PANEL EVENTS (Medium Priority)
 // ============================================================================
 
-export type PanelType = 'activity' | 'profile' | 'user_profile';
+type PanelType = 'activity' | 'profile' | 'user_profile';
 
 /**
  * Track when a user opens a side panel.
@@ -415,7 +415,7 @@ export const trackPanelOpened = (props: {
   });
 };
 
-export type ProfileTab = 'visits' | 'favorites' | 'settings';
+type ProfileTab = 'visits' | 'favorites' | 'settings';
 
 /**
  * Track when a user switches tabs in the Profile Panel.
@@ -432,14 +432,11 @@ export const trackProfileTabViewed = (props: {
 // ACTIVITY FEED EVENTS (Medium Priority)
 // ============================================================================
 
-export type ActivityType = 'review' | 'visit' | 'follow';
-export type ActivityAction = 'view_cafe' | 'view_profile';
+type AnalyticsActivityCategory = 'review' | 'visit' | 'follow';
+type ActivityAction = 'view_cafe' | 'view_profile';
 
-/**
- * Track when a user clicks an item in the Activity Feed.
- */
 export const trackActivityItemClicked = (props: {
-  activityType: ActivityType;
+  activityType: AnalyticsActivityCategory;
   actionTaken: ActivityAction;
 }) => {
   posthog.capture('activity_item_clicked', {
@@ -452,11 +449,11 @@ export const trackActivityItemClicked = (props: {
 // CAFE FLAGGING EVENTS (Medium Priority)
 // ============================================================================
 
-export type CafeFlagReason =
-  | 'not_a_cafe'
+type CafeFlagReason =
+  | 'not_cafe'
   | 'wrong_location'
   | 'permanently_closed'
-  | 'duplicate_entry';
+  | 'duplicate';
 
 /**
  * Track when a user submits a cafe report.
@@ -492,7 +489,7 @@ export const trackLocationPermissionResponded = (props: {
 // USERNAME SETUP EVENTS (Low Priority)
 // ============================================================================
 
-export type UsernameSetupAction = 'set_username' | 'skipped';
+type UsernameSetupAction = 'set_username' | 'skipped';
 
 /**
  * Track when new Google user completes or skips username setup.
@@ -509,7 +506,7 @@ export const trackUsernameSetupCompleted = (props: {
 // SETTINGS EVENTS (Low Priority)
 // ============================================================================
 
-export type PrivacySetting = 'profile_visibility' | 'anonymous_display' | 'activity_visibility';
+type PrivacySetting = 'profile_visibility' | 'anonymous_display' | 'activity_visibility';
 
 /**
  * Track when a user changes a privacy setting.

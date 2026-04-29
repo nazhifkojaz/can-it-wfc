@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Wifi, Zap, Volume2, Armchair, Cigarette, Home } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
-import { Modal, ResultModal } from '../common';
+import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
 import { useReviews, useResultModal } from '../../hooks';
 import { reviewApi } from '../../api/client';
-import { isValidReviewComment } from '../../utils';
+import { isValidReviewComment, computeWfcRating } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import { logger } from '../../utils/logger';
@@ -47,10 +47,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     power_outlets_rating: existingReview?.power_outlets_rating || 3,
     noise_level: existingReview?.noise_level || 3,
     seating_comfort: existingReview?.seating_comfort || 3,
-    space_availability: existingReview?.space_availability || 3,
-    coffee_quality: existingReview?.coffee_quality || 3,
-    menu_options: existingReview?.menu_options || 3,
-    bathroom_quality: existingReview?.bathroom_quality || undefined,
     wfc_rating: existingReview?.wfc_rating || 3,
     visit_time: existingReview?.visit_time || 2,
     comment: existingReview?.comment || '',
@@ -65,6 +61,17 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-compute overall WFC rating from sub-criteria
+  useEffect(() => {
+    const computed = computeWfcRating(
+      formData.wifi_quality,
+      formData.noise_level,
+      formData.seating_comfort,
+      formData.power_outlets_rating,
+    );
+    setFormData(prev => ({ ...prev, wfc_rating: computed }));
+  }, [formData.wifi_quality, formData.power_outlets_rating, formData.seating_comfort, formData.noise_level]);
 
   const handleRatingChange = (field: keyof ReviewCreate, value: number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -90,17 +97,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
     try {
       if (isEditMode && existingReview) {
-        // Update existing review - default missing criteria to wfc_rating
+        // Update existing review
         const updateData: ReviewUpdate = {
           wifi_quality: formData.wifi_quality,
           power_outlets_rating: formData.power_outlets_rating,
           noise_level: formData.noise_level,
           seating_comfort: formData.seating_comfort,
-          // Default these to wfc_rating for consistency
-          space_availability: formData.space_availability || formData.wfc_rating,
-          coffee_quality: formData.coffee_quality || formData.wfc_rating,
-          menu_options: formData.menu_options || formData.wfc_rating,
-          bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
           has_smoking_area: hasSmokingArea,
           has_prayer_room: hasPrayerRoom,
           wfc_rating: formData.wfc_rating,
@@ -133,13 +135,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           }
         });
       } else {
-        // Create new review - default missing criteria to wfc_rating
+        // Create new review
         const reviewData: ReviewCreate = {
           ...formData,
-          space_availability: formData.space_availability || formData.wfc_rating,
-          coffee_quality: formData.coffee_quality || formData.wfc_rating,
-          menu_options: formData.menu_options || formData.wfc_rating,
-          bathroom_quality: formData.bathroom_quality || formData.wfc_rating,
           has_smoking_area: hasSmokingArea,
           has_prayer_room: hasPrayerRoom,
         };
@@ -149,7 +147,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         trackReviewCreated({
           cafeId,
           cafeName,
-          wfcRating: formData.wfc_rating,
+          wfcRating: formData.wfc_rating || 3,
           wifiQuality: formData.wifi_quality,
           hasComment: !!formData.comment?.trim(),
           commentLength: formData.comment?.length || 0,
@@ -212,26 +210,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     },
   ];
 
-  const renderStarRating = (field: keyof ReviewCreate, value: number) => {
-    return (
-      <div className={styles.starRating}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            className={`${styles.star} ${value >= star ? styles.active : ''}`}
-            onClick={() => !isViewMode && handleRatingChange(field, star)}
-            aria-label={`Rate ${star} stars`}
-            disabled={isViewMode}
-            style={isViewMode ? { cursor: 'default' } : undefined}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-    );
-  };
-
   const getModalTitle = () => {
     if (isViewMode) return "Your Review";
     if (isEditMode) return "Edit Your Review";
@@ -268,20 +246,24 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
                     <p className={styles.categoryDescription}>{category.description}</p>
                   </div>
                 </div>
-                {renderStarRating(category.field, formData[category.field] as number)}
+                <StarRating
+                  value={formData[category.field] as number}
+                  onChange={(val) => handleRatingChange(category.field, val)}
+                  disabled={isViewMode}
+                />
               </div>
             ))}
           </div>
         </div>
 
-        {/* Overall WFC Rating */}
+        {/* Overall WFC Rating — Auto-computed */}
         <div className={styles.section}>
           <h3 className={styles.sectionTitle}>Overall WFC Suitability</h3>
           <p className={styles.sectionDescription}>
-            How suitable is this cafe for working from?
+            Auto-calculated from your ratings above
           </p>
           <div className={styles.ratingCategory}>
-            {renderStarRating('wfc_rating', formData.wfc_rating as number)}
+            <StarRating value={formData.wfc_rating || 3} disabled />
           </div>
         </div>
 
@@ -293,71 +275,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </p>
 
           <div className={styles.toggleGroup}>
-            <div className={styles.toggleField}>
-              <label className={styles.toggleLabel}>
-                <Cigarette size={18} />
-                Has Smoking Area?
-              </label>
-              <div className={styles.toggleButtons}>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasSmokingArea === true ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasSmokingArea(true)}
-                  disabled={isViewMode}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasSmokingArea === false ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasSmokingArea(false)}
-                  disabled={isViewMode}
-                >
-                  No
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasSmokingArea === null ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasSmokingArea(null)}
-                  disabled={isViewMode}
-                >
-                  Don't Know
-                </button>
-              </div>
-            </div>
+            <FacilityToggle
+              label="Has Smoking Area?"
+              icon={<Cigarette size={18} />}
+              value={hasSmokingArea}
+              onChange={setHasSmokingArea}
+              disabled={isViewMode}
+            />
 
-            <div className={styles.toggleField}>
-              <label className={styles.toggleLabel}>
-                <Home size={18} />
-                Has Prayer Room?
-              </label>
-              <div className={styles.toggleButtons}>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasPrayerRoom === true ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasPrayerRoom(true)}
-                  disabled={isViewMode}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasPrayerRoom === false ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasPrayerRoom(false)}
-                  disabled={isViewMode}
-                >
-                  No
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleButton} ${hasPrayerRoom === null ? styles.toggleActive : ''}`}
-                  onClick={() => !isViewMode && setHasPrayerRoom(null)}
-                  disabled={isViewMode}
-                >
-                  Don't Know
-                </button>
-              </div>
-            </div>
+            <FacilityToggle
+              label="Has Prayer Room?"
+              icon={<Home size={18} />}
+              value={hasPrayerRoom}
+              onChange={setHasPrayerRoom}
+              disabled={isViewMode}
+            />
           </div>
         </div>
 
@@ -409,18 +341,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       </form>
       </Modal>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
     </>
   );
 };

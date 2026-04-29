@@ -21,8 +21,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useResultModal, useVisits, useFavorites } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
-import { ResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
-import ChangePasswordModal from '../profile/ChangePasswordModal';
+import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
 import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
@@ -64,7 +63,6 @@ const ProfilePanel: React.FC = () => {
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [savingUsername, setSavingUsername] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
 
   // Visits tab state and hooks
   const {
@@ -864,7 +862,7 @@ const ProfilePanel: React.FC = () => {
                   onClick={() => handleCafeClick(cafe)}
                   role="button"
                   tabIndex={0}
-                  onKeyPress={(e) => e.key === 'Enter' && handleCafeClick(cafe)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCafeClick(cafe)}
                 >
                   <div className="card-header">
                     <h3 className="cafe-name">{cafe.name}</h3>
@@ -995,20 +993,6 @@ const ProfilePanel: React.FC = () => {
                   <span className="toggle-slider"></span>
                 </label>
               </div>
-
-              {/* Change Password */}
-              <button
-                className="setting-item clickable"
-                onClick={() => setShowChangePassword(true)}
-              >
-                <div className="setting-info">
-                  <div className="setting-icon">
-                    <Edit size={20} />
-                  </div>
-                  <p className="setting-label">Change Password</p>
-                </div>
-                <ChevronRight size={20} />
-              </button>
 
               {/* Logout */}
               <button className="setting-item clickable danger" onClick={handleLogout}>
@@ -1169,28 +1153,8 @@ const ProfilePanel: React.FC = () => {
         />
       )}
 
-      {/* ChangePasswordModal */}
-      <ChangePasswordModal
-        isOpen={showChangePassword}
-        onClose={() => setShowChangePassword(false)}
-        onSuccess={() => {
-          // Password changed successfully - modal handles the success message
-        }}
-      />
-
       {/* ResultModal for logout confirmation and other actions */}
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
 
       {/* Followers/Following Modal */}
       <FollowersModal

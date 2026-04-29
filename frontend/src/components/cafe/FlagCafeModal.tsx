@@ -73,16 +73,10 @@ const FlagCafeModal: React.FC<FlagCafeModalProps> = ({
         description: description.trim()
       });
 
-      // Track analytics
-      const reasonMap: Record<string, 'not_a_cafe' | 'wrong_location' | 'permanently_closed' | 'duplicate_entry'> = {
-        not_cafe: 'not_a_cafe',
-        wrong_location: 'wrong_location',
-        permanently_closed: 'permanently_closed',
-        duplicate: 'duplicate_entry',
-      };
+      // Track analytics (values match backend CafeFlag.REASON_CHOICES)
       trackCafeFlagged({
         cafeId,
-        reason: reasonMap[selectedReason] || 'wrong_location',
+        reason: selectedReason as 'not_cafe' | 'wrong_location' | 'permanently_closed' | 'duplicate',
       });
 
       // Success

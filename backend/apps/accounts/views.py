@@ -5,26 +5,20 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from google.oauth2 import id_token
-from google.auth.transport import requests
 from core.exceptions import (
     UserNotFound,
     SelfFollowNotAllowed,
     AlreadyFollowing,
     NotFollowing,
-    GoogleAuthError,
-    GoogleAuthTokenRequired,
-    GoogleEmailNotProvided,
+    OAuthTokenInvalid,
+    OAuthTokenRequired,
+    OAuthEmailNotProvided,
 )
 
 
 # Custom throttle classes for authentication endpoints
 class AuthThrottle(AnonRateThrottle):
     scope = 'auth'
-
-
-class RegistrationThrottle(AnonRateThrottle):
-    scope = 'registration'
 
 
 class PublicApiThrottle(AnonRateThrottle):
@@ -34,42 +28,20 @@ class PublicApiThrottle(AnonRateThrottle):
 from .serializers import (
     UserSerializer,
     UserDetailSerializer,
-    UserRegistrationSerializer,
     UserUpdateSerializer,
-    ChangePasswordSerializer,
     UserProfileSerializer,
     UserSettingsSerializer,
     UserActivityItemSerializer,
     FollowUserSerializer,
 )
+from .utils import get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
+from apps.reviews.models import Visit, Review
 
 logger = get_logger(__name__)
 
 User = get_user_model()
-
-
-class UserRegistrationView(generics.CreateAPIView):
-    """
-    Register a new user.
-
-    POST /api/auth/register/
-    """
-    queryset = User.objects.all()
-    serializer_class = UserRegistrationSerializer
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [RegistrationThrottle]
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'message': 'User registered successfully. Please login to get your token.'
-        }, status=status.HTTP_201_CREATED)
 
 
 class UserDetailView(generics.RetrieveUpdateAPIView):
@@ -109,149 +81,83 @@ class UserPublicProfileView(generics.RetrieveAPIView):
         """Get user by username or ID."""
         lookup_value = self.kwargs.get(self.lookup_field)
 
-        # Try to get by ID first (if it's a number)
         if lookup_value and lookup_value.isdigit():
             try:
-                return User.objects.get(id=int(lookup_value))
+                return get_user_by_username_or_id(lookup_value)
             except User.DoesNotExist:
                 pass
 
-        # Otherwise, get by username
         return super().get_object()
 
 
-class ChangePasswordView(APIView):
+class OAuthLoginView(APIView):
     """
-    Change user password.
+    Generic OAuth login endpoint.
 
-    POST /api/auth/change-password/
-    """
-    permission_classes = [permissions.IsAuthenticated]
+    POST /api/auth/oauth/{provider}/
+    Body: { "access_token": "..." }
 
-    def post(self, request):
-        serializer = ChangePasswordSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'message': 'Password changed successfully.'
-            }, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class GoogleLoginView(APIView):
-    """
-    Google OAuth2 login endpoint using ID token from @react-oauth/google.
-
-    POST /api/auth/google/
-
-    Body:
-    {
-        "access_token": "google_id_token_jwt_here"
-    }
-
-    Returns JWT tokens and user data.
+    Supported providers: google
     """
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AuthThrottle]
 
-    def post(self, request):
-        token = request.data.get('access_token')
+    def post(self, request, provider: str):
+        from apps.accounts.services.oauth_service import authenticate_via_oauth, get_provider
 
+        token = request.data.get('access_token')
         if not token:
-            raise GoogleAuthTokenRequired()
+            raise OAuthTokenRequired()
+
+        # Validate provider name
+        try:
+            get_provider(provider)
+        except ValueError:
+            return Response(
+                {'detail': f'Unsupported OAuth provider: {provider}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
-            # Verify the Google ID token
-            idinfo = id_token.verify_oauth2_token(
-                token,
-                requests.Request(),
-                settings.SOCIALACCOUNT_PROVIDERS['google']['APP']['client_id']
-            )
-
-            # Get user info from token
-            email = idinfo.get('email')
-            picture = idinfo.get('picture', '')
-
-            if not email:
-                raise GoogleEmailNotProvided()
-
-            # Get or create user
-            user = User.objects.filter(email=email).first()
-
-            if not user:
-                # Generate unique username from email
-                base_username = email.split('@')[0]
-                username = base_username
-                counter = 1
-
-                # Ensure username is unique
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{counter}"
-                    counter += 1
-
-                # Create new user
-                user = User.objects.create(
-                    email=email,
-                    username=username,
-                    is_active=True,
-                )
-                created = True
-            else:
-                created = False
-
-            # Update avatar if provided by Google (always update to get latest)
-            if picture:
-                user.avatar_url = picture
-                user.save()
-
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-
-            # Create response without tokens in body (security improvement)
-            response = Response({
-                'user': UserDetailSerializer(user).data,
-                'message': 'Login successful',
-                'created': created,
-            }, status=status.HTTP_200_OK)
-
-            # Set tokens as httpOnly cookies (XSS protection)
-            response.set_cookie(
-                key='access_token',
-                value=access_token,
-                max_age=3600,  # 1 hour
-                httponly=True,  # Prevent JavaScript access
-                secure=not settings.DEBUG,  # HTTPS only in production
-                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
-                path='/',
-            )
-
-            response.set_cookie(
-                key='refresh_token',
-                value=refresh_token,
-                max_age=604800,  # 7 days
-                httponly=True,
-                secure=not settings.DEBUG,
-                samesite='None' if not settings.DEBUG else 'Lax',  # None for cross-site (production)
-                path='/',
-            )
-
-            return response
-
-        except ValueError as e:
-            # Log full error for debugging, return generic message to client
-            logger.warning(f'Google auth - invalid token: {str(e)}')
-            raise GoogleAuthError(detail='Authentication failed. Please try again.')
+            user, created = authenticate_via_oauth(provider, token)
+        except (OAuthTokenInvalid, OAuthEmailNotProvided) as e:
+            raise  # Re-raise our custom exceptions
         except Exception as e:
-            # Log full error with stack trace for debugging
-            logger.error(f'Google auth failed: {str(e)}', exc_info=True)
-            raise GoogleAuthError(detail='Authentication failed. Please try again.')
+            logger.error(f'OAuth login failed for {provider}: {str(e)}', exc_info=True)
+            raise OAuthTokenInvalid(detail='Authentication failed. Please try again.')
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response({
+            'user': UserDetailSerializer(user).data,
+            'message': 'Login successful',
+            'created': created,
+        }, status=status.HTTP_200_OK)
+
+        # Set httpOnly cookies (24hr access, 30-day refresh)
+        response.set_cookie(
+            key='access_token',
+            value=access_token,
+            max_age=86400,       # 24 hours
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='None' if not settings.DEBUG else 'Lax',
+            path='/',
+        )
+        response.set_cookie(
+            key='refresh_token',
+            value=refresh_token,
+            max_age=2592000,     # 30 days
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='None' if not settings.DEBUG else 'Lax',
+            path='/',
+        )
+
+        return response
 
 
 class LogoutView(APIView):
@@ -263,6 +169,16 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # Blacklist the refresh token so it can't be used after logout
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token:
+            try:
+                from rest_framework_simplejwt.tokens import RefreshToken
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception:
+                pass  # Token already expired/invalid
+
         response = Response({
             'message': 'Logged out successfully'
         }, status=status.HTTP_200_OK)
@@ -306,34 +222,21 @@ class UserActivityView(APIView):
 
     def get(self, request, username=None):
         """Fetch recent activity combining visits and reviews."""
-        from apps.reviews.models import Visit, Review
-
-        # Get user by username or ID
-        if username and username.isdigit():
-            try:
-                user = User.objects.get(id=int(username))
-            except User.DoesNotExist:
-                raise UserNotFound()
-        else:
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                raise UserNotFound()
+        try:
+            user = get_user_by_username_or_id(username)
+        except User.DoesNotExist:
+            raise UserNotFound()
 
         # Check privacy settings
+        if not is_own_profile(request, user):
+            from apps.accounts.utils import can_view_user_activity
+            if not can_view_user_activity(request.user, user):
+                return Response({
+                    'message': 'This activity is private',
+                    'activity': []
+                })
+
         user_settings = user.settings
-
-        is_own_profile = (
-            request.user.is_authenticated and
-            request.user.id == user.id
-        )
-
-        # If profile is private and not own profile, return empty
-        if user_settings.profile_visibility == 'private' and not is_own_profile:
-            return Response({
-                'message': 'This profile is private',
-                'activity': []
-            })
 
         # Get limit from query params (default 20, max 50)
         try:
@@ -363,6 +266,7 @@ class UserActivityView(APIView):
                 'visit_time': visit.visit_time,
                 'amount_spent': visit.amount_spent,
                 'currency': visit.currency,
+                'visit_id': visit.id,
             })
 
         # Add reviews
@@ -380,6 +284,7 @@ class UserActivityView(APIView):
                 'visit_time': None,
                 'amount_spent': None,
                 'currency': None,
+                'visit_id': None,
             })
 
         # Sort by created_at descending
@@ -463,14 +368,17 @@ class UnfollowUserView(APIView):
         except User.DoesNotExist:
             raise UserNotFound()
 
-        # Try to delete follow relationship
-        deleted_count, _ = Follow.objects.filter(
-            follower=request.user,
-            followed=target_user
-        ).delete()
-
-        if deleted_count == 0:
+        # Try to delete follow relationship using model delete()
+        # (QuerySet.delete() skips the custom Follow.delete() which updates counts)
+        try:
+            follow = Follow.objects.get(
+                follower=request.user,
+                followed=target_user
+            )
+        except Follow.DoesNotExist:
             raise NotFollowing()
+
+        follow.delete()
 
         return Response({
             'message': f'You have unfollowed {username}',
@@ -489,10 +397,7 @@ class MyFollowersListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Return users who follow the current user."""
-        follower_ids = Follow.objects.filter(
-            followed=self.request.user
-        ).values_list('follower_id', flat=True)
-
+        follower_ids = self.request.user.get_follower_ids()
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
 
 
@@ -507,10 +412,7 @@ class MyFollowingListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Return users the current user follows."""
-        following_ids = Follow.objects.filter(
-            follower=self.request.user
-        ).values_list('followed_id', flat=True)
-
+        following_ids = self.request.user.get_following_ids()
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
 
 
@@ -536,18 +438,13 @@ class UserFollowersListView(generics.ListAPIView):
         # Check privacy settings
         settings = user.settings
 
-        is_own_profile = (
-            self.request.user.is_authenticated and
-            self.request.user.id == user.id
-        )
+        own_profile = is_own_profile(self.request, user)
 
         # If show_followers is False and not own profile, return empty
-        if not settings.show_followers and not is_own_profile:
+        if not settings.show_followers and not own_profile:
             return User.objects.none()
 
-        follower_ids = Follow.objects.filter(
-            followed=user
-        ).values_list('follower_id', flat=True)
+        follower_ids = user.get_follower_ids()
 
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
 
@@ -574,58 +471,12 @@ class UserFollowingListView(generics.ListAPIView):
         # Check privacy settings
         settings = user.settings
 
-        is_own_profile = (
-            self.request.user.is_authenticated and
-            self.request.user.id == user.id
-        )
+        own_profile = is_own_profile(self.request, user)
 
         # If show_following is False and not own profile, return empty
-        if not settings.show_following and not is_own_profile:
+        if not settings.show_following and not own_profile:
             return User.objects.none()
 
-        following_ids = Follow.objects.filter(
-            follower=user
-        ).values_list('followed_id', flat=True)
+        following_ids = user.get_following_ids()
 
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
-
-
-class ActivityFeedView(APIView):
-    """
-    Get enhanced activity feed for current user.
-    Includes:
-    - User's own visits/reviews
-    - Visits/reviews from users they follow
-    - New followers
-    - Following's follow activity
-
-    GET /api/accounts/me/feed/?limit=50
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """
-        Fetch activity feed using Activity table.
-
-        NEW IMPLEMENTATION: Uses ActivityService for optimized query performance.
-        Reduces from 7+ queries to 1 query with proper indexing.
-        """
-        from apps.activity.services import ActivityService
-        from apps.activity.serializers import ActivitySerializer
-
-        user = request.user
-        try:
-            limit = min(int(request.query_params.get('limit', 50)), 100)
-        except (ValueError, TypeError):
-            limit = 50  # Default fallback for invalid input
-
-        # Use ActivityService - single optimized query
-        activities = ActivityService.get_user_feed(user, limit=limit)
-
-        # Serialize activities (ActivitySerializer handles backward compatibility)
-        serializer = ActivitySerializer(activities, many=True)
-
-        return Response({
-            'activities': serializer.data,
-            'count': len(serializer.data)
-        })

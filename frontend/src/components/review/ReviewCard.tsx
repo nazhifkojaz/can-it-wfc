@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { User, ThumbsUp, Star, Wifi, Zap, Armchair, Volume2, Clock, Trash2, Flag } from 'lucide-react';
-import DOMPurify from 'dompurify';
 import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
-import { ConfirmDialog, ResultModal } from '../common';
+import { ConfirmDialog, SharedResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { extractApiError } from '../../utils/errorUtils';
 import FlagReviewModal from './FlagReviewModal';
@@ -45,16 +44,6 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
   // Check if this is the current user's review
   const isOwnReview = currentUserId && review.user?.id === currentUserId;
-
-  // Sanitize review comment to prevent XSS attacks
-  const sanitizedComment = useMemo(() => {
-    if (!review.comment) return '';
-    return DOMPurify.sanitize(review.comment, {
-      ALLOWED_TAGS: [], // Strip all HTML tags for plain text only
-      ALLOWED_ATTR: [],
-      KEEP_CONTENT: true
-    });
-  }, [review.comment]);
 
   const handleUsernameClick = () => {
     if (review.user?.username && onUsernameClick) {
@@ -199,7 +188,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
               onClick={handleUsernameClick}
               role="button"
               tabIndex={0}
-              onKeyPress={(e) => e.key === 'Enter' && handleUsernameClick()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleUsernameClick()}
             >
               {displayName}
             </p>
@@ -251,8 +240,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       </div>
 
       {/* Review text - sanitized for XSS protection */}
-      {sanitizedComment && (
-        <p className={styles.reviewText}>{sanitizedComment}</p>
+      {review.comment && (
+        <p className={styles.reviewText}>{review.comment}</p>
       )}
 
       {/* WFC Ratings with Icons - Inline */}
@@ -344,18 +333,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
         isLoading={isDeleting}
       />
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
 
       {/* Flag review modal */}
       <FlagReviewModal

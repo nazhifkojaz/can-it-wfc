@@ -1,7 +1,7 @@
 import { useState, useCallback, ReactNode } from 'react';
 import { ResultType } from '../components/common/ResultModal';
 
-export interface ShowResultModalOptions {
+interface ShowResultModalOptions {
   type: ResultType;
   title: string;
   message: string | ReactNode;

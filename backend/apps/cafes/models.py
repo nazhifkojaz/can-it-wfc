@@ -1,4 +1,4 @@
-from django.db import models, transaction
+from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from apps.core.constants import EARTH_RADIUS_KM
@@ -202,96 +202,9 @@ class Cafe(models.Model):
         
         return duplicates
     
-    @transaction.atomic
     def update_stats(self):
-        """
-        Update cafe stats efficiently using aggregation.
-        Optimized to use only 2 queries instead of 4-6.
-
-        Caches average_ratings and facility_stats from latest 100 reviews
-        to keep stats fresh and prevent N+1 queries in serializers.
-
-        Uses @transaction.atomic to ensure all-or-nothing updates.
-        """
-        from apps.reviews.models import Review, Visit
-        from django.db.models import Count
-
-        # Single aggregated query for visits (1 query instead of 2)
-        visit_stats = Visit.objects.filter(cafe=self).aggregate(
-            total_visits=Count('id'),
-            unique_visitors=Count('user', distinct=True)
-        )
-        self.total_visits = visit_stats['total_visits'] or 0
-        self.unique_visitors = visit_stats['unique_visitors'] or 0
-
-        # Get latest 100 non-hidden reviews for fresh stats
-        recent_reviews = Review.objects.filter(
-            cafe=self,
-            is_hidden=False
-        ).order_by('-created_at')[:100]
-
-        # Convert to list to avoid re-querying
-        recent_reviews_list = list(recent_reviews)
-        total_recent = len(recent_reviews_list)
-
-        # Update total_reviews count (all reviews, not just recent 100)
-        self.total_reviews = Review.objects.filter(cafe=self, is_hidden=False).count()
-
-        # Compute average WFC rating from recent reviews
-        if recent_reviews_list:
-            avg_rating = sum(r.wfc_rating for r in recent_reviews_list) / total_recent
-            self.average_wfc_rating = round(avg_rating, 2)
-
-            # Cache average ratings for all criteria
-            self.average_ratings_cache = {
-                'wifi_quality': round(sum(r.wifi_quality for r in recent_reviews_list) / total_recent, 1),
-                'power_outlets_rating': round(sum(r.power_outlets_rating for r in recent_reviews_list) / total_recent, 1),
-                'seating_comfort': round(sum(r.seating_comfort for r in recent_reviews_list) / total_recent, 1),
-                'noise_level': round(sum(r.noise_level for r in recent_reviews_list) / total_recent, 1),
-                'wfc_rating': round(sum(r.wfc_rating for r in recent_reviews_list) / total_recent, 1),
-            }
-
-            # Cache facility stats
-            smoking_yes = sum(1 for r in recent_reviews_list if r.has_smoking_area is True)
-            smoking_no = sum(1 for r in recent_reviews_list if r.has_smoking_area is False)
-            smoking_unknown = sum(1 for r in recent_reviews_list if r.has_smoking_area is None)
-
-            prayer_yes = sum(1 for r in recent_reviews_list if r.has_prayer_room is True)
-            prayer_no = sum(1 for r in recent_reviews_list if r.has_prayer_room is False)
-            prayer_unknown = sum(1 for r in recent_reviews_list if r.has_prayer_room is None)
-
-            self.facility_stats_cache = {
-                'smoking_area': {
-                    'yes': smoking_yes,
-                    'no': smoking_no,
-                    'unknown': smoking_unknown,
-                    'yes_percentage': round((smoking_yes / total_recent) * 100, 1),
-                    'no_percentage': round((smoking_no / total_recent) * 100, 1),
-                    'unknown_percentage': round((smoking_unknown / total_recent) * 100, 1),
-                },
-                'prayer_room': {
-                    'yes': prayer_yes,
-                    'no': prayer_no,
-                    'unknown': prayer_unknown,
-                    'yes_percentage': round((prayer_yes / total_recent) * 100, 1),
-                    'no_percentage': round((prayer_no / total_recent) * 100, 1),
-                    'unknown_percentage': round((prayer_unknown / total_recent) * 100, 1),
-                }
-            }
-        else:
-            # No reviews - clear cached data
-            self.average_wfc_rating = None
-            self.average_ratings_cache = None
-            self.facility_stats_cache = None
-
-        self.save(update_fields=[
-            'total_visits',
-            'unique_visitors',
-            'total_reviews',
-            'average_wfc_rating',
-            'average_ratings_cache',
-            'facility_stats_cache'
-        ])
+        from apps.core.stats_utils import update_cafe_stats
+        update_cafe_stats(self)
 
 
 class Favorite(models.Model):

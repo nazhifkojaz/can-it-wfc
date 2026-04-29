@@ -1,4 +1,4 @@
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reviewApi } from '../api/client';
 import { ReviewUpdate } from '../types';
 import { queryKeys } from '../config/queryKeys';
@@ -162,28 +162,5 @@ export const useReviews = (cafeId?: number) => {
     toggleHelpful: toggleHelpfulMutation.mutateAsync,
     flagReview: (reviewId: number, reason: string, description?: string) =>
       flagReviewMutation.mutateAsync({ reviewId, reason, description }),
-  };
-};
-
-export const useMyReviews = () => {
-  const {
-    data: reviews = [],
-    isLoading: loading,
-    error: fetchError,
-    refetch,
-  } = useQuery({
-    queryKey: queryKeys.myReviews(),
-    queryFn: async () => {
-      const data = await reviewApi.getMyReviews();
-      return Array.isArray(data) ? data : (data as any).results || [];
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-
-  return {
-    reviews,
-    loading,
-    error: fetchError ? extractApiError(fetchError).message : null,
-    refetch,
   };
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, ResultModal } from '../common';
+import { Modal, SharedResultModal } from '../common';
 import { useResultModal } from '../../hooks';
 import { authApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
@@ -93,7 +93,7 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
       >
         <div className={styles.content}>
           <p className={styles.description}>
-            Welcome! You've signed in with <strong>{email}</strong>.
+            Welcome! You've signed in with <strong data-ph-mask>{email}</strong>.
             <br />
             Please choose a username for your account.
           </p>
@@ -146,18 +146,7 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({
         </div>
       </Modal>
 
-      <ResultModal
-        isOpen={resultModal.isOpen}
-        onClose={resultModal.closeResultModal}
-        type={resultModal.type}
-        title={resultModal.title}
-        message={resultModal.message}
-        details={resultModal.details}
-        primaryButton={resultModal.primaryButton}
-        secondaryButton={resultModal.secondaryButton}
-        autoClose={resultModal.autoClose}
-        autoCloseDelay={resultModal.autoCloseDelay}
-      />
+      <SharedResultModal resultModal={resultModal} />
     </>
   );
 };

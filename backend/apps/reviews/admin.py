@@ -110,7 +110,8 @@ class ReviewAdmin(admin.ModelAdmin):
         'updated_at',
         'flag_count',
         'average_rating_display',
-        'spam_check_result'
+        'spam_check_result',
+        'wfc_rating',
     ]
     
     fieldsets = (
@@ -127,14 +128,6 @@ class ReviewAdmin(admin.ModelAdmin):
             'fields': (
                 'noise_level',
                 'seating_comfort',
-                'space_availability'
-            )
-        }),
-        ('Food & Facilities', {
-            'fields': (
-                'coffee_quality',
-                'menu_options',
-                'bathroom_quality'
             )
         }),
         ('WFC Rating', {

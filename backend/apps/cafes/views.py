@@ -1,3 +1,6 @@
+import math
+from decimal import Decimal
+
 from rest_framework import generics, status, permissions, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -6,6 +9,7 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
 from core.exceptions import CafeNotFound, AlreadyFavorited
+from rest_framework.exceptions import NotFound
 from core.logging import get_logger
 from .models import Cafe, Favorite, CafeFlag
 from .serializers import (
@@ -100,10 +104,11 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
 class NearbyCafesView(APIView):
     """
     Find cafes near a location.
-    
+
     GET /api/cafes/nearby/?latitude={lat}&longitude={lng}&radius_km={radius}&limit={limit}
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
     
     def get(self, request):
         # Validate query parameters
@@ -116,15 +121,25 @@ class NearbyCafesView(APIView):
         radius_km = serializer.validated_data.get('radius_km', 1)
         limit = serializer.validated_data.get('limit', 100)
         
-        # Find nearby cafes from DB only (Haversine calculation)
-        # Note: With PlacesAPI-first architecture, consider using /api/cafes/nearby/all/ instead
-        all_cafes = Cafe.objects.filter(is_closed=False)
+        # Pre-filter with bounding box before Haversine calculation
+        # ~111km per degree of latitude; longitude shrinks with cos(lat)
+        radius_float = float(radius_km)
+        lat_delta = Decimal(str(radius_float / 111.0))
+        lon_delta = Decimal(str(radius_float / (111.0 * math.cos(math.radians(float(latitude))))))
 
-        # Calculate distances and filter by radius
+        candidates = Cafe.objects.filter(
+            is_closed=False,
+            latitude__gte=latitude - lat_delta,
+            latitude__lte=latitude + lat_delta,
+            longitude__gte=longitude - lon_delta,
+            longitude__lte=longitude + lon_delta,
+        )
+
+        # Calculate exact Haversine distances on the pre-filtered set
         nearby_cafes = []
-        for cafe in all_cafes:
+        for cafe in candidates:
             distance = cafe.distance_to(latitude, longitude)
-            if distance <= float(radius_km):
+            if distance <= radius_float:
                 cafe.distance = distance
                 nearby_cafes.append(cafe)
 
@@ -187,6 +202,23 @@ class FavoriteDetailView(generics.DestroyAPIView):
 
     def get_queryset(self):
         return Favorite.objects.filter(user=self.request.user)
+
+
+class FavoriteByCafeDetailView(APIView):
+    """
+    Remove a cafe from favorites by cafe ID.
+
+    DELETE /api/cafes/favorites/by-cafe/{cafe_id}/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, cafe_id):
+        try:
+            favorite = Favorite.objects.get(user=request.user, cafe_id=cafe_id)
+        except Favorite.DoesNotExist:
+            raise NotFound(detail="Favorite not found.")
+        favorite.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MergedNearbyCafesView(APIView):
@@ -463,6 +495,15 @@ class CafeSearchView(APIView):
                 'total_results': 0
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+        # Batch-fetch all registered cafes for these results (avoids N+1)
+        all_place_ids = [
+            p.get('place_id') for p in autocomplete_results if p.get('place_id')
+        ]
+        registered_cafes = {
+            c.google_place_id: c
+            for c in Cafe.objects.filter(google_place_id__in=all_place_ids, is_closed=False)
+        }
+
         # Process each result and check DB for registration status
         unified_results = []
 
@@ -474,11 +515,8 @@ class CafeSearchView(APIView):
             is_cafe = any(t in place_types for t in ['cafe', 'restaurant', 'food', 'bakery'])
             result_type = 'cafe' if is_cafe else 'location'
 
-            # Check if this place is registered in our DB
-            db_cafe = Cafe.objects.filter(
-                google_place_id=place_id,
-                is_closed=False
-            ).first()
+            # Look up from batch-fetched map
+            db_cafe = registered_cafes.get(place_id)
 
             # Build result object
             result = {
@@ -572,7 +610,8 @@ class CafeGoogleRatingRefreshView(APIView):
 
     Returns updated google_rating, google_ratings_count, and google_rating_updated_at.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
 
     def post(self, request, pk=None):
         """Refresh Google rating from Google Places API."""

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { User, MapPin, Calendar, Star } from 'lucide-react';
-import DOMPurify from 'dompurify';
 import { userApi } from '../../api/client';
 import { UserProfile } from '../../types';
 import { Modal, Loading } from '../common';
@@ -99,15 +98,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
               {/* Bio */}
               {user.bio && (
-                <p
-                  className={styles.bio}
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(user.bio, {
-                      ALLOWED_TAGS: [],
-                      ALLOWED_ATTR: []
-                    })
-                  }}
-                />
+                <p className={styles.bio}>{user.bio}</p>
               )}
 
               {/* Member Since */}

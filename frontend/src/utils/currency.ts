@@ -1,9 +1,13 @@
 /**
  * Currency utilities for visit spending tracking
  * Auto-detects currency based on cafe location
+ *
+ * KEEP IN SYNC with:
+ * - backend/apps/core/currency_utils.py CURRENCY_CHOICES and CURRENCY_SYMBOLS (currency list)
+ * - backend/apps/core/currency_utils.py detect_currency_from_coordinates() (detection logic)
  */
 
-export interface Currency {
+interface Currency {
   code: string;
   name: string;
   symbol: string;
@@ -137,10 +141,4 @@ export function formatCurrency(amount: number | string | null | undefined, curre
   return `${symbol}${numAmount.toFixed(2)}`;
 }
 
-/**
- * Get currency symbol by code
- */
-export function getCurrencySymbol(currencyCode: string): string {
-  const currency = CURRENCIES.find(c => c.code === currencyCode);
-  return currency?.symbol || currencyCode;
-}
+

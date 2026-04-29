@@ -1,10 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import {
   User,
-  UserRegistration,
-  UserLogin,
   UserUpdate,
-  AuthTokens,
   UserProfile,
   UserSettings,
   UserActivityResponse,
@@ -15,6 +12,7 @@ import {
   CafeCreate,
   CafeUpdate,
   NearbyCafesParams,
+  NearbyCafesResponse,
   Visit,
   VisitCreate,
   CombinedVisitReviewCreate,
@@ -23,7 +21,6 @@ import {
   ReviewUpdate,
   Favorite,
 } from '../types';
-import { tokenStorage } from '../utils/storage';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
@@ -131,28 +128,22 @@ const getWithSignal = async <T>(
   return response.data;
 };
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
 // Response interceptor to handle authentication errors
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     // If error is 401 (Unauthorized), cookies may have expired
-    // Redirect to login page
+    // Redirect to auth page
     if (error.response?.status === 401) {
-      // Clear legacy localStorage tokens
-      tokenStorage.clearTokens();
+      // Redirect to landing page only if not already on a public page
+      const path = window.location.pathname;
+      const base = import.meta.env.BASE_URL || '/';
+      const normalizedBase = base === '/' ? '' : base.replace(/\/$/, '');
+      const rootPaths = ['/', `${normalizedBase}/`, normalizedBase || '/'];
+      const landingVariants = [2, 4].map(n => `${normalizedBase}/${n}`);
+      const publicPaths = [...rootPaths, ...landingVariants];
 
-      // Redirect to login only if not already on login page
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/')) {
+      if (!publicPaths.some(p => path === p || path === `${p}/`)) {
         window.location.href = buildAppPath('/');
       }
     }
@@ -166,11 +157,17 @@ api.interceptors.response.use(
 // ===========================
 
 export const authApi = {
-  // Register new user
-  register: (data: UserRegistration) => post<User>('/auth/register/', data),
-
-  // Login user (JWT)
-  login: (data: UserLogin) => post<AuthTokens>('/auth/login/', data),
+  // Generic OAuth login (replaces googleLogin + password login)
+  oauthLogin: async (
+    provider: 'google',
+    accessToken: string,
+  ): Promise<{ user: User; created: boolean }> => {
+    const response = await post<{ user: User; created: boolean }>(
+      `/auth/oauth/${provider}/`,
+      { access_token: accessToken },
+    );
+    return { user: response.user, created: response.created ?? false };
+  },
 
   // Logout user
   logout: async () => {
@@ -180,36 +177,14 @@ export const authApi = {
     } catch (error) {
       log.error('Logout failed', error);
     }
-    // Clear legacy localStorage tokens
-    tokenStorage.clearTokens();
   },
-
-  // Refresh access token (deprecated; tokens are refreshed via httpOnly cookies)
-  refreshToken: (refreshToken: string) =>
-    post<{ access: string }>('/auth/refresh/', { refresh: refreshToken }),
 
   // Get current user
   getCurrentUser: () => get<User>('/auth/me/'),
 
-  // Google OAuth login
-  googleLogin: async (accessToken: string): Promise<{ user: User; created: boolean }> => {
-    const response = await post<{ user: User; created: boolean }>('/auth/google/', { access_token: accessToken });
-
-    // Clear legacy localStorage tokens
-    tokenStorage.clearTokens();
-
-    return { user: response.user, created: response.created ?? false };
-  },
-
   // Update profile (for username, bio, etc.)
   updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
 
-  // Change password
-  changePassword: (data: { old_password: string; new_password: string }) =>
-    post('/auth/change-password/', data),
-
-  // Get public profile by username
-  getUserByUsername: (username: string) => get<User>(`/auth/users/${username}/`),
 };
 
 // ===========================
@@ -217,16 +192,6 @@ export const authApi = {
 // ===========================
 
 export const userApi = {
-  // Get user profile
-  getProfile: () => get<User>('/auth/me/'),
-
-  // Update user profile
-  updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
-
-  // Change password
-  changePassword: (oldPassword: string, newPassword: string) =>
-    post('/auth/change-password/', { old_password: oldPassword, new_password: newPassword }),
-
   // Get user by ID
   getById: (userId: number) => get<User>(`/auth/users/${userId}/`),
 
@@ -274,12 +239,7 @@ export const cafeApi = {
 
   // NEW: Get all nearby cafes (database + Google Places)
   getAllNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
-    getWithSignal<{
-      count: number;
-      registered_count: number;
-      unregistered_count: number;
-      results: Cafe[];
-    }>('/cafes/nearby/all/', params, signal),
+    getWithSignal<NearbyCafesResponse>('/cafes/nearby/all/', params, signal),
 
   // Search cafes
   search: (query: string) => getPaginated<Cafe>('/cafes/', { search: query }),
@@ -301,16 +261,13 @@ export const cafeApi = {
   // Update cafe
   update: (id: number, data: CafeUpdate) => patch<Cafe>(`/cafes/${id}/`, data),
 
-  toggleFavorite: async (cafeId: number | undefined) => {
+  toggleFavorite: async (cafeId: number | undefined, isFavorited?: boolean) => {
     if (cafeId === undefined || cafeId === null) {
       throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
     }
 
-    const favoritesList = await getPaginated<Favorite>('/cafes/favorites/');
-    const existing = favoritesList.find((fav: any) => fav.cafe.id === cafeId);
-
-    if (existing) {
-      await del(`/cafes/favorites/${existing.id}/`);
+    if (isFavorited) {
+      await del(`/cafes/favorites/by-cafe/${cafeId}/`);
       return { is_favorited: false };
     } else {
       return post<{ is_favorited: boolean } & Favorite>('/cafes/favorites/', { cafe_id: cafeId });

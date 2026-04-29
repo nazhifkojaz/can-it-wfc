@@ -2,14 +2,17 @@
 // User Types
 // ===========================
 
-export interface User {
+export interface UserBase {
   id: number;
   username: string;
-  email: string;
   display_name: string;
-  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
-  bio: string;
+  effective_display_name: string;
   avatar_url?: string;
+}
+
+export interface User extends UserBase {
+  email: string;
+  bio: string;
   is_anonymous_display: boolean;
   total_reviews: number;
   total_visits: number;
@@ -17,23 +20,6 @@ export interface User {
   following_count?: number;
   date_joined: string;
   account_age_hours?: number;
-}
-
-export interface UserRegistration {
-  username: string;
-  email: string;
-  password: string;
-  password2: string;
-}
-
-export interface UserLogin {
-  username: string;
-  password: string;
-}
-
-export interface AuthTokens {
-  access: string;
-  refresh: string;
 }
 
 export interface UserUpdate {
@@ -67,13 +53,8 @@ export interface UserSettings {
   activity_visibility: 'public' | 'followers' | 'private';
 }
 
-export interface UserProfile {
-  id: number;
-  username: string;
-  display_name: string;
-  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
+export interface UserProfile extends UserBase {
   bio: string;
-  avatar_url?: string;
   total_reviews: number;
   total_visits: number;
   followers_count: number;
@@ -83,7 +64,6 @@ export interface UserProfile {
   is_own_profile?: boolean;
   is_following?: boolean;
   is_followed_by?: boolean;
-  // For private profiles
   profile_visibility?: 'private';
   message?: string;
 }
@@ -153,12 +133,7 @@ export interface ActivityFeedResponse {
   count: number;
 }
 
-export interface FollowUser {
-  id: number;
-  username: string;
-  display_name: string;
-  effective_display_name: string; // Backend-provided: display_name if set, otherwise username (with masking if anonymous)
-  avatar_url?: string;
+export interface FollowUser extends UserBase {
   bio: string;
   total_visits: number;
   total_reviews: number;
@@ -245,12 +220,19 @@ export interface CafeUpdate {
 }
 
 export interface NearbyCafesParams {
-  latitude: number;       // Search center latitude
-  longitude: number;      // Search center longitude
+  latitude: number;
+  longitude: number;
   radius_km?: number;
   limit?: number;
-  user_latitude?: number;  // User's actual location (for distance calculation)
-  user_longitude?: number; // User's actual location (for distance calculation)
+  user_latitude?: number;
+  user_longitude?: number;
+}
+
+export interface NearbyCafesResponse {
+  count: number;
+  registered_count: number;
+  unregistered_count: number;
+  results: Cafe[];
 }
 
 // ===========================
@@ -327,116 +309,40 @@ export interface CombinedVisitReviewCreate {
 // Review Types
 // ===========================
 
-export interface Review {
-  id: number;
-  user: User;
-  cafe: Cafe;
-
-  // WFC Ratings (1-5)
+export interface ReviewContent {
   wifi_quality: number;
   power_outlets_rating?: number;
   noise_level: number;
   seating_comfort: number;
-  space_availability: number;
-  coffee_quality: number;
-  menu_options: number;
-  bathroom_quality?: number;
-
-  // Additional facilities (three-state: true/false/null)
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
-
-  // Overall WFC rating
-  wfc_rating: number;
-
-  // Visit time (1=morning, 2=afternoon, 3=evening)
+  wfc_rating?: number;
   visit_time: number;
-  visit_time_display?: string; // Computed property
-
-  // Calculated
-  average_rating?: number;
-
-  // Text review (max 160 chars)
   comment?: string;
+}
 
-  // Moderation
+export interface Review extends ReviewContent {
+  id: number;
+  user: User;
+  cafe: Cafe;
+  wfc_rating: number;
+  visit_time_display?: string;
+  average_rating?: number;
   is_flagged: boolean;
   flag_count: number;
   is_hidden: boolean;
-
-  // Helpful votes
   helpful_count: number;
-  is_helpful: boolean; // Whether current user marked as helpful
-  user_has_flagged: boolean; // Whether current user has flagged this review
-
-  // Timestamps
+  is_helpful: boolean;
+  user_has_flagged: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface ReviewCreate {
+export interface ReviewCreate extends ReviewContent {
   cafe_id: number;
-
-  // WFC Ratings (1-5)
-  wifi_quality: number;
-  power_outlets_rating?: number;
-  noise_level: number;
-  seating_comfort: number;
-  space_availability: number;
-  coffee_quality: number;
-  menu_options: number;
-  bathroom_quality?: number;
-
-  // Additional facilities (three-state: true/false/null)
-  has_smoking_area?: boolean | null;
-  has_prayer_room?: boolean | null;
-
-  // Overall WFC rating (required)
-  wfc_rating: number;
-
-  // Visit time (1=morning, 2=afternoon, 3=evening)
-  visit_time: number;
-
-  // Optional text review (max 160 chars)
-  comment?: string;
 }
 
-// ===========================
-// Review Flag Types
-// ===========================
-
-export interface ReviewFlag {
-  id: number;
-  review: number;
-  user: User;
-  reason: string;
-  created_at: string;
-}
-
-export interface ReviewUpdate {
-  // WFC Ratings (1-5)
-  wifi_quality?: number;
-  power_outlets_rating?: number;
-  noise_level?: number;
-  seating_comfort?: number;
-  space_availability?: number;
-  coffee_quality?: number;
-  menu_options?: number;
-  bathroom_quality?: number;
-
-  // Additional facilities (three-state: true/false/null)
-  has_smoking_area?: boolean | null;
-  has_prayer_room?: boolean | null;
-
-  // Overall WFC rating
-  wfc_rating?: number;
-
-  // Visit time (1=morning, 2=afternoon, 3=evening)
-  visit_time?: number;
-
-  // Optional text review (max 160 chars)
-  comment?: string;
-}
+export interface ReviewUpdate extends Partial<ReviewContent> {}
 
 // ===========================
 // Favorite Types
@@ -447,15 +353,6 @@ export interface Favorite {
   user: User;
   cafe: Cafe;
   created_at: string;
-}
-
-// ===========================
-// Location Types
-// ===========================
-
-export interface Location {
-  lat: number;
-  lng: number;
 }
 
 // ===========================
@@ -479,171 +376,6 @@ export interface SearchResult {
   result_type: 'cafe' | 'location';
 }
 
-export interface GeolocationState {
-  latitude: number | null;
-  longitude: number | null;
-  error: string | null;
-  loading: boolean;
-}
 
-// ===========================
-// API Response Types
-// ===========================
 
-export interface ApiError {
-  message: string;
-  errors?: Record<string, string[]>;
-}
 
-// ===========================
-// Form State Types
-// ===========================
-
-export interface LoginFormState {
-  username: string;
-  password: string;
-}
-
-export interface RegisterFormState {
-  username: string;
-  email: string;
-  password: string;
-  password2: string;
-}
-
-export interface ReviewFormState extends ReviewCreate {
-  // Additional UI state if needed
-}
-
-// ===========================
-// Filter/Sort Types
-// ===========================
-
-export type SortOption = 'distance' | 'rating' | 'visits' | 'recent';
-
-export interface CafeFilters {
-  priceRange?: (1 | 2 | 3 | 4)[];
-  minRating?: number;
-  hasWifi?: boolean;
-  hasOutlets?: boolean;
-  maxDistance?: number;
-}
-
-// ===========================
-// Map Types
-// ===========================
-
-export interface MarkerData {
-  id: string;
-  position: [number, number];
-  cafe: Cafe;
-  status: 'visited' | 'reviewed' | 'new';
-}
-
-export interface MapBounds {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}
-
-// ===========================
-// UI State Types
-// ===========================
-
-export type ViewMode = 'map' | 'list';
-
-export interface BottomSheetState {
-  isOpen: boolean;
-  cafe: Cafe | null;
-}
-
-export interface ModalState {
-  isOpen: boolean;
-  type: 'add-visit' | 'review' | 'edit-profile' | null;
-  data?: any;
-}
-
-// ===========================
-// Stats Types
-// ===========================
-
-export interface UserStats {
-  total_visits: number;
-  total_reviews: number;
-  favorite_cafes: number;
-  avg_wfc_rating: number;
-  most_visited_cafe?: Cafe;
-}
-
-export interface CafeStats {
-  wifi_quality_avg: number;
-  power_outlets_avg: number;
-  noise_level_avg: number;
-  seating_comfort_avg: number;
-  menu_selection_avg: number;
-  price_value_avg: number;
-  overall_avg: number;
-}
-
-// ===========================
-// Notification Types
-// ===========================
-
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  message: string;
-  duration?: number;
-}
-
-// ===========================
-// Time Periods
-// ===========================
-
-export enum TimePeriod {
-  MORNING = 'morning',
-  AFTERNOON = 'afternoon',
-  EVENING = 'evening',
-}
-
-// ===========================
-// Price Range
-// ===========================
-
-export enum PriceRange {
-  BUDGET = 1,
-  MODERATE = 2,
-  UPSCALE = 3,
-  LUXURY = 4,
-}
-
-// ===========================
-// Helper Type Guards
-// ===========================
-
-export function isUser(obj: any): obj is User {
-  return obj && typeof obj.id === 'number' && typeof obj.username === 'string';
-}
-
-export function isCafe(obj: any): obj is Cafe {
-  return obj && typeof obj.id === 'number' && typeof obj.name === 'string';
-}
-
-export function isReview(obj: any): obj is Review {
-  return obj && typeof obj.id === 'number' && typeof obj.average_rating === 'number';
-}
-
-// ===========================
-// Utility Types
-// ===========================
-
-export type Nullable<T> = T | null;
-export type Optional<T> = T | undefined;
-export type AsyncState<T> = {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-};

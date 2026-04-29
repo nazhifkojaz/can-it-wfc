@@ -361,10 +361,6 @@ class CafeSearchQuerySerializer(serializers.Serializer):
         max_value=180,
         error_messages={'invalid': 'Invalid longitude value'}
     )
-    use_google = serializers.ChoiceField(
-        choices=['true', 'false', 'auto'],
-        default='auto'
-    )
     limit = serializers.IntegerField(
         default=10,
         min_value=1,
@@ -372,49 +368,5 @@ class CafeSearchQuerySerializer(serializers.Serializer):
         error_messages={
             'min_value': 'Limit must be at least 1',
             'max_value': 'Limit cannot exceed 50'
-        }
-    )
-
-
-class NearbyCafesQuerySerializer(serializers.Serializer):
-    """Serializer for validating query parameters in nearby cafes endpoint."""
-    latitude = serializers.DecimalField(
-        required=True,
-        max_digits=9,
-        decimal_places=6,
-        min_value=-90,
-        max_value=90,
-        error_messages={
-            'required': 'Latitude is required',
-            'invalid': 'Invalid latitude value'
-        }
-    )
-    longitude = serializers.DecimalField(
-        required=True,
-        max_digits=9,
-        decimal_places=6,
-        min_value=-180,
-        max_value=180,
-        error_messages={
-            'required': 'Longitude is required',
-            'invalid': 'Invalid longitude value'
-        }
-    )
-    radius = serializers.IntegerField(
-        default=5,
-        min_value=1,
-        max_value=50,
-        error_messages={
-            'min_value': 'Radius must be at least 1km',
-            'max_value': 'Radius cannot exceed 50km'
-        }
-    )
-    limit = serializers.IntegerField(
-        default=20,
-        min_value=1,
-        max_value=100,
-        error_messages={
-            'min_value': 'Limit must be at least 1',
-            'max_value': 'Limit cannot exceed 100'
         }
     )

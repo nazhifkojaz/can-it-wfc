@@ -77,14 +77,6 @@ export const formatDate = (date: string | Date): string => {
 };
 
 /**
- * Format datetime to readable string
- */
-export const formatDateTime = (date: string | Date): string => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return format(dateObj, 'MMM d, yyyy h:mm a');
-};
-
-/**
  * Format date as relative time (e.g., "2 hours ago")
  */
 export const formatRelativeTime = (date: string | Date): string => {

@@ -320,7 +320,7 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
 
         assert response.status_code == status.HTTP_200_OK
         # Should return cached data immediately (no API call)
-        assert response.data['google_rating'] == 4.5
+        assert response.data['google_rating'] == '4.5'
         assert response.data['google_ratings_count'] == 100
         # Should include google_rating_updated_at for frontend staleness detection
         assert 'google_rating_updated_at' in response.data
@@ -382,14 +382,30 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
         response = authenticated_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['google_rating'] == 4.8
+        assert float(response.data['google_rating']) == 4.8
         assert response.data['google_ratings_count'] == 150
         assert response.data['google_rating_updated_at'] is not None
 
         # Verify database was updated
         cafe.refresh_from_db()
-        assert cafe.google_rating == 4.8
+        assert cafe.google_rating == Decimal('4.8')  # DecimalField returns Decimal from DB
         assert cafe.google_ratings_count == 150
+
+    def test_refresh_endpoint_requires_authentication(self, api_client, test_user):
+        """Test that refresh endpoint requires authentication."""
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='Auth Test Cafe',
+            address='123 Auth Test St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='some_place_id',
+            created_by=test_user
+        )
+
+        response = api_client.post(f'/api/cafes/{cafe.id}/refresh-google-rating/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_refresh_endpoint_returns_404_for_nonexistent_cafe(self, authenticated_client):
         """Test that refresh endpoint returns 404 for non-existent cafe"""
@@ -442,3 +458,228 @@ class TestCafeGoogleRatingStaleWhileRevalidate:
 
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert 'error' in response.data
+
+
+@pytest.mark.django_db
+class TestNearbyCafesView:
+    """Test NearbyCafesView bounding-box filter and Haversine accuracy."""
+
+    # Jakarta coordinates
+    JAKARTA_LAT = Decimal('-6.2088')
+    JAKARTA_LNG = Decimal('106.8456')
+
+    def _create_cafe(self, name, lat, lng, user, **kwargs):
+        from apps.cafes.models import Cafe
+        return Cafe.objects.create(
+            name=name,
+            address=f'{name} Address',
+            latitude=Decimal(str(lat)),
+            longitude=Decimal(str(lng)),
+            google_place_id=f'{name.lower().replace(" ", "_")}_place',
+            created_by=user,
+            **kwargs,
+        )
+
+    def test_returns_cafes_within_radius(self, api_client, test_user):
+        """Cafes within radius are returned, sorted by distance."""
+        cafe_near = self._create_cafe('Near Cafe', '-6.2088', '106.8456', test_user)
+        cafe_mid = self._create_cafe('Mid Cafe', '-6.2100', '106.8470', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 5,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 2
+        # Should be sorted by distance (nearest first)
+        assert results[0]['name'] == 'Near Cafe'
+        assert results[1]['name'] == 'Mid Cafe'
+
+    def test_excludes_cafes_outside_radius(self, api_client, test_user):
+        """Cafes outside the radius are excluded."""
+        self._create_cafe('Near Cafe', '-6.2088', '106.8456', test_user)
+        # ~100+ km away
+        self._create_cafe('Far Cafe', '-6.9000', '106.8456', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 5,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 1
+        assert results[0]['name'] == 'Near Cafe'
+
+    def test_returns_empty_when_no_cafes_nearby(self, api_client, test_user):
+        """Empty list returned when no cafes are within radius."""
+        self._create_cafe('Distant Cafe', '-7.0000', '107.0000', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_excludes_closed_cafes(self, api_client, test_user):
+        """Closed cafes are excluded from results."""
+        self._create_cafe('Open Cafe', '-6.2088', '106.8456', test_user)
+        self._create_cafe('Closed Cafe', '-6.2088', '106.8456', test_user, is_closed=True)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['name'] == 'Open Cafe'
+
+    def test_respects_limit_parameter(self, api_client, test_user):
+        """Limit parameter caps the number of results."""
+        for i in range(5):
+            self._create_cafe(f'Cafe {i}', '-6.2088', '106.8456', test_user)
+
+        response = api_client.get('/api/cafes/nearby/', {
+            'latitude': self.JAKARTA_LAT,
+            'longitude': self.JAKARTA_LNG,
+            'radius_km': 1,
+            'limit': 2,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 2
+
+
+@pytest.mark.django_db
+class TestCafeServicePriceLevelClamping:
+    """Test that Google price_level=0 is clamped to None (price_range only accepts 1-4)."""
+
+    def _make_cafe_data(self):
+        return {
+            'name': 'Test Cafe',
+            'address': '123 Test St',
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+        }
+
+    def test_price_level_zero_stored_as_none(self, test_user, monkeypatch):
+        """Google price_level=0 (Free) should be stored as None, not 0."""
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'price_level': 0, 'rating': 4.5, 'user_ratings_total': 10}
+        )
+        from apps.cafes.services import CafeService
+        cafe, created = CafeService.get_or_create_from_google(
+            'price_zero_place', self._make_cafe_data(), created_by=test_user
+        )
+        assert created
+        assert cafe.price_range is None
+
+    def test_price_level_in_valid_range_stored(self, test_user, monkeypatch):
+        """Google price_level 1-4 should be stored as-is."""
+        for level in range(1, 5):
+            monkeypatch.setattr(
+                'apps.cafes.services.GooglePlacesService.get_place_details',
+                lambda pid, pl=level: {'price_level': pl, 'rating': 4.0, 'user_ratings_total': 5}
+            )
+            from apps.cafes.services import CafeService
+            cafe, created = CafeService.get_or_create_from_google(
+                f'price_{level}_place', self._make_cafe_data(), created_by=test_user
+            )
+            assert created
+            assert cafe.price_range == level
+
+    def test_price_level_five_stored_as_none(self, test_user, monkeypatch):
+        """Google price_level=5 (if ever returned) should be stored as None."""
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'price_level': 5, 'rating': 4.0, 'user_ratings_total': 5}
+        )
+        from apps.cafes.services import CafeService
+        cafe, created = CafeService.get_or_create_from_google(
+            'price_five_place', self._make_cafe_data(), created_by=test_user
+        )
+        assert created
+        assert cafe.price_range is None
+
+    def test_null_price_level_stored_as_none(self, test_user, monkeypatch):
+        """Missing price_level should be stored as None."""
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'rating': 4.0, 'user_ratings_total': 5}
+        )
+        from apps.cafes.services import CafeService
+        cafe, created = CafeService.get_or_create_from_google(
+            'price_null_place', self._make_cafe_data(), created_by=test_user
+        )
+        assert created
+        assert cafe.price_range is None
+
+
+@pytest.mark.django_db
+class TestFavoriteByCafeDelete:
+    """Test DELETE /api/cafes/favorites/by-cafe/{cafe_id}/ endpoint."""
+
+    def _create_cafe(self, test_user, name='Test Cafe'):
+        from apps.cafes.models import Cafe
+        return Cafe.objects.create(
+            name=name,
+            address='123 Test St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id=f'{name.lower().replace(" ", "_")}_place',
+            created_by=test_user,
+        )
+
+    def test_delete_favorite_by_cafe_id(self, authenticated_client, test_user):
+        """Authenticated user can remove a favorite by cafe ID."""
+        from apps.cafes.models import Favorite
+        cafe = self._create_cafe(test_user)
+        Favorite.objects.create(user=test_user, cafe=cafe)
+
+        response = authenticated_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Favorite.objects.filter(user=test_user, cafe=cafe).exists()
+
+    def test_delete_nonexistent_favorite_returns_404(self, authenticated_client, test_user):
+        """Returns 404 when unfavorite-ing a cafe that wasn't favorited."""
+        cafe = self._create_cafe(test_user)
+
+        response = authenticated_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_favorite_requires_auth(self, api_client, test_user):
+        """Unauthenticated requests are rejected."""
+        cafe = self._create_cafe(test_user)
+
+        response = api_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_delete_favorite_only_deletes_own(self, api_client, test_user, db):
+        """Cannot remove another user's favorite."""
+        from apps.cafes.models import Favorite
+        cafe = self._create_cafe(test_user)
+        other_user = User.objects.create_user(
+            username='otheruser', email='other@example.com', password='pass123'
+        )
+        Favorite.objects.create(user=other_user, cafe=cafe)
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.delete(f'/api/cafes/favorites/by-cafe/{cafe.id}/')
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        # Other user's favorite should still exist
+        assert Favorite.objects.filter(user=other_user, cafe=cafe).exists()

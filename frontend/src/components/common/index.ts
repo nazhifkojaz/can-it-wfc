@@ -10,3 +10,6 @@ export { default as ErrorState } from './ErrorState';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as ResultModal } from './ResultModal';
+export { default as SharedResultModal } from './SharedResultModal';
+export { default as StarRating } from './StarRating';
+export { default as FacilityToggle } from './FacilityToggle';

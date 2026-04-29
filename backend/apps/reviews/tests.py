@@ -5,6 +5,7 @@ import pytest
 from datetime import date, timedelta
 from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.models import Cafe
@@ -71,8 +72,8 @@ class TestVisitCreation:
         assert response.data['review'] is None
         assert Visit.objects.filter(cafe=test_cafe).exists()
 
-    def test_create_visit_without_location(self, authenticated_client, test_cafe):
-        """Test creating visit without check-in location"""
+    def test_create_visit_without_location_rejected(self, authenticated_client, test_cafe):
+        """Test creating visit without check-in location is rejected"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
@@ -80,13 +81,11 @@ class TestVisitCreation:
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        assert response.status_code == status.HTTP_201_CREATED
-        visit = Visit.objects.get(cafe=test_cafe)
-        assert visit.check_in_latitude is None
-        assert visit.check_in_longitude is None
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'non_field_errors' in response.data['error']['details']
 
-    def test_create_visit_far_location_not_verified(self, authenticated_client, test_cafe, test_user):
-        """Test creating visit from >1km away is allowed but not verified"""
+    def test_create_visit_far_location_rejected(self, authenticated_client, test_cafe):
+        """Test creating visit from >1km away is rejected"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
@@ -96,12 +95,8 @@ class TestVisitCreation:
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        # Visit creation is allowed (location verification is optional)
-        assert response.status_code == status.HTTP_201_CREATED
-
-        # But verify the location check returns False
-        visit = Visit.objects.get(user=test_user, cafe=test_cafe)
-        assert visit.is_verified_location() is False
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'check_in_latitude' in response.data['error']['details']
 
     def test_create_duplicate_visit_same_day(self, authenticated_client, test_cafe, test_user):
         """Test creating duplicate visit for same cafe+date fails"""
@@ -116,12 +111,14 @@ class TestVisitCreation:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': False
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert 'visit_date' in response.data
+        assert 'visit_date' in response.data['error']['details']
 
     def test_create_visit_unauthenticated(self, api_client, test_cafe):
         """Test unauthenticated user cannot create visit"""
@@ -182,24 +179,53 @@ class TestCombinedVisitReview:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['review'] is None
 
-    def test_create_review_missing_wfc_rating(self, authenticated_client, test_cafe):
-        """Test creating review without required wfc_rating fails"""
+    def test_create_review_auto_computes_wfc_rating(self, authenticated_client, test_cafe, test_user):
+        """Test creating review without wfc_rating auto-computes it from sub-criteria"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wifi_quality': 5,
-            # Missing wfc_rating
+            # Missing wfc_rating — should be auto-computed
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['review'] is not None
+        # wifi=5, noise=3(default), seating=3(default), no power → avg=11/3≈3.67 → round=4
+        review = Review.objects.get(user=test_user, cafe=test_cafe)
+        assert review.wfc_rating == 4
+
+    def test_create_review_auto_computes_wfc_rating_with_power(self, authenticated_client, test_cafe, test_user):
+        """Test auto-computation includes power_outlets_rating when provided"""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today() + timedelta(days=1)),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wifi_quality': 5,
+            'power_outlets_rating': 5,
+            'seating_comfort': 4,
+            'noise_level': 3,
+            # Missing wfc_rating — should be auto-computed
+        }
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        review = Review.objects.get(user=test_user, cafe=test_cafe)
+        # (5+5+4+3)/4 = 4.25 → round=4
+        assert review.wfc_rating == 4
 
     def test_create_review_invalid_rating(self, authenticated_client, test_cafe):
         """Test creating review with invalid rating value fails"""
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wfc_rating': 6,  # Invalid: should be 1-5
             'wifi_quality': 5,
@@ -207,6 +233,34 @@ class TestCombinedVisitReview:
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_combined_visit_far_location_rejected(self, authenticated_client, test_cafe):
+        """Test combined visit+review from >1km away is rejected"""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.3,  # ~10km away
+            'check_in_longitude': 106.9,
+            'include_review': True,
+            'wfc_rating': 4,
+        }
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'check_in_latitude' in response.data['error']['details']
+
+    def test_combined_visit_missing_location_rejected(self, authenticated_client, test_cafe):
+        """Test combined visit+review without check-in location is rejected"""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'include_review': True,
+            'wfc_rating': 4,
+        }
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'non_field_errors' in response.data['error']['details']
 
 
 @pytest.mark.django_db
@@ -330,10 +384,6 @@ class TestReviewModeration:
             power_outlets_rating=5,
             seating_comfort=5,
             noise_level=5,
-            space_availability=5,
-            coffee_quality=5,
-            menu_options=5,
-            bathroom_quality=5
         )
 
         # Create another user to flag
@@ -377,10 +427,6 @@ class TestReviewModeration:
             power_outlets_rating=5,
             seating_comfort=5,
             noise_level=5,
-            space_availability=5,
-            coffee_quality=5,
-            menu_options=5,
-            bathroom_quality=5
         )
 
         # Authenticated user (different from review author) marks it helpful
@@ -434,10 +480,6 @@ class TestCafeStatistics:
             power_outlets_rating=4,
             seating_comfort=4,
             noise_level=3,
-            space_availability=4,
-            coffee_quality=4,
-            menu_options=3,
-            bathroom_quality=4
         )
         test_cafe.update_stats()
         test_cafe.refresh_from_db()
@@ -457,6 +499,8 @@ class TestTransactionRollbackHandling:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': False
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
@@ -502,8 +546,8 @@ class TestTransactionRollbackHandling:
         # Visit should be created
         assert Visit.objects.filter(cafe__google_place_id='ChIJ_new_test_place', user=test_user).exists()
 
-    def test_cafe_not_orphaned_when_visit_validation_fails(self, authenticated_client, test_user, monkeypatch):
-        """Test that cafe is created but properly handled when visit data is invalid"""
+    def test_cafe_not_created_when_field_validation_fails(self, authenticated_client, test_user, monkeypatch):
+        """Test that cafe is NOT created when required fields are missing at the serializer level"""
         from apps.cafes.services import GooglePlacesService
         from apps.cafes.models import Cafe
 
@@ -523,29 +567,27 @@ class TestTransactionRollbackHandling:
             mock_get_place_details
         )
 
-        # This should fail at visit validation (missing visit_date)
-        # Cafe creation happens before visit validation in our refactored code
+        # Missing visit_date — DRF field-level validation rejects this
+        # before create() (where cafe creation happens) is ever called
         data = {
             'google_place_id': 'ChIJ_invalid_visit_test',
             'cafe_name': 'Invalid Visit Cafe',
             'cafe_address': '999 Invalid St, Jakarta',
             'cafe_latitude': -6.2300,
             'cafe_longitude': 106.8700,
-            # Missing visit_date - should fail validation
+            # Missing visit_date - field validation fails before create()
             'include_review': False
         }
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
-        # Should fail validation
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-        # In the refactored code, cafe IS created (which is correct behavior)
-        # The cafe is intentionally created before the transaction
-        # This is NOT an orphan - it's a valid cafe that can be used later
-        assert Cafe.objects.filter(google_place_id='ChIJ_invalid_visit_test').exists()
+        # Cafe should NOT be created — field validation runs before create()
+        assert not Cafe.objects.filter(google_place_id='ChIJ_invalid_visit_test').exists()
+        assert Cafe.objects.count() == initial_cafe_count
 
     def test_review_creation_rolled_back_on_failure(self, authenticated_client, test_cafe, test_user, monkeypatch):
-        """Test that review is rolled back if stats update fails"""
+        """Test that review is rolled back if stats update raises an unhandled error"""
         # Create a visit first
         visit = Visit.objects.create(
             cafe=test_cafe,
@@ -562,18 +604,21 @@ class TestTransactionRollbackHandling:
         data = {
             'cafe_id': test_cafe.id,
             'visit_date': str(date.today() + timedelta(days=1)),  # Different date
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wfc_rating': 4,
             'wifi_quality': 5,
+            'seating_comfort': 4,
+            'noise_level': 3,
         }
 
-        # This should fail because update_stats raises an exception
-        response = authenticated_client.post('/api/visits/create-with-review/', data)
+        # update_stats is not wrapped in try/except, so the bare Exception
+        # propagates through the test client as an unhandled server error
+        with pytest.raises(Exception, match="Stats update failed"):
+            authenticated_client.post('/api/visits/create-with-review/', data)
 
-        # The transaction should roll back - review should not be created
-        assert response.status_code in [status.HTTP_500_INTERNAL_SERVER_ERROR, status.HTTP_400_BAD_REQUEST]
-
-        # Review should not exist (rolled back)
+        # The transaction.atomic() should roll back — review should not exist
         assert not Review.objects.filter(user=test_user, cafe=test_cafe).exists()
 
     def test_transaction_with_both_visit_and_review(self, authenticated_client, test_cafe, test_user):
@@ -586,6 +631,8 @@ class TestTransactionRollbackHandling:
             'visit_date': str(date.today()),
             'amount_spent': 25.0,
             'visit_time': 2,
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
             'include_review': True,
             'wfc_rating': 5,
             'wifi_quality': 5,
@@ -602,3 +649,121 @@ class TestTransactionRollbackHandling:
         # Verify both visit and review were created
         assert Visit.objects.filter(cafe=test_cafe).count() == initial_visit_count + 1
         assert Review.objects.filter(cafe=test_cafe).count() == initial_review_count + 1
+
+
+@pytest.mark.django_db
+class TestCheckSpamDailyLimit:
+    """Test Review.check_spam() enforces the exact MAX_REVIEWS_PER_DAY limit."""
+
+    def _make_cafes(self, user, count):
+        """Create N distinct cafes for testing."""
+        cafes = []
+        for i in range(count):
+            cafes.append(Cafe.objects.create(
+                name=f'Cafe {i}',
+                address=f'{i} Test St',
+                latitude=Decimal('-6.2088'),
+                longitude=Decimal('106.8456'),
+                google_place_id=f'place_{i}',
+                created_by=user,
+            ))
+        return cafes
+
+    def _make_reviews(self, user, cafes, count):
+        """Create `count` reviews (one per cafe) and return them."""
+        reviews = []
+        for i in range(count):
+            reviews.append(Review.objects.create(
+                cafe=cafes[i],
+                user=user,
+                wfc_rating=4,
+                wifi_quality=4,
+                power_outlets_rating=4,
+                seating_comfort=4,
+                noise_level=4,
+            ))
+        return reviews
+
+    @override_settings(MAX_REVIEWS_PER_DAY=3)
+    def test_spam_detected_at_exact_limit(self, test_user):
+        """After MAX reviews exist, the next check_spam should flag as spam."""
+        cafes = self._make_cafes(test_user, 4)
+        self._make_reviews(test_user, cafes, 3)  # exactly MAX_REVIEWS_PER_DAY
+
+        # 4th review should be flagged — count (3) >= limit (3)
+        review = Review(user=test_user, cafe=cafes[3], wfc_rating=4)
+        is_spam, reason = review.check_spam()
+
+        assert is_spam is True
+        assert reason == "Too many reviews in one day"
+
+    @override_settings(MAX_REVIEWS_PER_DAY=3)
+    def test_not_spam_below_limit(self, test_user):
+        """Below the limit, check_spam should return OK."""
+        cafes = self._make_cafes(test_user, 3)
+        self._make_reviews(test_user, cafes, 2)  # one below limit
+
+        review = Review(user=test_user, cafe=cafes[2], wfc_rating=4)
+        is_spam, reason = review.check_spam()
+
+        assert is_spam is False
+        assert reason == "OK"
+
+
+@pytest.mark.django_db
+class TestCafeReviewsURL:
+    """Test that CafeReviewsView URL accepts integer cafe IDs."""
+
+    def test_cafe_reviews_accepts_integer_id(self, api_client, test_cafe, test_user):
+        """
+        GET /api/cafes/{int}/reviews/ should return 200, not 404.
+        The URL converter must be <int:cafe_id>, not <uuid:cafe_id>,
+        since Cafe uses an integer primary key.
+        """
+        # Create a review so there's data to return
+        Review.objects.create(
+            cafe=test_cafe,
+            user=test_user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+        )
+
+        response = api_client.get(f'/api/cafes/{test_cafe.id}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cafe_reviews_returns_reviews_for_correct_cafe(self, api_client, test_user):
+        """
+        CafeReviewsView should only return reviews for the requested cafe.
+        """
+        # Create two cafes with reviews
+        cafe_a = Cafe.objects.create(
+            name='Cafe A', address='1 A St',
+            latitude=Decimal('-6.2'), longitude=Decimal('106.8'),
+            google_place_id='place_a', created_by=test_user,
+        )
+        cafe_b = Cafe.objects.create(
+            name='Cafe B', address='2 B St',
+            latitude=Decimal('-6.2'), longitude=Decimal('106.8'),
+            google_place_id='place_b', created_by=test_user,
+        )
+        Review.objects.create(
+            cafe=cafe_a, user=test_user, wfc_rating=5,
+            wifi_quality=5, power_outlets_rating=5,
+            seating_comfort=5, noise_level=5,
+        )
+        Review.objects.create(
+            cafe=cafe_b, user=test_user, wfc_rating=3,
+            wifi_quality=3, power_outlets_rating=3,
+            seating_comfort=3, noise_level=3,
+        )
+
+        response = api_client.get(f'/api/cafes/{cafe_a.id}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results'] if 'results' in response.data else response.data
+        assert len(results) == 1
+        assert results[0]['cafe']['id'] == cafe_a.id

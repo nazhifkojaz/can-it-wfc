@@ -60,3 +60,6 @@ yarn-error.log*
 # Documentation
 docs/archive/
 docs/internal_documentation/
+
+# Agent config
+.claude/

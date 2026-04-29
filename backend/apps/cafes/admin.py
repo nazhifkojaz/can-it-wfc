@@ -255,7 +255,7 @@ class CafeFlagAdmin(admin.ModelAdmin):
             'not_cafe': '#ef4444',  # red
             'wrong_location': '#f59e0b',  # orange
             'permanently_closed': '#6b7280',  # gray
-            'duplicate': '#8b5cf6',  # purple
+            'duplicate': '#C2410C',
         }
         color = colors.get(obj.reason, '#3b82f6')
         return format_html(
