@@ -73,6 +73,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ mode = 'signin', 
           text={mode === 'signup' ? 'signup_with' : 'signin_with'}
           theme="outline"
           size={variant === 'nav' ? 'medium' : 'large'}
+          width="100%"
         />
       </div>
 

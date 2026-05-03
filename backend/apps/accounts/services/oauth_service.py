@@ -46,7 +46,7 @@ class GoogleOAuthProvider(OAuthProviderBase):
             idinfo = id_token.verify_oauth2_token(
                 token,
                 google_requests.Request(),
-                settings.SOCIALACCOUNT_PROVIDERS['google']['APP']['client_id'],
+                settings.GOOGLE_OAUTH_CLIENT_ID,
             )
         except ValueError as e:
             raise OAuthTokenInvalid(detail=f"Google token verification failed: {str(e)}")

@@ -299,5 +299,7 @@ MAX_REVIEWS_PER_DAY = 10
 MIN_ACCOUNT_AGE_HOURS = 0
 DUPLICATE_CAFE_DISTANCE_METERS = 50  # Distance threshold for duplicate detection
 
-# Google OAuth Callback URL
+# Google OAuth credentials
+GOOGLE_OAUTH_CLIENT_ID = env('GOOGLE_OAUTH_CLIENT_ID', default='')
+GOOGLE_OAUTH_CLIENT_SECRET = env('GOOGLE_OAUTH_CLIENT_SECRET', default='')
 GOOGLE_OAUTH_CALLBACK_URL = env('GOOGLE_OAUTH_CALLBACK_URL', default='http://localhost:3000/auth/google/callback')
