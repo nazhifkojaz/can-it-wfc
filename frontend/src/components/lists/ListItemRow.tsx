@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, MapPin } from 'lucide-react';
+import { X, MapPin, Check, Pencil } from 'lucide-react';
 import type { CafeListItem } from '../../types';
 import styles from './Lists.module.css';
 
@@ -53,23 +53,46 @@ const ListItemRow: React.FC<ListItemRowProps> = ({ item, onRemove, onUpdateNote,
 
       <div className={styles.itemNote}>
         {editingNote ? (
-          <input
-            autoFocus
-            className={styles.itemNoteInput}
-            value={noteValue}
-            onChange={(e) => setNoteValue(e.target.value)}
-            onBlur={handleNoteBlur}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-              if (e.key === 'Escape') { setNoteValue(item.note || ''); setEditingNote(false); }
-            }}
-            placeholder="Add a note..."
-            maxLength={200}
-          />
+          <>
+            <input
+              autoFocus
+              className={styles.itemNoteInput}
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+              onBlur={(e) => {
+                // Don't blur-save if the save button was clicked (it handles it)
+                if (e.relatedTarget?.closest(`.${styles.itemNoteSaveBtn}`)) return;
+                handleNoteBlur();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') { setNoteValue(item.note || ''); setEditingNote(false); }
+              }}
+              placeholder="Add a note..."
+              maxLength={200}
+            />
+            <button
+              className={styles.itemNoteSaveBtn}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleNoteBlur}
+              aria-label="Save note"
+            >
+              <Check size={13} />
+            </button>
+          </>
         ) : item.note ? (
-          <span className={styles.itemNoteText} onClick={() => setEditingNote(true)}>
-            "{item.note}"
-          </span>
+          <>
+            <span className={styles.itemNoteText} onClick={() => setEditingNote(true)}>
+              "{item.note}"
+            </span>
+            <button
+              className={styles.itemNoteEditBtn}
+              onClick={() => setEditingNote(true)}
+              aria-label="Edit note"
+            >
+              <Pencil size={11} />
+            </button>
+          </>
         ) : (
           <span className={styles.addNotePlaceholder} onClick={() => setEditingNote(true)}>
             + Add note
