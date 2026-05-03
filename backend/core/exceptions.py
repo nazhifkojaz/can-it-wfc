@@ -24,6 +24,34 @@ class AlreadyFavorited(APIException):
     default_code = 'already_favorited'
 
 
+class ListNotFound(APIException):
+    """Raised when a cafe list doesn't exist or belongs to another user."""
+    status_code = status.HTTP_404_NOT_FOUND
+    default_detail = 'List not found'
+    default_code = 'list_not_found'
+
+
+class DefaultListCannotBeDeleted(APIException):
+    """Raised when trying to delete the user's default list."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = 'The default list cannot be deleted'
+    default_code = 'default_list_cannot_be_deleted'
+
+
+class ListLimitReached(APIException):
+    """Raised when a user hits the per-user list cap."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = 'You have reached the maximum number of lists'
+    default_code = 'list_limit_reached'
+
+
+class ListItemLimitReached(APIException):
+    """Raised when a list hits the per-list item cap."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = 'This list has reached the maximum number of items'
+    default_code = 'list_item_limit_reached'
+
+
 # =============================================================================
 # USER/ACCOUNT EXCEPTIONS
 # =============================================================================

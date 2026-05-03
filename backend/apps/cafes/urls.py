@@ -1,16 +1,15 @@
 from django.urls import path
+
 from .views import (
     CafeListCreateView,
     CafeDetailView,
     NearbyCafesView,
     MergedNearbyCafesView,
     CafeSearchView,
-    FavoriteListCreateView,
-    FavoriteDetailView,
-    FavoriteByCafeDetailView,
+    CafeMembershipView,
     CafeFlagCreateView,
     CafeFlagListView,
-    CafeGoogleRatingRefreshView
+    CafeGoogleRatingRefreshView,
 )
 
 urlpatterns = [
@@ -19,13 +18,9 @@ urlpatterns = [
     path('search/', CafeSearchView.as_view(), name='cafe-search'),
     path('<int:pk>/', CafeDetailView.as_view(), name='cafe-detail'),
     path('<int:pk>/refresh-google-rating/', CafeGoogleRatingRefreshView.as_view(), name='cafe-refresh-google-rating'),
+    path('<int:pk>/my-lists/', CafeMembershipView.as_view(), name='cafe-my-lists'),
     path('nearby/', NearbyCafesView.as_view(), name='cafe-nearby'),
     path('nearby/all/', MergedNearbyCafesView.as_view(), name='cafe-nearby-all'),
-
-    # Favorites
-    path('favorites/', FavoriteListCreateView.as_view(), name='favorite-list-create'),
-    path('favorites/by-cafe/<int:cafe_id>/', FavoriteByCafeDetailView.as_view(), name='favorite-by-cafe-detail'),
-    path('favorites/<int:pk>/', FavoriteDetailView.as_view(), name='favorite-detail'),
 
     # Flags (reports)
     path('flags/', CafeFlagCreateView.as_view(), name='cafe-flag-create'),

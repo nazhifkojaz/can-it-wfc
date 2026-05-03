@@ -4,7 +4,7 @@ from apps.core.constants import MAX_CHECKIN_DISTANCE_KM, VISIT_TIME_CHOICES
 from core.logging import get_logger
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
-from apps.cafes.serializers import CafeListSerializer
+from apps.cafes.serializers import CafeSummarySerializer as CafeListSerializer
 from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)

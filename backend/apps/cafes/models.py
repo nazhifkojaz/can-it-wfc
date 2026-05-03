@@ -1,7 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
-from apps.core.constants import EARTH_RADIUS_KM, MAX_LISTS_PER_USER, MAX_ITEMS_PER_LIST
+from apps.core.constants import EARTH_RADIUS_KM
 from decimal import Decimal
 import math
 
@@ -279,34 +279,6 @@ class CafeListItem(models.Model):
 
     def __str__(self):
         return f"{self.cafe_list} → {self.cafe.name}"
-
-
-class Favorite(models.Model):
-    """User's favorite cafes."""
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='favorites'
-    )
-    cafe = models.ForeignKey(
-        Cafe,
-        on_delete=models.CASCADE,
-        related_name='favorited_by'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'favorites'
-        verbose_name = 'Favorite'
-        verbose_name_plural = 'Favorites'
-        unique_together = ['user', 'cafe']
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['user', 'cafe'], name='favorite_lookup_idx'),
-        ]
-    
-    def __str__(self):
-        return f"{self.user.username} → {self.cafe.name}"
 
 
 class CafeFlag(models.Model):

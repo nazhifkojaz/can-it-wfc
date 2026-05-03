@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.core.validators import MaxLengthValidator
 from core.logging import get_logger
-from .models import Cafe, Favorite, CafeFlag
+from .models import Cafe, CafeList, CafeListItem, CafeFlag
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
 
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class CafeStatsMixin:
     """
     Mixin for cafe serializers providing common stat calculation methods.
-    Eliminates code duplication between CafeListSerializer and CafeDetailSerializer.
+    Eliminates code duplication between CafeSummarySerializer and CafeDetailSerializer.
     """
 
     def get_average_ratings(self, obj):
@@ -36,8 +36,8 @@ class CafeStatsMixin:
         return obj.facility_stats_cache
 
 
-class CafeListSerializer(CafeStatsMixin, serializers.ModelSerializer):
-    """Serializer for cafe list view (minimal fields)."""
+class CafeSummarySerializer(CafeStatsMixin, serializers.ModelSerializer):
+    """Cafe summary used in list views and as a nested read-only representation."""
 
     distance = serializers.DecimalField(
         max_digits=8,
@@ -103,11 +103,12 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
         required=False,
         read_only=True
     )
-    is_favorited = serializers.SerializerMethodField()
     is_registered = serializers.SerializerMethodField()
     source = serializers.SerializerMethodField()
     average_ratings = serializers.SerializerMethodField()
     facility_stats = serializers.SerializerMethodField()
+    # Annotated by CafeDetailView.get_queryset for authenticated users; 0 for anon.
+    my_lists_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Cafe
@@ -129,14 +130,14 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'distance',
-            'is_favorited',
+            'my_lists_count',
             'is_registered',
             'source',
             'average_ratings',
             'facility_stats',
             'google_rating',
             'google_ratings_count',
-            'google_rating_updated_at',  # For frontend staleness detection
+            'google_rating_updated_at',
         ]
         read_only_fields = [
             'id',
@@ -148,23 +149,6 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
-
-    def get_is_favorited(self, obj):
-        """
-        Check if current user has favorited this cafe.
-
-        Uses prefetched data when available (from CafeDetailView.get_queryset)
-        to avoid N+1 query problem. Falls back to database query for edge cases.
-        """
-        # Use prefetched data if available (avoids N+1 query)
-        if hasattr(obj, '_user_favorites'):
-            return len(obj._user_favorites) > 0
-
-        # Fallback for cases without prefetch (e.g., nested serializers)
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, cafe=obj).exists()
-        return False
 
     def get_is_registered(self, obj):
         """All cafes in DB are registered."""
@@ -258,15 +242,79 @@ class NearbyQuerySerializer(serializers.Serializer):
     limit = serializers.IntegerField(default=50, min_value=1, max_value=100)
 
 
-class FavoriteSerializer(serializers.ModelSerializer):
-    """Serializer for user favorites."""
+# ---------------------------------------------------------------------------
+# CafeList / CafeListItem serializers
+# ---------------------------------------------------------------------------
 
-    cafe = CafeListSerializer(read_only=True)
+class CafeListSerializer(serializers.ModelSerializer):
+    """Cafe list (named collection) summary — used in the lists index."""
 
     class Meta:
-        model = Favorite
-        fields = ['id', 'cafe', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        model = CafeList
+        fields = ['id', 'name', 'description', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+
+
+class CafeListItemSerializer(serializers.ModelSerializer):
+    """Single item inside a named cafe list."""
+
+    cafe = CafeSummarySerializer(read_only=True)
+
+    class Meta:
+        model = CafeListItem
+        fields = ['cafe', 'note', 'added_at']
+        read_only_fields = ['cafe', 'added_at']
+
+
+class CafeListDetailSerializer(CafeListSerializer):
+    """List metadata + all embedded items. Used for GET /api/lists/<id>/."""
+
+    items = CafeListItemSerializer(many=True, read_only=True)
+
+    class Meta(CafeListSerializer.Meta):
+        fields = CafeListSerializer.Meta.fields + ['items']
+
+
+class CafeListCreateSerializer(serializers.ModelSerializer):
+    """Write serializer for POST /api/lists/."""
+
+    class Meta:
+        model = CafeList
+        fields = ['name', 'description']
+
+
+class CafeListUpdateSerializer(serializers.ModelSerializer):
+    """Write serializer for PATCH /api/lists/<id>/."""
+
+    class Meta:
+        model = CafeList
+        fields = ['name', 'description']
+        extra_kwargs = {'name': {'required': False}}
+
+
+class CafeListItemCreateSerializer(serializers.Serializer):
+    """Write serializer for POST /api/lists/<id>/items/."""
+
+    cafe_id = serializers.IntegerField()
+    note = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+
+
+class CafeListItemNoteSerializer(serializers.ModelSerializer):
+    """Write serializer for PATCH /api/lists/<id>/items/<cafe_id>/."""
+
+    class Meta:
+        model = CafeListItem
+        fields = ['note']
+
+
+class CafeListMembershipSerializer(serializers.ModelSerializer):
+    """One row in GET /api/cafes/<id>/my-lists/ — all user lists with in_list flag."""
+
+    in_list = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = CafeList
+        fields = ['id', 'name', 'is_default', 'in_list']
 
 
 class CafeFlagCreateSerializer(serializers.ModelSerializer):
@@ -314,7 +362,7 @@ class CafeFlagCreateSerializer(serializers.ModelSerializer):
 class CafeFlagSerializer(serializers.ModelSerializer):
     """Serializer for listing cafe flags."""
 
-    cafe = CafeListSerializer(read_only=True)
+    cafe = CafeSummarySerializer(read_only=True)
     reason_display = serializers.CharField(source='get_reason_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
