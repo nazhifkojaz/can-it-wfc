@@ -248,7 +248,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           </button>
 
           {/* Heart + chevron group */}
-          <div className={styles.saveGroup} style={{ position: 'relative' }}>
+          <div className={`${styles.saveGroup}${cafe.is_registered && user ? ` ${styles.saveGroupJoined}` : ''}`} style={{ position: 'relative' }}>
             <button
               className={`${styles.favoriteButton} ${isInDefaultList ? styles.active : ''}`}
               onClick={handleToggleFavorite}

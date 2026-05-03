@@ -20,6 +20,7 @@ export const useCafeLists = (cafeId: number | undefined) => {
   const invalidateAfterToggle = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.cafeMemberships(cafeId!) });
     queryClient.invalidateQueries({ queryKey: queryKeys.cafeDetail(cafeId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.lists });
   };
 
   // Toggle a cafe in/out of a specific named list
