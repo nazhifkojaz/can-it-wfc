@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Home,
   MapPin,
-  Heart,
   Clock,
   Plus,
   Trash2,
@@ -19,7 +18,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useResultModal, useVisits, useFavorites } from '../../hooks';
+import { useResultModal, useVisits } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -27,9 +26,10 @@ import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
+import ListsPanel from '../lists/ListsPanel';
 import { authApi, reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
-import { formatDate, formatRating, formatPriceRange, formatDistance } from '../../utils';
+import { formatDate, formatRating } from '../../utils';
 import { CURRENCIES } from '../../utils/currency';
 import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
@@ -46,7 +46,7 @@ const ProfilePanel: React.FC = () => {
   const resultModal = useResultModal();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'favorites'>('visits');
+  const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'lists'>('visits');
 
   // Followers/Following modal state
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -91,8 +91,6 @@ const ProfilePanel: React.FC = () => {
   const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Favorites tab state and hooks
-  const { favorites, loading: favoritesLoading, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
@@ -427,24 +425,6 @@ const ProfilePanel: React.FC = () => {
     setVisitToDelete(null);
   };
 
-  // Favorites handlers
-  const handleCafeClick = (cafe: Cafe) => {
-    setSelectedCafe(cafe);
-  };
-
-  const handleRemoveFavorite = async (cafeId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await toggleFavorite(cafeId);
-    } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Remove Favorite',
-        message: extractApiError(error).message,
-      });
-    }
-  };
-
   const handleLogVisit = () => {
     if (selectedCafe) {
       setVisitCafe(selectedCafe);
@@ -457,16 +437,14 @@ const ProfilePanel: React.FC = () => {
     setShowAddVisitReview(false);
     setVisitCafe(undefined);
     setSelectedCafe(null);
-    refetchFavorites();
     refetchVisits();
   };
 
-  const handleReviewSuccessFromFavorites = async () => {
+  const handleReviewSuccessFromVisits = async () => {
     setShowReviewForm(false);
     setReviewCafeId(null);
     setReviewCafeName('');
 
-    // Reload review statuses using bulk endpoint
     if (visits && visits.length > 0) {
       const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
       try {
@@ -480,7 +458,6 @@ const ProfilePanel: React.FC = () => {
       }
     }
 
-    refetchFavorites();
     refetchVisits();
 
     resultModal.showResultModal({
@@ -680,13 +657,13 @@ const ProfilePanel: React.FC = () => {
             Visits
           </button>
           <button
-            className={`profile-tab ${activeTab === 'favorites' ? 'active' : ''}`}
+            className={`profile-tab ${activeTab === 'lists' ? 'active' : ''}`}
             onClick={() => {
-              setActiveTab('favorites');
-              trackProfileTabViewed({ tab: 'favorites' });
+              setActiveTab('lists');
+              trackProfileTabViewed({ tab: 'lists' });
             }}
           >
-            Favorites
+            Lists
           </button>
           <button
             className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
@@ -842,67 +819,14 @@ const ProfilePanel: React.FC = () => {
         </div>
       )}
 
-      {/* Favorites Tab Content */}
-      {activeTab === 'favorites' && (
+      {/* Lists Tab Content */}
+      {activeTab === 'lists' && (
         <div className="tab-content">
-          {favoritesLoading ? (
-            <Loading message="Loading favorites..." />
-          ) : favorites.length === 0 ? (
-            <EmptyState
-              icon={<Heart size={64} />}
-              title="No favorites yet"
-              description="Start adding cafes to your favorites to see them here!"
-            />
-          ) : (
-            <div className="favorites-grid">
-              {favorites.map((cafe) => (
-                <div
-                  key={cafe.id}
-                  className="cafe-card"
-                  onClick={() => handleCafeClick(cafe)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCafeClick(cafe)}
-                >
-                  <div className="card-header">
-                    <h3 className="cafe-name">{cafe.name}</h3>
-                    <button
-                      className="favorite-button active"
-                      onClick={(e) => handleRemoveFavorite(cafe.id, e)}
-                      aria-label="Remove from favorites"
-                    >
-                      <Heart size={20} fill="currentColor" />
-                    </button>
-                  </div>
-
-                  <p className="cafe-address">
-                    <MapPin size={14} />
-                    {cafe.address}
-                  </p>
-
-                  <div className="cafe-meta">
-                    {cafe.average_wfc_rating && (
-                      <span className="rating">
-                        <Star size={14} fill="currentColor" />
-                        {formatRating(cafe.average_wfc_rating)}
-                      </span>
-                    )}
-                    {cafe.price_range && (
-                      <span className="price">{formatPriceRange(cafe.price_range)}</span>
-                    )}
-                    {cafe.distance !== undefined && (
-                      <span className="distance">{formatDistance(cafe.distance)}</span>
-                    )}
-                  </div>
-
-                  <div className="cafe-stats">
-                    <span className="stat">{cafe.total_reviews || 0} reviews</span>
-                    <span className="stat">{cafe.total_visits || 0} visits</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <ListsPanel
+            onCafeClick={(item) => {
+              setSelectedCafe(item.cafe);
+            }}
+          />
         </div>
       )}
 
@@ -1149,7 +1073,7 @@ const ProfilePanel: React.FC = () => {
             setReviewCafeId(null);
             setReviewCafeName('');
           }}
-          onSuccess={handleReviewSuccessFromFavorites}
+          onSuccess={handleReviewSuccessFromVisits}
         />
       )}
 

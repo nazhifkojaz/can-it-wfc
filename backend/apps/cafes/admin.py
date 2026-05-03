@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
 from django import forms
-from .models import Cafe, Favorite, CafeFlag
+from .models import Cafe, CafeList, CafeListItem, CafeFlag
 
 
 # Constants for TextField max length validation in admin
@@ -186,15 +186,21 @@ class CafeAdmin(admin.ModelAdmin):
     find_potential_duplicates.short_description = "Find potential duplicates"
 
 
-@admin.register(Favorite)
-class FavoriteAdmin(admin.ModelAdmin):
-    """Admin interface for user favorites."""
+@admin.register(CafeList)
+class CafeListAdmin(admin.ModelAdmin):
+    list_display = ['owner', 'name', 'is_default', 'item_count', 'updated_at']
+    list_filter = ['is_default', 'is_public']
+    search_fields = ['owner__username', 'name']
+    ordering = ['-updated_at']
+    readonly_fields = ['item_count', 'created_at', 'updated_at']
 
-    list_display = ['user', 'cafe', 'created_at']
-    list_filter = ['created_at']
-    search_fields = ['user__username', 'cafe__name']
-    ordering = ['-created_at']
-    readonly_fields = ['created_at']
+
+@admin.register(CafeListItem)
+class CafeListItemAdmin(admin.ModelAdmin):
+    list_display = ['cafe_list', 'cafe', 'added_at']
+    search_fields = ['cafe_list__name', 'cafe__name']
+    ordering = ['-added_at']
+    readonly_fields = ['added_at']
 
 
 @admin.register(CafeFlag)

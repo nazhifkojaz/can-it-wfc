@@ -57,3 +57,13 @@ VISIT_TIME_CHOICES = [
     (2, 'Afternoon (12PM - 6PM)'),
     (3, 'Evening (6PM - 12AM)'),
 ]
+
+
+# ============================================================
+# LISTS / COLLECTIONS
+# Keep in sync with frontend/src/config/constants.ts list limits
+# ============================================================
+
+MAX_LISTS_PER_USER = 50
+MAX_ITEMS_PER_LIST = 500
+DEFAULT_LIST_NAME = "Favorites"

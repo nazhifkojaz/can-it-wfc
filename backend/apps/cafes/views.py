@@ -1,31 +1,45 @@
 import math
 from decimal import Decimal
 
-from rest_framework import generics, status, permissions, filters
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
-from rest_framework.exceptions import ValidationError
+from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Prefetch
-from core.exceptions import CafeNotFound, AlreadyFavorited
-from rest_framework.exceptions import NotFound
+from rest_framework import filters, generics, permissions, status
+from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.views import APIView
+
+from apps.core.constants import DEFAULT_LIST_NAME, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_USER, MAX_NEARBY_CAFES
+from core.exceptions import (
+    CafeNotFound,
+    DefaultListCannotBeDeleted,
+    ListItemLimitReached,
+    ListLimitReached,
+    ListNotFound,
+)
 from core.logging import get_logger
-from .models import Cafe, Favorite, CafeFlag
+from core.permissions import IsOwnerOrReadOnly
+
+from .models import Cafe, CafeFlag, CafeList, CafeListItem
 from .serializers import (
-    CafeListSerializer,
     CafeDetailSerializer,
+    CafeListCreateSerializer,
+    CafeListDetailSerializer,
+    CafeListItemCreateSerializer,
+    CafeListItemNoteSerializer,
+    CafeListMembershipSerializer,
+    CafeListSerializer,
+    CafeListUpdateSerializer,
+    CafeSummarySerializer,
+    CafeFlagCreateSerializer,
+    CafeFlagSerializer,
     CafeCreateSerializer,
     CafeUpdateSerializer,
     NearbyQuerySerializer,
-    FavoriteSerializer,
-    CafeFlagCreateSerializer,
-    CafeFlagSerializer
 )
-from core.permissions import IsOwnerOrReadOnly
-from apps.core.constants import MAX_NEARBY_CAFES
-from django.conf import settings
 from .services import GooglePlacesService
+
+from django.conf import settings
 
 logger = get_logger(__name__)
 
@@ -57,7 +71,7 @@ class CafeListCreateView(generics.ListCreateAPIView):
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return CafeCreateSerializer
-        return CafeListSerializer
+        return CafeSummarySerializer
 
 
 class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -72,20 +86,13 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsOwnerOrReadOnly]
 
     def get_queryset(self):
-        """
-        Get queryset with prefetched favorites for authenticated users.
-
-        This eliminates the N+1 query problem in get_is_favorited().
-        """
         queryset = Cafe.objects.all()
-
-        # Prefetch user's favorites to avoid N+1 query in serializer
         if self.request.user.is_authenticated:
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    'favorited_by',
-                    queryset=Favorite.objects.filter(user=self.request.user),
-                    to_attr='_user_favorites'
+            queryset = queryset.annotate(
+                my_lists_count=Count(
+                    'list_entries',
+                    filter=Q(list_entries__cafe_list__owner=self.request.user),
+                    distinct=True,
                 )
             )
         return queryset
@@ -148,7 +155,7 @@ class NearbyCafesView(APIView):
         nearby_cafes = nearby_cafes[:limit]
 
         # Serialize results
-        serializer = CafeListSerializer(nearby_cafes, many=True, context={'request': request})
+        serializer = CafeSummarySerializer(nearby_cafes, many=True, context={'request': request})
 
         return Response({
             'count': len(nearby_cafes),
@@ -156,69 +163,238 @@ class NearbyCafesView(APIView):
         })
 
 
-class FavoriteListCreateView(generics.ListCreateAPIView):
-    """
-    List user's favorite cafes or add a favorite.
-    
-    GET /api/cafes/favorites/
-    POST /api/cafes/favorites/
-    """
-    serializer_class = FavoriteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return Favorite.objects.filter(user=self.request.user)
-    
-    def create(self, request, *args, **kwargs):
-        cafe_id = request.data.get('cafe_id')
+# ---------------------------------------------------------------------------
+# CafeList / CafeListItem views  (mounted at /api/lists/)
+# ---------------------------------------------------------------------------
 
-        if not cafe_id:
-            raise ValidationError({'cafe_id': 'This field is required'})
+class CafeListListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/lists/  — user's lists, ordered by -updated_at
+    POST /api/lists/  — create a new named list
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None  # lists are bounded at MAX_LISTS_PER_USER (50)
+
+    def get_queryset(self):
+        return CafeList.objects.filter(owner=self.request.user)
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CafeListCreateSerializer
+        return CafeListSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        name = serializer.validated_data['name']
+        owner = request.user
+
+        if CafeList.objects.filter(owner=owner).count() >= MAX_LISTS_PER_USER:
+            raise ListLimitReached()
+
+        if CafeList.objects.filter(owner=owner, name=name).exists():
+            raise ValidationError({'name': f'You already have a list named "{name}".'})
+
+        cafe_list = CafeList.objects.create(owner=owner, **serializer.validated_data)
+        return Response(CafeListSerializer(cafe_list).data, status=status.HTTP_201_CREATED)
+
+
+class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/lists/<id>/  — list metadata + items
+    PATCH  /api/lists/<id>/  — rename or update description
+    DELETE /api/lists/<id>/  — delete (blocked for default list)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'patch', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        return CafeList.objects.filter(owner=self.request.user)
+
+    def get_object(self):
+        try:
+            return self.get_queryset().get(pk=self.kwargs['pk'])
+        except CafeList.DoesNotExist:
+            raise ListNotFound()
+
+    def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return CafeListUpdateSerializer
+        return CafeListDetailSerializer
+
+    def update(self, request, *args, **kwargs):
+        cafe_list = self.get_object()
+        serializer = self.get_serializer(cafe_list, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        new_name = serializer.validated_data.get('name')
+        if new_name and new_name != cafe_list.name:
+            if CafeList.objects.filter(owner=request.user, name=new_name).exists():
+                raise ValidationError({'name': f'You already have a list named "{new_name}".'})
+
+        serializer.save()
+        return Response(CafeListSerializer(cafe_list).data)
+
+    def destroy(self, request, *args, **kwargs):
+        cafe_list = self.get_object()
+        if cafe_list.is_default:
+            raise DefaultListCannotBeDeleted()
+        cafe_list.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CafeListItemCreateView(APIView):
+    """POST /api/lists/<pk>/items/ — add a cafe to a list."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            cafe_list = CafeList.objects.get(pk=pk, owner=request.user)
+        except CafeList.DoesNotExist:
+            raise ListNotFound()
+
+        serializer = CafeListItemCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        cafe_id = serializer.validated_data['cafe_id']
+        note = serializer.validated_data.get('note', '')
 
         try:
-            cafe = Cafe.objects.get(id=cafe_id)
+            cafe = Cafe.objects.get(pk=cafe_id)
         except Cafe.DoesNotExist:
             raise CafeNotFound()
 
-        # Check if already favorited
-        if Favorite.objects.filter(user=request.user, cafe=cafe).exists():
-            raise AlreadyFavorited()
+        # Idempotent: if already in list, return the existing item
+        item, created = CafeListItem.objects.get_or_create(
+            cafe_list=cafe_list,
+            cafe=cafe,
+            defaults={'note': note},
+        )
 
-        # Create favorite
-        favorite = Favorite.objects.create(user=request.user, cafe=cafe)
-        serializer = self.get_serializer(favorite)
+        if created and cafe_list.items.count() > MAX_ITEMS_PER_LIST:
+            # Roll back if we just exceeded the limit
+            item.delete()
+            raise ListItemLimitReached()
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        from .serializers import CafeListItemSerializer
+        return Response(
+            CafeListItemSerializer(item).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
-class FavoriteDetailView(generics.DestroyAPIView):
+class CafeListItemDetailView(APIView):
     """
-    Remove a cafe from favorites.
-
-    DELETE /api/cafes/favorites/{id}/
+    PATCH  /api/lists/<pk>/items/<cafe_id>/  — update note
+    DELETE /api/lists/<pk>/items/<cafe_id>/  — remove cafe from list
     """
-    serializer_class = FavoriteSerializer
+
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return Favorite.objects.filter(user=self.request.user)
+    def _get_item(self, request, pk, cafe_id):
+        try:
+            cafe_list = CafeList.objects.get(pk=pk, owner=request.user)
+        except CafeList.DoesNotExist:
+            raise ListNotFound()
+        try:
+            return CafeListItem.objects.get(cafe_list=cafe_list, cafe_id=cafe_id)
+        except CafeListItem.DoesNotExist:
+            raise NotFound(detail='Cafe not found in this list.')
+
+    def patch(self, request, pk, cafe_id):
+        item = self._get_item(request, pk, cafe_id)
+        serializer = CafeListItemNoteSerializer(item, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        from .serializers import CafeListItemSerializer
+        return Response(CafeListItemSerializer(item).data)
+
+    def delete(self, request, pk, cafe_id):
+        item = self._get_item(request, pk, cafe_id)
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class FavoriteByCafeDetailView(APIView):
+class DefaultListItemView(APIView):
     """
-    Remove a cafe from favorites by cafe ID.
-
-    DELETE /api/cafes/favorites/by-cafe/{cafe_id}/
+    POST   /api/lists/default/items/           — add cafe to default list
+    DELETE /api/lists/default/items/<cafe_id>/ — remove cafe from default list
     """
+
     permission_classes = [permissions.IsAuthenticated]
+
+    def _get_default_list(self, user):
+        # get_or_create guards against users who slipped through the signup signal
+        cafe_list, _ = CafeList.objects.get_or_create(
+            owner=user,
+            is_default=True,
+            defaults={'name': DEFAULT_LIST_NAME},
+        )
+        return cafe_list
+
+    def post(self, request):
+        cafe_id = request.data.get('cafe_id')
+        if not cafe_id:
+            raise ValidationError({'cafe_id': 'This field is required.'})
+
+        try:
+            cafe = Cafe.objects.get(pk=cafe_id)
+        except Cafe.DoesNotExist:
+            raise CafeNotFound()
+
+        cafe_list = self._get_default_list(request.user)
+
+        item, created = CafeListItem.objects.get_or_create(
+            cafe_list=cafe_list,
+            cafe=cafe,
+        )
+
+        if created and cafe_list.items.count() > MAX_ITEMS_PER_LIST:
+            item.delete()
+            raise ListItemLimitReached()
+
+        from .serializers import CafeListItemSerializer
+        return Response(
+            CafeListItemSerializer(item).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
     def delete(self, request, cafe_id):
+        cafe_list = self._get_default_list(request.user)
         try:
-            favorite = Favorite.objects.get(user=request.user, cafe_id=cafe_id)
-        except Favorite.DoesNotExist:
-            raise NotFound(detail="Favorite not found.")
-        favorite.delete()
+            item = CafeListItem.objects.get(cafe_list=cafe_list, cafe_id=cafe_id)
+        except CafeListItem.DoesNotExist:
+            raise NotFound(detail='Cafe not found in default list.')
+        item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CafeMembershipView(APIView):
+    """
+    GET /api/cafes/<pk>/my-lists/
+    Returns all user lists with an in_list boolean for the given cafe.
+    Powers the save-to-list popover checkbox state in one round-trip.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        lists = CafeList.objects.filter(owner=request.user).annotate(
+            in_list=Count('items', filter=Q(items__cafe_id=pk))
+        )
+        # Coerce Count to bool
+        data = [
+            {
+                'id': lst.id,
+                'name': lst.name,
+                'is_default': lst.is_default,
+                'in_list': lst.in_list > 0,
+            }
+            for lst in lists
+        ]
+        return Response(data)
 
 
 class MergedNearbyCafesView(APIView):

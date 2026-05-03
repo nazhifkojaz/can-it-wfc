@@ -184,7 +184,7 @@ export interface Cafe {
   created_at?: string;  // Optional - null for unregistered cafes
   updated_at?: string;  // Optional - null for unregistered cafes
   distance?: number | string;  // Numeric from API, string for backward compat
-  is_favorited?: boolean;
+  my_lists_count?: number;     // How many of the user's lists contain this cafe
 
   // NEW: Registration status
   is_registered: boolean;  // true = in database, false = from Google Places only
@@ -345,15 +345,17 @@ export interface ReviewCreate extends ReviewContent {
 export interface ReviewUpdate extends Partial<ReviewContent> {}
 
 // ===========================
-// Favorite Types
+// Lists / Collections Types
 // ===========================
 
-export interface Favorite {
-  id: number;
-  user: User;
-  cafe: Cafe;
-  created_at: string;
-}
+export type {
+  CafeList,
+  CafeListItem,
+  CafeListDetail,
+  CafeListMembership,
+  CafeListCreate,
+  CafeListUpdate,
+} from './lists';
 
 // ===========================
 // Search Types

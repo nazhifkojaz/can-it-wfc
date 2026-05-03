@@ -19,7 +19,12 @@ import {
   Review,
   ReviewCreate,
   ReviewUpdate,
-  Favorite,
+  CafeList,
+  CafeListDetail,
+  CafeListItem,
+  CafeListMembership,
+  CafeListCreate,
+  CafeListUpdate,
 } from '../types';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
@@ -261,22 +266,6 @@ export const cafeApi = {
   // Update cafe
   update: (id: number, data: CafeUpdate) => patch<Cafe>(`/cafes/${id}/`, data),
 
-  toggleFavorite: async (cafeId: number | undefined, isFavorited?: boolean) => {
-    if (cafeId === undefined || cafeId === null) {
-      throw new Error('Cannot favorite unregistered cafes. Please log a visit first to register this cafe.');
-    }
-
-    if (isFavorited) {
-      await del(`/cafes/favorites/by-cafe/${cafeId}/`);
-      return { is_favorited: false };
-    } else {
-      return post<{ is_favorited: boolean } & Favorite>('/cafes/favorites/', { cafe_id: cafeId });
-    }
-  },
-
-  // Get user's favorite cafes
-  getFavorites: () => getPaginated<Favorite>('/cafes/favorites/'),
-
   // Refresh Google rating for a cafe
   refreshGoogleRating: (cafeId: number) =>
     post<{
@@ -292,6 +281,37 @@ export const cafeApi = {
   //   });
   //   return response.data;
   // },
+};
+
+// ===========================
+// Lists API
+// ===========================
+
+export const listApi = {
+  // Lists CRUD
+  getLists: () => get<CafeList[]>('/lists/'),
+  createList: (data: CafeListCreate) => post<CafeList>('/lists/', data),
+  getList: (id: number) => get<CafeListDetail>(`/lists/${id}/`),
+  updateList: (id: number, data: CafeListUpdate) => patch<CafeList>(`/lists/${id}/`, data),
+  deleteList: (id: number) => del(`/lists/${id}/`),
+
+  // Items
+  addItem: (listId: number, cafeId: number, note?: string) =>
+    post<CafeListItem>(`/lists/${listId}/items/`, { cafe_id: cafeId, note }),
+  removeItem: (listId: number, cafeId: number) =>
+    del(`/lists/${listId}/items/${cafeId}/`),
+  updateNote: (listId: number, cafeId: number, note: string) =>
+    patch<CafeListItem>(`/lists/${listId}/items/${cafeId}/`, { note }),
+
+  // Default-list convenience (heart-button flow)
+  addToDefault: (cafeId: number) =>
+    post<CafeListItem>('/lists/default/items/', { cafe_id: cafeId }),
+  removeFromDefault: (cafeId: number) =>
+    del(`/lists/default/items/${cafeId}/`),
+
+  // Membership — powers the save-to-list popover state
+  getCafeMemberships: (cafeId: number) =>
+    get<CafeListMembership[]>(`/cafes/${cafeId}/my-lists/`),
 };
 
 // ===========================

@@ -207,32 +207,78 @@ class Cafe(models.Model):
         update_cafe_stats(self)
 
 
-class Favorite(models.Model):
-    """User's favorite cafes."""
-    user = models.ForeignKey(
+class CafeList(models.Model):
+    """A named collection of cafes owned by a user."""
+
+    owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='favorites'
+        related_name='cafe_lists',
+    )
+    name = models.CharField(max_length=80)
+    description = models.TextField(blank=True, max_length=300)
+    is_default = models.BooleanField(
+        default=False,
+        help_text="The auto-created 'Favorites' list. One per user.",
+    )
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Reserved for future sharing UI.",
+    )
+    item_count = models.IntegerField(
+        default=0,
+        help_text="Denormalized count; updated via signal on item add/remove.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cafe_lists'
+        unique_together = [('owner', 'name')]
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['owner', '-updated_at']),
+            models.Index(fields=['owner', 'is_default']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner'],
+                condition=models.Q(is_default=True),
+                name='unique_default_list_per_user',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.owner.username} / {self.name}"
+
+
+class CafeListItem(models.Model):
+    """A single cafe entry within a CafeList."""
+
+    cafe_list = models.ForeignKey(
+        CafeList,
+        on_delete=models.CASCADE,
+        related_name='items',
     )
     cafe = models.ForeignKey(
         Cafe,
         on_delete=models.CASCADE,
-        related_name='favorited_by'
+        related_name='list_entries',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    
+    note = models.TextField(blank=True, max_length=200)
+    added_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
-        db_table = 'favorites'
-        verbose_name = 'Favorite'
-        verbose_name_plural = 'Favorites'
-        unique_together = ['user', 'cafe']
-        ordering = ['-created_at']
+        db_table = 'cafe_list_items'
+        unique_together = [('cafe_list', 'cafe')]
+        ordering = ['-added_at']
         indexes = [
-            models.Index(fields=['user', 'cafe'], name='favorite_lookup_idx'),
+            models.Index(fields=['cafe_list', '-added_at']),
+            models.Index(fields=['cafe', 'cafe_list']),
         ]
-    
+
     def __str__(self):
-        return f"{self.user.username} → {self.cafe.name}"
+        return f"{self.cafe_list} → {self.cafe.name}"
 
 
 class CafeFlag(models.Model):

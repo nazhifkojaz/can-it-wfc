@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Heart, Star, Flag } from 'lucide-react';
+import { MapPin, Heart, Star, Flag, ChevronDown, ListPlus } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState, SharedResultModal } from '../common';
-import { useReviews, useFavorites, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
+import { useReviews, useCafeLists, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
 import UserProfileModal from '../profile/UserProfileModal';
 import FlagCafeModal from './FlagCafeModal';
+import SaveToListPopover from './SaveToListPopover';
 import RatingsComparison from './RatingsComparison';
 import DetailedRatings from './DetailedRatings';
 import QuickInfo from './QuickInfo';
@@ -85,11 +86,14 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     toggleHelpful,
     flagReview,
   } = useReviews(cafe.is_registered && cafe.id > 0 ? cafe.id : undefined);
-  const { toggleFavorite, isFavorite } = useFavorites();
+  const { isInDefaultList, toggleDefault, isToggling: isSaving } = useCafeLists(
+    cafe.is_registered && cafe.id > 0 ? cafe.id : undefined
+  );
   const resultModal = useResultModal();
 
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
   const [showFlagModal, setShowFlagModal] = useState(false);
+  const [showListPopover, setShowListPopover] = useState(false);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -121,10 +125,10 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       return;
     }
 
-    const wasFavorite = isFavorite(cafe.id);
+    const wasFavorite = isInDefaultList;
 
     try {
-      await toggleFavorite(cafe.id);
+      await toggleDefault();
 
       // Track analytics after successful toggle
       if (!wasFavorite) {
@@ -242,13 +246,34 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           >
             <Flag size={20} />
           </button>
-          <button
-            className={`${styles.favoriteButton} ${isFavorite(cafe.id) ? styles.active : ''}`}
-            onClick={handleToggleFavorite}
-            aria-label={isFavorite(cafe.id) ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart size={24} fill={isFavorite(cafe.id) ? 'currentColor' : 'none'} />
-          </button>
+
+          {/* Heart + chevron group */}
+          <div className={styles.saveGroup} style={{ position: 'relative' }}>
+            <button
+              className={`${styles.favoriteButton} ${isInDefaultList ? styles.active : ''}`}
+              onClick={handleToggleFavorite}
+              disabled={isSaving}
+              aria-label={isInDefaultList ? 'Remove from saved' : 'Save to default list'}
+            >
+              <Heart size={22} fill={isInDefaultList ? 'currentColor' : 'none'} />
+            </button>
+            {cafe.is_registered && user && (
+              <button
+                className={styles.listChevron}
+                onClick={(e) => { e.stopPropagation(); setShowListPopover((v) => !v); }}
+                aria-label="Manage lists"
+                title="Save to lists"
+              >
+                <ChevronDown size={14} />
+              </button>
+            )}
+            {showListPopover && cafe.is_registered && (
+              <SaveToListPopover
+                cafeId={cafe.id}
+                onClose={() => setShowListPopover(false)}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -261,6 +286,14 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         {cafe.distance !== undefined && (
           <div className={styles.metaItem}>
             <span className={styles.distance}>📍 {formatDistance(cafe.distance)} away</span>
+          </div>
+        )}
+        {user && cafe.is_registered && !!cafe.my_lists_count && (
+          <div className={styles.metaItem}>
+            <ListPlus size={14} />
+            <span className={styles.listsCount}>
+              In {cafe.my_lists_count} of your {cafe.my_lists_count === 1 ? 'list' : 'lists'}
+            </span>
           </div>
         )}
       </div>

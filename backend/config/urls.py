@@ -15,8 +15,9 @@ urlpatterns = [
     # API endpoints
     path('api/auth/', include('apps.accounts.urls')),
     path('api/cafes/', include('apps.cafes.urls')),
+    path('api/lists/', include('apps.cafes.list_urls')),
     path('api/', include('apps.reviews.urls')),
-    path('api/activity/', include('apps.activity.urls')),  # Activity stream
+    path('api/activity/', include('apps.activity.urls')),
 ]
 
 # Serve media files and API docs in development only
