@@ -415,7 +415,7 @@ export const trackPanelOpened = (props: {
   });
 };
 
-type ProfileTab = 'visits' | 'favorites' | 'settings';
+type ProfileTab = 'visits' | 'lists' | 'settings';
 
 /**
  * Track when a user switches tabs in the Profile Panel.

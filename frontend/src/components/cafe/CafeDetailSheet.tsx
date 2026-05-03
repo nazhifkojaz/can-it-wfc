@@ -3,7 +3,7 @@ import { MapPin, Heart, Star, Flag } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState, SharedResultModal } from '../common';
-import { useReviews, useFavorites, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
+import { useReviews, useCafeLists, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import ReviewCard from '../review/ReviewCard';
 import UserProfileModal from '../profile/UserProfileModal';
@@ -85,7 +85,9 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     toggleHelpful,
     flagReview,
   } = useReviews(cafe.is_registered && cafe.id > 0 ? cafe.id : undefined);
-  const { toggleFavorite, isFavorite } = useFavorites();
+  const { isInDefaultList, toggleDefault, isToggling: isSaving } = useCafeLists(
+    cafe.is_registered && cafe.id > 0 ? cafe.id : undefined
+  );
   const resultModal = useResultModal();
 
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
@@ -121,10 +123,10 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       return;
     }
 
-    const wasFavorite = isFavorite(cafe.id);
+    const wasFavorite = isInDefaultList;
 
     try {
-      await toggleFavorite(cafe.id);
+      await toggleDefault();
 
       // Track analytics after successful toggle
       if (!wasFavorite) {
@@ -243,11 +245,12 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
             <Flag size={20} />
           </button>
           <button
-            className={`${styles.favoriteButton} ${isFavorite(cafe.id) ? styles.active : ''}`}
+            className={`${styles.favoriteButton} ${isInDefaultList ? styles.active : ''}`}
             onClick={handleToggleFavorite}
-            aria-label={isFavorite(cafe.id) ? 'Remove from favorites' : 'Add to favorites'}
+            disabled={isSaving}
+            aria-label={isInDefaultList ? 'Remove from saved' : 'Save to default list'}
           >
-            <Heart size={24} fill={isFavorite(cafe.id) ? 'currentColor' : 'none'} />
+            <Heart size={24} fill={isInDefaultList ? 'currentColor' : 'none'} />
           </button>
         </div>
       </div>

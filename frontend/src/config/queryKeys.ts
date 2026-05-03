@@ -4,9 +4,11 @@ export const queryKeys = {
   cafesNearby: (lat: number, lng: number, radius?: number) =>
     [...queryKeys.cafes, 'nearby', { lat, lng, radius }] as const,
   cafeDetail: (id: number) => [...queryKeys.cafes, 'detail', id] as const,
+  cafeMemberships: (cafeId: number) => [...queryKeys.cafes, cafeId, 'my-lists'] as const,
 
-  favorites: ['favorites'] as const,
-  favoritesList: () => [...queryKeys.favorites, 'list'] as const,
+  lists: ['lists'] as const,
+  listsList: () => [...queryKeys.lists, 'list'] as const,
+  listDetail: (id: number) => [...queryKeys.lists, 'detail', id] as const,
 
   visits: ['visits'] as const,
   visitsList: () => [...queryKeys.visits, 'list'] as const,
