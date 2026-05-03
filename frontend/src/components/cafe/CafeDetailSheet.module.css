@@ -72,6 +72,47 @@
   box-shadow: 2px 2px 0 var(--neo-black);
 }
 
+.saveGroup {
+  display: flex;
+  align-items: stretch;
+}
+
+.saveGroup .favoriteButton {
+  border-right: none;
+  border-radius: var(--neo-border-radius) 0 0 var(--neo-border-radius);
+  box-shadow: none;
+}
+
+.listChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  background: var(--neo-white);
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast), background var(--neo-transition-fast);
+  border-radius: 0 var(--neo-border-radius) var(--neo-border-radius) 0;
+  box-shadow: 3px 3px 0 var(--neo-black);
+  color: var(--neo-gray-500);
+}
+
+.listChevron:hover {
+  background: var(--neo-gray-100);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.listChevron:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.listsCount {
+  color: var(--neo-primary);
+  font-weight: var(--neo-font-bold);
+}
+
 .cafeMeta {
   display: flex;
   flex-direction: column;

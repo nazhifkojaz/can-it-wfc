@@ -1,0 +1,467 @@
+/* Shared CSS for all Lists components */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panelTitle {
+  font-size: 15px;
+  font-weight: var(--neo-font-black);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  color: var(--neo-gray-600);
+}
+
+/* Buttons */
+.btnPrimary {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  font-family: inherit;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--neo-primary-dark);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.btnPrimary:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--neo-white);
+  color: var(--neo-black);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  font-family: inherit;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: var(--neo-gray-100);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.btnSecondary:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.btnIcon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--neo-gray-100);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  font-family: inherit;
+  color: var(--neo-black);
+}
+
+.btnIcon:hover:not(:disabled) {
+  background: var(--neo-gray-200);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.btnIcon:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.btnDanger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--neo-danger);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  font-family: inherit;
+}
+
+.btnDanger:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.btnDanger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ListCard */
+.listCard {
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.listCard:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.listCard:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.listCardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.listCardName {
+  font-size: 15px;
+  font-weight: var(--neo-font-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 0 0 4px 0;
+  color: var(--neo-black);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.listCardCount {
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-600);
+  margin: 0;
+}
+
+.defaultBadge {
+  font-size: 10px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  padding: 2px 7px;
+}
+
+/* CreateListInline */
+.createForm {
+  background: var(--neo-gray-50);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.createInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--neo-white);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  transition: box-shadow 0.1s;
+  box-sizing: border-box;
+}
+
+.createInput:focus {
+  outline: none;
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.createActions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ListView */
+.listViewHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: var(--neo-border-width-thin) solid var(--neo-black);
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--neo-gray-100);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  flex-shrink: 0;
+  color: var(--neo-black);
+}
+
+.backBtn:hover {
+  background: var(--neo-gray-200);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.listViewTitleArea {
+  flex: 1;
+  min-width: 0;
+}
+
+.listViewTitle {
+  font-size: 16px;
+  font-weight: var(--neo-font-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 0;
+  color: var(--neo-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listViewSubtitle {
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-600);
+  margin: 2px 0 0 0;
+}
+
+.listViewHeaderActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.renameForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  font-family: inherit;
+  background: var(--neo-white);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  text-transform: uppercase;
+}
+
+.renameInput:focus {
+  outline: none;
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ListItemRow */
+.itemRow {
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  box-shadow: 2px 2px 0 var(--neo-black);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itemRowMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.itemCafeInfo {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.itemCafeInfo:hover .itemCafeName {
+  color: var(--neo-primary);
+}
+
+.itemCafeName {
+  font-size: 14px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
+  margin: 0 0 3px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.1s;
+}
+
+.itemCafeAddress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--neo-gray-600);
+  font-weight: 500;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemRemoveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  color: var(--neo-danger);
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 1px 1px 0 var(--neo-black);
+  flex-shrink: 0;
+}
+
+.itemRemoveBtn:hover {
+  background: var(--neo-danger-light, #fee2e2);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.itemNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itemNoteText {
+  flex: 1;
+  font-size: 12px;
+  color: var(--neo-gray-600);
+  font-style: italic;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--neo-border-radius);
+  transition: background 0.1s;
+}
+
+.itemNoteText:hover {
+  background: var(--neo-gray-100);
+}
+
+.itemNoteInput {
+  flex: 1;
+  padding: 5px 9px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--neo-white);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.itemNoteInput:focus {
+  outline: none;
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.addNotePlaceholder {
+  font-size: 12px;
+  color: var(--neo-gray-400);
+  font-weight: var(--neo-font-bold);
+  cursor: pointer;
+  padding: 3px 8px;
+  border: var(--neo-border-width-thin) dashed var(--neo-gray-300);
+  border-radius: var(--neo-border-radius);
+  transition: all 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.addNotePlaceholder:hover {
+  border-color: var(--neo-gray-500);
+  color: var(--neo-gray-600);
+}

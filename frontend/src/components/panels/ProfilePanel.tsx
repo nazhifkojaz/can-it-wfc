@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Home,
   MapPin,
-  Heart,
   Clock,
   Plus,
   Trash2,
@@ -19,7 +18,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useResultModal, useVisits, useLists } from '../../hooks';
+import { useResultModal, useVisits } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -27,6 +26,7 @@ import ReviewForm from '../review/ReviewForm';
 import CafeDetailSheet from '../cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
+import ListsPanel from '../lists/ListsPanel';
 import { authApi, reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { formatDate, formatRating } from '../../utils';
@@ -91,8 +91,6 @@ const ProfilePanel: React.FC = () => {
   const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Lists tab state and hooks (replaces favorites)
-  const { lists, isLoading: listsLoading } = useLists();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
@@ -821,29 +819,14 @@ const ProfilePanel: React.FC = () => {
         </div>
       )}
 
-      {/* Lists Tab Content — full UI wired in Phase 4 */}
+      {/* Lists Tab Content */}
       {activeTab === 'lists' && (
         <div className="tab-content">
-          {listsLoading ? (
-            <Loading message="Loading lists..." />
-          ) : lists.length === 0 ? (
-            <EmptyState
-              icon={<Heart size={64} />}
-              title="No lists yet"
-              description="Save cafes to lists using the heart button on any cafe."
-            />
-          ) : (
-            <div className="favorites-grid">
-              {lists.map((list) => (
-                <div key={list.id} className="cafe-card">
-                  <div className="card-header">
-                    <h3 className="cafe-name">{list.name}</h3>
-                  </div>
-                  <p className="cafe-address">{list.item_count} cafes</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <ListsPanel
+            onCafeClick={(item) => {
+              setSelectedCafe(item.cafe);
+            }}
+          />
         </div>
       )}
 
