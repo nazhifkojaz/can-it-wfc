@@ -1,4 +1,6 @@
 export * from './useGeolocation';
+export * from './useMapFilters';
+export * from './useFilterMatchCount';
 export * from './useNearbyCafes';
 export * from './useReviews';
 export * from './useVisits';

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { cafeApi } from '../api/client';
 import { NearbyCafesResponse } from '../types';
+import { CafeFilters } from '../types/filters';
+import { filtersToApiParams } from '../lib/filterEncoding';
 import { queryKeys } from '../config/queryKeys';
 
 interface UseNearbyCafesParams {
@@ -10,6 +12,7 @@ interface UseNearbyCafesParams {
   enabled?: boolean;
   userLatitude?: number;
   userLongitude?: number;
+  filters?: CafeFilters;
 }
 
 export const useNearbyCafes = ({
@@ -19,6 +22,7 @@ export const useNearbyCafes = ({
   enabled = true,
   userLatitude,
   userLongitude,
+  filters,
 }: UseNearbyCafesParams) => {
   const roundedLat = Number(latitude.toFixed(8));
   const roundedLng = Number(longitude.toFixed(8));
@@ -31,8 +35,9 @@ export const useNearbyCafes = ({
     error: fetchError,
     refetch,
   } = useQuery<NearbyCafesResponse>({
-    queryKey: queryKeys.cafesNearby(roundedLat, roundedLng, radius_km),
+    queryKey: queryKeys.cafesNearby(roundedLat, roundedLng, radius_km, filters),
     queryFn: async () => {
+      const filterParams = filters ? filtersToApiParams(filters) : {};
       const response = await cafeApi.getAllNearby({
         latitude: roundedLat,
         longitude: roundedLng,
@@ -40,6 +45,7 @@ export const useNearbyCafes = ({
         limit: 100,
         user_latitude: roundedUserLat,
         user_longitude: roundedUserLng,
+        ...filterParams,
       });
 
       return response;

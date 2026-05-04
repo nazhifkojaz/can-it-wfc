@@ -1,8 +1,10 @@
+import { CafeFilters } from '../types/filters';
+
 export const queryKeys = {
   cafes: ['cafes'] as const,
   cafesList: (filters?: any) => [...queryKeys.cafes, 'list', filters] as const,
-  cafesNearby: (lat: number, lng: number, radius?: number) =>
-    [...queryKeys.cafes, 'nearby', { lat, lng, radius }] as const,
+  cafesNearby: (lat: number, lng: number, radius?: number, cafeFilters?: CafeFilters) =>
+    [...queryKeys.cafes, 'nearby', { lat, lng, radius, ...cafeFilters }] as const,
   cafeDetail: (id: number) => [...queryKeys.cafes, 'detail', id] as const,
   cafeMemberships: (cafeId: number) => [...queryKeys.cafes, cafeId, 'my-lists'] as const,
 

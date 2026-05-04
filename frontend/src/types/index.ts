@@ -226,6 +226,16 @@ export interface NearbyCafesParams {
   limit?: number;
   user_latitude?: number;
   user_longitude?: number;
+  // WFC filter params (see CafeFilters)
+  min_wifi?: number;
+  max_noise?: number;
+  min_power?: number;
+  min_seating?: number;
+  min_wfc?: number;
+  price?: string;        // comma-separated: "1,2"
+  hide_closed?: boolean;
+  verified?: boolean;
+  min_reviews?: number;
 }
 
 export interface NearbyCafesResponse {
