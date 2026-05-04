@@ -1,10 +1,12 @@
-import React from 'react';
-import { Wifi, Zap, Armchair, Volume2, Coffee } from 'lucide-react';
-import { AverageRatings } from '../../types';
+import React, { useState } from 'react';
+import { Wifi, Zap, Armchair, Volume2, Coffee, Cigarette, Home, Building2, TreePine } from 'lucide-react';
+import { AverageRatings, FacilityStats } from '../../types';
+import { Tooltip } from '../common';
 import styles from './DetailedRatings.module.css';
 
 interface DetailedRatingsProps {
   ratings: AverageRatings;
+  facilityStats?: FacilityStats | null;
 }
 
 interface RatingItem {
@@ -21,6 +23,19 @@ const RATING_ITEMS: RatingItem[] = [
   { key: 'wfc_rating', label: 'Overall WFC Score', icon: <Coffee size={18} /> },
 ];
 
+interface FacilityItem {
+  key: keyof FacilityStats;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const FACILITY_ITEMS: FacilityItem[] = [
+  { key: 'smoking_area', label: 'Smoking area', icon: <Cigarette size={16} /> },
+  { key: 'prayer_room', label: 'Prayer room', icon: <Home size={16} /> },
+  { key: 'indoor_seating', label: 'Indoor seating', icon: <Building2 size={16} /> },
+  { key: 'outdoor_seating', label: 'Outdoor seating', icon: <TreePine size={16} /> },
+];
+
 const getRatingColor = (value: number): string => {
   if (value >= 4.0) return '#10B981'; // Green - Excellent
   if (value >= 3.0) return '#F59E0B'; // Yellow - Good
@@ -28,7 +43,10 @@ const getRatingColor = (value: number): string => {
   return '#EF4444'; // Red - Poor
 };
 
-const DetailedRatings: React.FC<DetailedRatingsProps> = ({ ratings }) => {
+const DetailedRatings: React.FC<DetailedRatingsProps> = ({ ratings, facilityStats }) => {
+  const totalReviewers = facilityStats?.smoking_area?.total_reviewers || 0;
+  const [hintDismissed, setHintDismissed] = useState(false);
+
   return (
     <div className={styles.container}>
       <h3 className={styles.sectionTitle}>WFC Detailed Ratings</h3>
@@ -68,6 +86,33 @@ const DetailedRatings: React.FC<DetailedRatingsProps> = ({ ratings }) => {
         })}
       </div>
 
+      {facilityStats && totalReviewers > 0 && (
+        <div className={styles.facilityRow}>
+          {FACILITY_ITEMS.map((item) => {
+            const data = facilityStats[item.key];
+            if (!data) return null;
+            return (
+              <Tooltip key={item.key} content={item.label}>
+                <button
+                  type="button"
+                  className={styles.facilityChip}
+                  onClick={() => setHintDismissed(true)}
+                >
+                  <span className={styles.facilityIcon}>{item.icon}</span>
+                  <span className={styles.facilityCount}>{data.mentions}</span>
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
+      )}
+
+      {facilityStats && totalReviewers > 0 && !hintDismissed && (
+        <div className={styles.facilityHint}>
+          tap icons for details
+        </div>
+      )}
+
       <div className={styles.legend}>
         <div className={styles.legendItem}>
           <span className={styles.legendDot} style={{ backgroundColor: '#10B981' }} />
@@ -86,6 +131,12 @@ const DetailedRatings: React.FC<DetailedRatingsProps> = ({ ratings }) => {
           <span>Poor (0-1.9)</span>
         </div>
       </div>
+
+      {totalReviewers > 0 && (
+        <div className={styles.reviewerFooter}>
+          (from {totalReviewers} {totalReviewers === 1 ? 'reviewer' : 'reviewers'})
+        </div>
+      )}
     </div>
   );
 };

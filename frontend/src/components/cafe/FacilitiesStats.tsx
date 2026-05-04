@@ -1,99 +1,58 @@
 import React from 'react';
-import { Cigarette, Home } from 'lucide-react';
-import { FacilityStats } from '../../types';
+import { Cigarette, Home, Building2, TreePine } from 'lucide-react';
+import { FacilityStats, FacilityOption } from '../../types';
 import styles from './FacilitiesStats.module.css';
 
 interface FacilitiesStatsProps {
   stats: FacilityStats;
 }
 
+interface FacilityRow {
+  key: keyof FacilityStats;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const FACILITY_ROWS: FacilityRow[] = [
+  { key: 'smoking_area', label: 'Smoking area', icon: <Cigarette size={18} /> },
+  { key: 'prayer_room', label: 'Prayer room', icon: <Home size={18} /> },
+  { key: 'indoor_seating', label: 'Indoor seating', icon: <Building2 size={18} /> },
+  { key: 'outdoor_seating', label: 'Outdoor seating', icon: <TreePine size={18} /> },
+];
+
 const FacilitiesStats: React.FC<FacilitiesStatsProps> = ({ stats }) => {
-  const renderFacilityBar = (
-    icon: React.ReactNode,
-    label: string,
-    data: { yes: number; no: number; unknown: number; yes_percentage: number; no_percentage: number; unknown_percentage: number }
-  ) => {
-    const total = data.yes + data.no + data.unknown;
+  const totalReviewers = stats.smoking_area?.total_reviewers || 0;
 
-    if (total === 0) {
-      return null;
-    }
-
-    return (
-      <div className={styles.facilityItem}>
-        <div className={styles.facilityHeader}>
-          <div className={styles.facilityLabel}>
-            {icon}
-            <span>{label}</span>
-          </div>
-          <div className={styles.facilityTotal}>
-            {total} {total === 1 ? 'response' : 'responses'}
-          </div>
-        </div>
-
-        <div className={styles.facilityBar}>
-          {data.yes > 0 && (
-            <div
-              className={`${styles.barSegment} ${styles.barYes}`}
-              style={{ width: `${data.yes_percentage}%` }}
-              title={`Yes: ${data.yes} (${data.yes_percentage}%)`}
-            />
-          )}
-          {data.no > 0 && (
-            <div
-              className={`${styles.barSegment} ${styles.barNo}`}
-              style={{ width: `${data.no_percentage}%` }}
-              title={`No: ${data.no} (${data.no_percentage}%)`}
-            />
-          )}
-          {data.unknown > 0 && (
-            <div
-              className={`${styles.barSegment} ${styles.barUnknown}`}
-              style={{ width: `${data.unknown_percentage}%` }}
-              title={`Don't know: ${data.unknown} (${data.unknown_percentage}%)`}
-            />
-          )}
-        </div>
-
-        <div className={styles.facilityLegend}>
-          {data.yes > 0 && (
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.legendDotYes}`} />
-              <span>Yes: {data.yes} ({data.yes_percentage}%)</span>
-            </div>
-          )}
-          {data.no > 0 && (
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.legendDotNo}`} />
-              <span>No: {data.no} ({data.no_percentage}%)</span>
-            </div>
-          )}
-          {data.unknown > 0 && (
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.legendDotUnknown}`} />
-              <span>Don't know: {data.unknown} ({data.unknown_percentage}%)</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
+  if (totalReviewers === 0) {
+    return null;
+  }
 
   return (
     <div className={styles.facilitiesStats}>
       <h3 className={styles.title}>Facilities</h3>
 
-      {renderFacilityBar(
-        <Cigarette size={18} />,
-        'Smoking Area',
-        stats.smoking_area
-      )}
+      <div className={styles.facilityList}>
+        {FACILITY_ROWS.map((row) => {
+          const data: FacilityOption | undefined = stats[row.key];
+          if (!data) return null;
 
-      {renderFacilityBar(
-        <Home size={18} />,
-        'Prayer Room',
-        stats.prayer_room
-      )}
+          return (
+            <div key={row.key} className={styles.facilityRow}>
+              <div className={styles.facilityLabel}>
+                {row.icon}
+                <span>{row.label}</span>
+              </div>
+              <div className={styles.facilityMentions}>
+                {data.mentions}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className={styles.facilityFooter}>
+        (from {totalReviewers} {totalReviewers === 1 ? 'reviewer' : 'reviewers'})
+      </div>
     </div>
   );
 };

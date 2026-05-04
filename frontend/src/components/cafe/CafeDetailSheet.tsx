@@ -13,7 +13,7 @@ import RatingsComparison from './RatingsComparison';
 import DetailedRatings from './DetailedRatings';
 import QuickInfo from './QuickInfo';
 import ActionButtons from './ActionButtons';
-import FacilitiesStats from './FacilitiesStats';
+
 import { formatDistance } from '../../utils/formatters';
 import { calculateDistance } from '../../utils';
 import { extractApiError } from '../../utils/errorUtils';
@@ -311,14 +311,12 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         onRefreshRating={handleRefreshGoogleRating}
       />
 
-      {/* WFC Detailed Ratings (only if has reviews) */}
+      {/* WFC Detailed Ratings + Facilities (only if has reviews) */}
       {cafe.is_registered && cafe.average_ratings && (
-        <DetailedRatings ratings={cafe.average_ratings} />
-      )}
-
-      {/* Facilities Statistics (only if has reviews) */}
-      {cafe.is_registered && cafe.facility_stats && (
-        <FacilitiesStats stats={cafe.facility_stats} />
+        <DetailedRatings
+          ratings={cafe.average_ratings}
+          facilityStats={cafe.facility_stats}
+        />
       )}
 
       {/* Quick Info */}
