@@ -5,6 +5,7 @@ from .views import (
     CafeDetailView,
     NearbyCafesView,
     MergedNearbyCafesView,
+    CafeNearbyCountView,
     CafeSearchView,
     CafeMembershipView,
     CafeFlagCreateView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path('<int:pk>/my-lists/', CafeMembershipView.as_view(), name='cafe-my-lists'),
     path('nearby/', NearbyCafesView.as_view(), name='cafe-nearby'),
     path('nearby/all/', MergedNearbyCafesView.as_view(), name='cafe-nearby-all'),
+    path('nearby/count/', CafeNearbyCountView.as_view(), name='cafe-nearby-count'),
 
     # Flags (reports)
     path('flags/', CafeFlagCreateView.as_view(), name='cafe-flag-create'),

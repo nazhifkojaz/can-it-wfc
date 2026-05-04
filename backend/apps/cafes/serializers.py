@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.core.validators import MaxLengthValidator
 from core.logging import get_logger
-from .models import Cafe, CafeList, CafeListItem, CafeFlag
+from .models import Cafe, CafeFlag, CafeList, CafeListItem
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
 
@@ -380,6 +380,32 @@ class CafeFlagSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = fields
+
+
+class CafeFilterSerializer(serializers.Serializer):
+    """Validates WFC filter query params for nearby/count endpoints."""
+
+    min_wifi = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    max_noise = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_power = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_seating = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_wfc = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    price = serializers.CharField(required=False, allow_blank=True)
+    hide_closed = serializers.BooleanField(required=False, default=True)
+    verified = serializers.BooleanField(required=False, default=False)
+    min_reviews = serializers.IntegerField(required=False, default=0, min_value=0)
+    include_unregistered = serializers.BooleanField(required=False, default=True)
+
+    def validate_price(self, value):
+        if not value:
+            return []
+        try:
+            prices = [int(p.strip()) for p in value.split(',') if p.strip()]
+            if not all(1 <= p <= 4 for p in prices):
+                raise serializers.ValidationError('Price values must be between 1 and 4.')
+            return prices
+        except ValueError:
+            raise serializers.ValidationError('Invalid price format. Expected comma-separated integers (e.g. "1,2").')
 
 
 class CafeSearchQuerySerializer(serializers.Serializer):
