@@ -153,17 +153,15 @@ export interface AverageRatings {
 }
 
 export interface FacilityOption {
-  yes: number;
-  no: number;
-  unknown: number;
-  yes_percentage: number;
-  no_percentage: number;
-  unknown_percentage: number;
+  mentions: number;
+  total_reviewers: number;
 }
 
 export interface FacilityStats {
   smoking_area: FacilityOption;
   prayer_room: FacilityOption;
+  indoor_seating: FacilityOption;
+  outdoor_seating: FacilityOption;
 }
 
 export interface Cafe {
@@ -312,6 +310,8 @@ export interface CombinedVisitReviewCreate {
   noise_level?: number;
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
+  has_indoor_seating?: boolean | null;
+  has_outdoor_seating?: boolean | null;
   comment?: string;
 }
 
@@ -326,6 +326,8 @@ export interface ReviewContent {
   seating_comfort: number;
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
+  has_indoor_seating?: boolean | null;
+  has_outdoor_seating?: boolean | null;
   wfc_rating?: number;
   visit_time: number;
   comment?: string;

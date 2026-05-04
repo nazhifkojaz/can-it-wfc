@@ -132,8 +132,10 @@ export const trackReviewCreated = (props: {
   hasComment: boolean;
   commentLength: number;
   source: ReviewSource;
-  hasSmokingArea: 'yes' | 'no' | 'unknown';
-  hasPrayerRoom: 'yes' | 'no' | 'unknown';
+  hasSmokingArea: boolean | null;
+  hasPrayerRoom: boolean | null;
+  hasIndoorSeating: boolean | null;
+  hasOutdoorSeating: boolean | null;
 }) => {
   posthog.capture('review_created', {
     cafe_id: props.cafeId,
@@ -145,6 +147,8 @@ export const trackReviewCreated = (props: {
     source: props.source,
     has_smoking_area: props.hasSmokingArea,
     has_prayer_room: props.hasPrayerRoom,
+    has_indoor_seating: props.hasIndoorSeating,
+    has_outdoor_seating: props.hasOutdoorSeating,
   });
 };
 

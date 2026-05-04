@@ -269,8 +269,10 @@ describe('Analytics - Review Events', () => {
         hasComment: true,
         commentLength: 89,
         source: 'visit_modal',
-        hasSmokingArea: 'yes',
-        hasPrayerRoom: 'unknown',
+        hasSmokingArea: true,
+        hasPrayerRoom: null,
+        hasIndoorSeating: true,
+        hasOutdoorSeating: null,
       });
 
       expect(mockCapture).toHaveBeenCalledWith('review_created', {
@@ -281,8 +283,10 @@ describe('Analytics - Review Events', () => {
         has_comment: true,
         comment_length: 89,
         source: 'visit_modal',
-        has_smoking_area: 'yes',
-        has_prayer_room: 'unknown',
+        has_smoking_area: true,
+        has_prayer_room: null,
+        has_indoor_seating: true,
+        has_outdoor_seating: null,
       });
     });
 
@@ -295,8 +299,10 @@ describe('Analytics - Review Events', () => {
         hasComment: false,
         commentLength: 0,
         source: 'standalone',
-        hasSmokingArea: 'no',
-        hasPrayerRoom: 'yes',
+        hasSmokingArea: null,
+        hasPrayerRoom: true,
+        hasIndoorSeating: null,
+        hasOutdoorSeating: true,
       });
 
       expect(mockCapture).toHaveBeenCalledWith(
