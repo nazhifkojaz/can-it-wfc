@@ -38,7 +38,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['cafe', 'visit_date']  # Added visit_date for duplicate checking
     ordering_fields = ['visit_date', 'created_at']
-    ordering = ['-visit_date']
+    ordering = ['-visit_date', '-created_at']
 
     def get_queryset(self):
         """
