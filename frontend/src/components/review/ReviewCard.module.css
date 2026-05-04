@@ -11,7 +11,6 @@
 }
 
 .reviewCard:hover {
-  transform: translate(-2px, -2px);
   box-shadow: calc(var(--neo-shadow-offset) + 2px) calc(var(--neo-shadow-offset) + 2px) 0 var(--neo-black);
 }
 

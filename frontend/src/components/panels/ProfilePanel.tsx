@@ -89,6 +89,7 @@ const ProfilePanel: React.FC = () => {
   const [editVisitTime, setEditVisitTime] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
+  const [hasReviewForDelete, setHasReviewForDelete] = useState<boolean | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
@@ -378,10 +379,18 @@ const ProfilePanel: React.FC = () => {
     }
   };
 
-  const handleDeleteClick = (visit: Visit, e: React.MouseEvent) => {
+  const handleDeleteClick = async (visit: Visit, e: React.MouseEvent) => {
     e.stopPropagation();
     setVisitToDelete(visit);
     setShowDeleteConfirm(true);
+
+    // Check if user has a review for this cafe
+    try {
+      const review = await reviewApi.getUserCafeReview(visit.cafe.id);
+      setHasReviewForDelete(!!review);
+    } catch {
+      setHasReviewForDelete(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -1026,7 +1035,11 @@ const ProfilePanel: React.FC = () => {
           isOpen={showDeleteConfirm}
           title="Delete Visit?"
           message={
-            <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? Your review for this cafe will remain unchanged. This action cannot be undone.</>
+            hasReviewForDelete !== false ? (
+              <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? Your review for this cafe will remain unchanged and will stay public. This action cannot be undone.</>
+            ) : (
+              <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This action cannot be undone.</>
+            )
           }
           confirmText="Delete"
           cancelText="Cancel"
