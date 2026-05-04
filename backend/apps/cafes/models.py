@@ -108,7 +108,7 @@ class Cafe(models.Model):
     facility_stats_cache = models.JSONField(
         null=True,
         blank=True,
-        help_text="Cached facility statistics (smoking area, prayer room) from latest 100 reviews"
+        help_text="Cached facility mention counts (smoking area, prayer room, indoor/outdoor seating) from latest 100 reviews"
     )
     
     # Status

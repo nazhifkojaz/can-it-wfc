@@ -55,31 +55,28 @@ def update_cafe_stats(cafe):
             'wfc_rating': round(avg_rating, 1),
         }
 
-        smoking_yes = sum(1 for r in recent_reviews_list if r.has_smoking_area is True)
-        smoking_no = sum(1 for r in recent_reviews_list if r.has_smoking_area is False)
-        smoking_unknown = sum(1 for r in recent_reviews_list if r.has_smoking_area is None)
-
-        prayer_yes = sum(1 for r in recent_reviews_list if r.has_prayer_room is True)
-        prayer_no = sum(1 for r in recent_reviews_list if r.has_prayer_room is False)
-        prayer_unknown = sum(1 for r in recent_reviews_list if r.has_prayer_room is None)
+        # Facility mentions: count reviewers who checked each option
+        # (pick-what-applies model — True = mentioned, null = not observed)
+        def count_mentions(field_name):
+            return sum(1 for r in recent_reviews_list if getattr(r, field_name) is True)
 
         cafe.facility_stats_cache = {
             'smoking_area': {
-                'yes': smoking_yes,
-                'no': smoking_no,
-                'unknown': smoking_unknown,
-                'yes_percentage': round((smoking_yes / total_recent) * 100, 1),
-                'no_percentage': round((smoking_no / total_recent) * 100, 1),
-                'unknown_percentage': round((smoking_unknown / total_recent) * 100, 1),
+                'mentions': count_mentions('has_smoking_area'),
+                'total_reviewers': total_recent,
             },
             'prayer_room': {
-                'yes': prayer_yes,
-                'no': prayer_no,
-                'unknown': prayer_unknown,
-                'yes_percentage': round((prayer_yes / total_recent) * 100, 1),
-                'no_percentage': round((prayer_no / total_recent) * 100, 1),
-                'unknown_percentage': round((prayer_unknown / total_recent) * 100, 1),
-            }
+                'mentions': count_mentions('has_prayer_room'),
+                'total_reviewers': total_recent,
+            },
+            'indoor_seating': {
+                'mentions': count_mentions('has_indoor_seating'),
+                'total_reviewers': total_recent,
+            },
+            'outdoor_seating': {
+                'mentions': count_mentions('has_outdoor_seating'),
+                'total_reviewers': total_recent,
+            },
         }
     else:
         cafe.average_wfc_rating = None
