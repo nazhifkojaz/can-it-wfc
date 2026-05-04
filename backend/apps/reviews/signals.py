@@ -19,7 +19,9 @@ logger = get_logger(__name__)
 def update_stats_after_visit_deletion(sender, instance, **kwargs):
     """
     Update cafe and user stats after a visit is deleted.
-    This fires after the visit (and its cascaded review if any) is deleted.
+
+    Visits and reviews are independent (decoupled in migration 0008). Deleting a
+    visit recalculates cafe/user denormalized stats but does not affect reviews.
 
     No @transaction.atomic here — the underlying update_cafe_stats/update_user_stats
     in stats_utils.py already wrap themselves in their own transactions.

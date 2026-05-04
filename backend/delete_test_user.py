@@ -49,7 +49,7 @@ def delete_user(identifier):
     from apps.cafes.models import Cafe, Favorite
 
     visits_count = Visit.objects.filter(user=user).count()
-    reviews_count = Review.objects.filter(visit__user=user).count()
+    reviews_count = Review.objects.filter(user=user).count()
     cafes_count = Cafe.objects.filter(created_by=user).count()
     favorites_count = Favorite.objects.filter(user=user).count()
     tokens_count = OutstandingToken.objects.filter(user=user).count()
@@ -83,9 +83,9 @@ def delete_user(identifier):
         OutstandingToken.objects.filter(user=user).delete()
         print(f"   ✓ Deleted {tokens_count} outstanding tokens")
 
-    # 3. Delete reviews (CASCADE will handle this, but being explicit)
+    # 3. Delete reviews
     if reviews_count > 0:
-        Review.objects.filter(visit__user=user).delete()
+        Review.objects.filter(user=user).delete()
         print(f"   ✓ Deleted {reviews_count} reviews")
 
     # 4. Delete visits
