@@ -85,6 +85,20 @@ class Cafe(models.Model):
         help_text="Average WFC rating (1-5)"
     )
 
+    # Per-dimension average ratings (promoted columns for fast filtering)
+    avg_wifi_rating = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    avg_power_rating = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    avg_noise_level = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    avg_seating_comfort = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+
     # Cached stats (precomputed from latest 100 reviews for performance)
     average_ratings_cache = models.JSONField(
         null=True,
@@ -127,6 +141,7 @@ class Cafe(models.Model):
             models.Index(fields=['google_place_id']),
             models.Index(fields=['-average_wfc_rating']),
             models.Index(fields=['is_closed', '-created_at'], name='cafe_closed_created_idx'),
+            models.Index(fields=['avg_wifi_rating', 'avg_noise_level'], name='cafe_wifi_noise_idx'),
         ]
     
     def __str__(self):

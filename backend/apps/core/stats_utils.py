@@ -36,16 +36,23 @@ def update_cafe_stats(cafe):
         avg_rating = sum(r.wfc_rating for r in recent_reviews_list) / total_recent
         cafe.average_wfc_rating = round(avg_rating, 2)
 
+        wifi_avg = round(sum(r.wifi_quality for r in recent_reviews_list) / total_recent, 2)
+        noise_avg = round(sum(r.noise_level for r in recent_reviews_list) / total_recent, 2)
+        seating_avg = round(sum(r.seating_comfort for r in recent_reviews_list) / total_recent, 2)
+        power_ratings = [r.power_outlets_rating for r in recent_reviews_list if r.power_outlets_rating is not None]
+        power_avg = round(sum(power_ratings) / len(power_ratings), 2) if power_ratings else None
+
+        cafe.avg_wifi_rating = wifi_avg
+        cafe.avg_noise_level = noise_avg
+        cafe.avg_seating_comfort = seating_avg
+        cafe.avg_power_rating = power_avg
+
         cafe.average_ratings_cache = {
-            'wifi_quality': round(sum(r.wifi_quality for r in recent_reviews_list) / total_recent, 1),
-            'power_outlets_rating': (
-                round(sum(power_ratings) / len(power_ratings), 1)
-                if (power_ratings := [r.power_outlets_rating for r in recent_reviews_list if r.power_outlets_rating is not None])
-                else None
-            ),
-            'seating_comfort': round(sum(r.seating_comfort for r in recent_reviews_list) / total_recent, 1),
-            'noise_level': round(sum(r.noise_level for r in recent_reviews_list) / total_recent, 1),
-            'wfc_rating': round(sum(r.wfc_rating for r in recent_reviews_list) / total_recent, 1),
+            'wifi_quality': round(wifi_avg, 1),
+            'power_outlets_rating': round(power_avg, 1) if power_avg is not None else None,
+            'seating_comfort': round(seating_avg, 1),
+            'noise_level': round(noise_avg, 1),
+            'wfc_rating': round(avg_rating, 1),
         }
 
         smoking_yes = sum(1 for r in recent_reviews_list if r.has_smoking_area is True)
@@ -76,6 +83,10 @@ def update_cafe_stats(cafe):
         }
     else:
         cafe.average_wfc_rating = None
+        cafe.avg_wifi_rating = None
+        cafe.avg_power_rating = None
+        cafe.avg_noise_level = None
+        cafe.avg_seating_comfort = None
         cafe.average_ratings_cache = None
         cafe.facility_stats_cache = None
 
@@ -84,6 +95,10 @@ def update_cafe_stats(cafe):
         'unique_visitors',
         'total_reviews',
         'average_wfc_rating',
+        'avg_wifi_rating',
+        'avg_power_rating',
+        'avg_noise_level',
+        'avg_seating_comfort',
         'average_ratings_cache',
-        'facility_stats_cache'
+        'facility_stats_cache',
     ])
