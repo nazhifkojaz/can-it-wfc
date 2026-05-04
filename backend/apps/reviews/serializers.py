@@ -296,6 +296,8 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
             'seating_comfort',
             'has_smoking_area',
             'has_prayer_room',
+            'has_indoor_seating',
+            'has_outdoor_seating',
             'wfc_rating',
             'visit_time',
             'visit_time_display',
@@ -342,6 +344,8 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
             'seating_comfort',
             'has_smoking_area',
             'has_prayer_room',
+            'has_indoor_seating',
+            'has_outdoor_seating',
             'wfc_rating',
             'visit_time',
             'comment'
@@ -437,6 +441,8 @@ class ReviewUpdateSerializer(serializers.ModelSerializer):
             'seating_comfort',
             'has_smoking_area',
             'has_prayer_room',
+            'has_indoor_seating',
+            'has_outdoor_seating',
             'wfc_rating',
             'visit_time',
             'comment'
@@ -583,6 +589,14 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         required=False,
         allow_null=True
     )
+    has_indoor_seating = serializers.BooleanField(
+        required=False,
+        allow_null=True
+    )
+    has_outdoor_seating = serializers.BooleanField(
+        required=False,
+        allow_null=True
+    )
     comment = serializers.CharField(
         max_length=160,
         required=False,
@@ -693,7 +707,8 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
         review_fields = [
             'wfc_rating', 'wifi_quality', 'power_outlets_rating',
             'seating_comfort', 'noise_level', 'has_smoking_area',
-            'has_prayer_room', 'comment'
+            'has_prayer_room', 'has_indoor_seating', 'has_outdoor_seating',
+            'comment'
         ]
         review_data = {}
         for field in review_fields:
