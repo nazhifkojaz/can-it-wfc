@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home } from 'lucide-react';
+import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home, Building2, TreePine } from 'lucide-react';
 import { Cafe, CombinedVisitReviewCreate, Review, Visit } from '../../types';
-import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
+import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
 import ReviewForm from '../review/ReviewForm';
 import { useVisits, useGeolocation, useResultModal } from '../../hooks';
 import { calculateDistance, formatVisitTime, computeWfcRating } from '../../utils';
@@ -114,8 +114,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const wfcRating = useMemo(() => {
     return computeWfcRating(wifiQuality, noiseLevel, seatingComfort, powerOutlets);
   }, [wifiQuality, powerOutlets, seatingComfort, noiseLevel]);
-  const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(null);
-  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(null);
+  const [hasSmokingArea, setHasSmokingArea] = useState<boolean>(false);
+  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean>(false);
+  const [hasIndoorSeating, setHasIndoorSeating] = useState<boolean>(false);
+  const [hasOutdoorSeating, setHasOutdoorSeating] = useState<boolean>(false);
   const [comment, setComment] = useState('');
 
   const { createWithReview, loading: submitting } = useVisits();
@@ -189,8 +191,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setPowerOutlets(3);
       setSeatingComfort(3);
       setNoiseLevel(3);
-      setHasSmokingArea(null);
-      setHasPrayerRoom(null);
+      setHasSmokingArea(false);
+      setHasPrayerRoom(false);
+      setHasIndoorSeating(false);
+      setHasOutdoorSeating(false);
       setComment('');
       setShowEditReviewForm(false);
       setExistingReviewData(null);
@@ -352,8 +356,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         visitReviewData.power_outlets_rating = powerOutlets;
         visitReviewData.seating_comfort = seatingComfort;
         visitReviewData.noise_level = noiseLevel;
-        visitReviewData.has_smoking_area = hasSmokingArea;
-        visitReviewData.has_prayer_room = hasPrayerRoom;
+        visitReviewData.has_smoking_area = hasSmokingArea ? true : null;
+        visitReviewData.has_prayer_room = hasPrayerRoom ? true : null;
+        visitReviewData.has_indoor_seating = hasIndoorSeating ? true : null;
+        visitReviewData.has_outdoor_seating = hasOutdoorSeating ? true : null;
         if (comment.trim()) {
           visitReviewData.comment = comment.trim();
         }
@@ -382,8 +388,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           hasComment: !!comment.trim(),
           commentLength: comment.length,
           source: 'visit_modal',
-          hasSmokingArea: hasSmokingArea === true ? 'yes' : hasSmokingArea === false ? 'no' : 'unknown',
-          hasPrayerRoom: hasPrayerRoom === true ? 'yes' : hasPrayerRoom === false ? 'no' : 'unknown',
+          hasSmokingArea: hasSmokingArea ? true : null,
+          hasPrayerRoom: hasPrayerRoom ? true : null,
+          hasIndoorSeating: hasIndoorSeating ? true : null,
+          hasOutdoorSeating: hasOutdoorSeating ? true : null,
         });
       }
 
@@ -743,18 +751,30 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
               <StarRating value={noiseLevel} onChange={setNoiseLevel} />
             </div>
 
-            <div className={styles.toggleGroup}>
-              <FacilityToggle
-                label="Has Smoking Area?"
+            <div className={styles.checkboxGrid}>
+              <FacilityCheckbox
+                label="Smoking area"
                 icon={<Cigarette size={18} />}
-                value={hasSmokingArea}
+                checked={hasSmokingArea}
                 onChange={setHasSmokingArea}
               />
-              <FacilityToggle
-                label="Has Prayer Room?"
+              <FacilityCheckbox
+                label="Prayer room"
                 icon={<Home size={18} />}
-                value={hasPrayerRoom}
+                checked={hasPrayerRoom}
                 onChange={setHasPrayerRoom}
+              />
+              <FacilityCheckbox
+                label="Indoor seating"
+                icon={<Building2 size={18} />}
+                checked={hasIndoorSeating}
+                onChange={setHasIndoorSeating}
+              />
+              <FacilityCheckbox
+                label="Outdoor seating"
+                icon={<TreePine size={18} />}
+                checked={hasOutdoorSeating}
+                onChange={setHasOutdoorSeating}
               />
             </div>
 

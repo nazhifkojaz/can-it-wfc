@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Zap, Volume2, Armchair, Cigarette, Home } from 'lucide-react';
+import { Wifi, Zap, Volume2, Armchair, Cigarette, Home, Building2, TreePine } from 'lucide-react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
-import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
+import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
 import { useReviews, useResultModal } from '../../hooks';
 import { reviewApi } from '../../api/client';
 import { isValidReviewComment, computeWfcRating } from '../../utils';
@@ -52,11 +52,17 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     comment: existingReview?.comment || '',
   });
 
-  const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(
-    existingReview?.has_smoking_area ?? null
+  const [hasSmokingArea, setHasSmokingArea] = useState<boolean>(
+    existingReview?.has_smoking_area === true
   );
-  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(
-    existingReview?.has_prayer_room ?? null
+  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean>(
+    existingReview?.has_prayer_room === true
+  );
+  const [hasIndoorSeating, setHasIndoorSeating] = useState<boolean>(
+    existingReview?.has_indoor_seating === true
+  );
+  const [hasOutdoorSeating, setHasOutdoorSeating] = useState<boolean>(
+    existingReview?.has_outdoor_seating === true
   );
 
   const [loading, setLoading] = useState(false);
@@ -103,8 +109,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           power_outlets_rating: formData.power_outlets_rating,
           noise_level: formData.noise_level,
           seating_comfort: formData.seating_comfort,
-          has_smoking_area: hasSmokingArea,
-          has_prayer_room: hasPrayerRoom,
+          has_smoking_area: hasSmokingArea ? true : null,
+          has_prayer_room: hasPrayerRoom ? true : null,
+          has_indoor_seating: hasIndoorSeating ? true : null,
+          has_outdoor_seating: hasOutdoorSeating ? true : null,
           wfc_rating: formData.wfc_rating,
           visit_time: formData.visit_time,
           comment: formData.comment,
@@ -138,8 +146,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         // Create new review
         const reviewData: ReviewCreate = {
           ...formData,
-          has_smoking_area: hasSmokingArea,
-          has_prayer_room: hasPrayerRoom,
+          has_smoking_area: hasSmokingArea ? true : null,
+          has_prayer_room: hasPrayerRoom ? true : null,
+          has_indoor_seating: hasIndoorSeating ? true : null,
+          has_outdoor_seating: hasOutdoorSeating ? true : null,
         };
         await createReview(reviewData);
 
@@ -152,8 +162,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           hasComment: !!formData.comment?.trim(),
           commentLength: formData.comment?.length || 0,
           source: 'standalone',
-          hasSmokingArea: hasSmokingArea === true ? 'yes' : hasSmokingArea === false ? 'no' : 'unknown',
-          hasPrayerRoom: hasPrayerRoom === true ? 'yes' : hasPrayerRoom === false ? 'no' : 'unknown',
+          hasSmokingArea: hasSmokingArea ? true : null,
+          hasPrayerRoom: hasPrayerRoom ? true : null,
+          hasIndoorSeating: hasIndoorSeating ? true : null,
+          hasOutdoorSeating: hasOutdoorSeating ? true : null,
         });
 
         resultModal.showResultModal({
@@ -274,20 +286,33 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             Does the cafe have these amenities?
           </p>
 
-          <div className={styles.toggleGroup}>
-            <FacilityToggle
-              label="Has Smoking Area?"
+          <div className={styles.checkboxGrid}>
+            <FacilityCheckbox
+              label="Smoking area"
               icon={<Cigarette size={18} />}
-              value={hasSmokingArea}
+              checked={hasSmokingArea}
               onChange={setHasSmokingArea}
               disabled={isViewMode}
             />
-
-            <FacilityToggle
-              label="Has Prayer Room?"
+            <FacilityCheckbox
+              label="Prayer room"
               icon={<Home size={18} />}
-              value={hasPrayerRoom}
+              checked={hasPrayerRoom}
               onChange={setHasPrayerRoom}
+              disabled={isViewMode}
+            />
+            <FacilityCheckbox
+              label="Indoor seating"
+              icon={<Building2 size={18} />}
+              checked={hasIndoorSeating}
+              onChange={setHasIndoorSeating}
+              disabled={isViewMode}
+            />
+            <FacilityCheckbox
+              label="Outdoor seating"
+              icon={<TreePine size={18} />}
+              checked={hasOutdoorSeating}
+              onChange={setHasOutdoorSeating}
               disabled={isViewMode}
             />
           </div>

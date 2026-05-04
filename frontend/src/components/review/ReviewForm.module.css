@@ -252,17 +252,13 @@
   box-shadow: 3px 3px 0 var(--neo-black);
 }
 
-/* Toggle Group (for smoking area, prayer room) */
-.toggleGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* Checkbox Grid (for pick-what-applies facilities) */
+.toggleGroup,
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   margin-top: 12px;
-  padding: 16px;
-  background: var(--neo-white);
-  border: var(--neo-border-width-thin) solid var(--neo-black);
-  border-radius: var(--neo-border-radius);
-  box-shadow: 2px 2px 0 var(--neo-black);
 }
 
 .toggleField {
