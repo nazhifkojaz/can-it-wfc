@@ -246,6 +246,10 @@ export const cafeApi = {
   getAllNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
     getWithSignal<NearbyCafesResponse>('/cafes/nearby/all/', params, signal),
 
+  // Count of registered cafes matching filters in area (for live match indicator)
+  getNearbyCount: (params: NearbyCafesParams, signal?: AbortSignal) =>
+    getWithSignal<{ count: number }>('/cafes/nearby/count/', params, signal),
+
   // Search cafes
   search: (query: string) => getPaginated<Cafe>('/cafes/', { search: query }),
 

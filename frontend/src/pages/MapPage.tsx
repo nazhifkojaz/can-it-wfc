@@ -8,13 +8,17 @@ import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
 import { SharedResultModal } from '../components/common';
 import { SearchOverlay } from '../components/map/SearchOverlay';
-import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
+import { FilterPanelTrigger } from '../components/map/FilterPanelTrigger';
+import { FilterPanel } from '../components/map/FilterPanel';
+import { ActiveFilterChips } from '../components/map/ActiveFilterChips';
+import { useGeolocation, useNearbyCafes, useResultModal, useMapFilters } from '../hooks';
 import { Cafe, SearchResult } from '../types';
 import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
 import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
+import { countActiveFilters } from '../types/filters';
 import './MapPage.css';
 
 const MapPage: React.FC = () => {
@@ -28,8 +32,10 @@ const MapPage: React.FC = () => {
   const [jumpToLocation, setJumpToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const resultModal = useResultModal();
   const { activePanel } = usePanel();
+  const { filters, appliedFilters, setFilter, applyFilters, resetAll, clearOne, syncPending } = useMapFilters();
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
 
@@ -73,8 +79,8 @@ const MapPage: React.FC = () => {
             result_type: 'cafe',
           });
 
-          // Clear query param
-          setSearchParams({});
+          // Clear only the cafe param, preserve filter params
+          setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('cafe'); return n; }, { replace: true });
         } catch (error) {
           logger.error('Failed to jump to cafe from activity', error, 'MapPage');
           resultModal.showResultModal({
@@ -82,7 +88,7 @@ const MapPage: React.FC = () => {
             title: 'Cafe Not Found',
             message: 'Failed to open the selected cafe. It may have been removed.',
           });
-          setSearchParams({});
+          setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('cafe'); return n; }, { replace: true });
         }
       };
       fetchAndJumpToCafe();
@@ -100,9 +106,9 @@ const MapPage: React.FC = () => {
     latitude: searchCenter?.lat || 0,
     longitude: searchCenter?.lng || 0,
     enabled: !!searchCenter,
-    // Pass user's actual location for distance calculation
     userLatitude: location?.lat,
     userLongitude: location?.lng,
+    filters: appliedFilters,
   });
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
@@ -194,24 +200,33 @@ const MapPage: React.FC = () => {
         {/* Header with view toggle */}
         <div className="map-header">
           <h1 className="page-title">Can-It-WFC</h1>
-          <button
-            className="view-toggle"
-            onClick={toggleViewMode}
-            aria-label={`Switch to ${viewMode === 'map' ? 'list' : 'map'} view`}
-          >
-            {viewMode === 'map' ? (
-              <>
-                <List size={20} />
-                <span>List</span>
-              </>
-            ) : (
-              <>
-                <MapIcon size={20} />
-                <span>Map</span>
-              </>
-            )}
-          </button>
+          <div className="header-actions">
+            <FilterPanelTrigger
+              activeCount={countActiveFilters(appliedFilters)}
+              onClick={() => { syncPending(); setShowFilterPanel(true); }}
+            />
+            <button
+              className="view-toggle"
+              onClick={toggleViewMode}
+              aria-label={`Switch to ${viewMode === 'map' ? 'list' : 'map'} view`}
+            >
+              {viewMode === 'map' ? (
+                <>
+                  <List size={20} />
+                  <span>List</span>
+                </>
+              ) : (
+                <>
+                  <MapIcon size={20} />
+                  <span>Map</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Active filter chips strip */}
+        <ActiveFilterChips filters={appliedFilters} onClear={clearOne} />
 
         {/* Location error - show non-intrusive banner */}
         {locationError && (
@@ -297,6 +312,16 @@ const MapPage: React.FC = () => {
         />
       </div>
       {activePanel && <PanelManager />}
+
+      {showFilterPanel && (
+        <FilterPanel
+          filters={filters}
+          setFilter={setFilter}
+          resetAll={resetAll}
+          onApply={applyFilters}
+          onClose={() => setShowFilterPanel(false)}
+        />
+      )}
     </MobileLayout>
   );
 };
