@@ -145,14 +145,7 @@ const MapPage: React.FC = () => {
     // Refetch cafes to update markers with new visit count and review/rating
     // React Query will automatically update related queries
     refetchCafes();
-
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Visit Logged!',
-      message: 'Your visit has been recorded successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
+    // Note: success feedback is handled by AddVisitReviewModal's own result modal
   };
 
   const toggleViewMode = () => {
