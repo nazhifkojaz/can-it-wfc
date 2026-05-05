@@ -110,6 +110,20 @@ class Cafe(models.Model):
         blank=True,
         help_text="Cached facility mention counts (smoking area, prayer room, indoor/outdoor seating) from latest 100 reviews"
     )
+
+    # Cafe insights cache (aggregated visit + review data for insights card)
+    insights_cache = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Computed cafe insights (median spend, time-of-day distribution, "
+                  "best-for labels, recency). Recomputed on visit/review writes "
+                  "and nightly for time-decaying fields."
+    )
+    insights_cache_version = models.IntegerField(
+        default=1,
+        help_text="Schema version of insights_cache. Bump to invalidate on logic changes."
+    )
+    insights_cache_computed_at = models.DateTimeField(null=True, blank=True)
     
     # Status
     is_closed = models.BooleanField(
