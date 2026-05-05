@@ -24,6 +24,7 @@ from .models import Cafe, CafeFlag, CafeList, CafeListItem
 from .serializers import (
     CafeDetailSerializer,
     CafeFilterSerializer,
+    CafeInsightsSerializer,
     CafeListCreateSerializer,
     CafeListDetailSerializer,
     CafeListItemCreateSerializer,
@@ -132,6 +133,38 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
         """Soft delete: mark as closed instead of deleting."""
         instance.is_closed = True
         instance.save()
+
+
+class CafeInsightsView(APIView):
+    """
+    Retrieve computed insights for a cafe.
+
+    GET /api/cafes/{id}/insights/
+
+    Returns aggregated visit + review data (ratings, spend, time-of-day patterns,
+    stickiness, best-for labels, etc.). Separate endpoint for snappy first paint
+    on the cafe detail sheet.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        try:
+            cafe = Cafe.objects.get(pk=pk)
+        except Cafe.DoesNotExist:
+            raise CafeNotFound()
+
+        from apps.core.constants import INSIGHTS_CACHE_VERSION
+        from apps.core.stats_utils import recompute_cafe_insights
+
+        if (
+            not cafe.insights_cache
+            or cafe.insights_cache_version != INSIGHTS_CACHE_VERSION
+        ):
+            recompute_cafe_insights(cafe)
+            cafe.refresh_from_db()
+
+        serializer = CafeInsightsSerializer(cafe)
+        return Response(serializer.data)
 
 
 class NearbyCafesView(APIView):

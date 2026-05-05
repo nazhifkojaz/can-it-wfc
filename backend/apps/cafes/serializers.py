@@ -444,3 +444,19 @@ class CafeSearchQuerySerializer(serializers.Serializer):
             'max_value': 'Limit cannot exceed 50'
         }
     )
+
+
+class CafeInsightsSerializer(serializers.Serializer):
+    """Serializer for cafe insights endpoint."""
+
+    cafe_id = serializers.IntegerField(source='id', read_only=True)
+    insights = serializers.SerializerMethodField()
+    computed_at = serializers.DateTimeField(source='insights_cache_computed_at', read_only=True)
+    exchange_rates = serializers.SerializerMethodField()
+
+    def get_insights(self, obj):
+        return obj.insights_cache
+
+    def get_exchange_rates(self, obj):
+        from apps.core.models import ExchangeRate
+        return ExchangeRate.get_all_rates()
