@@ -79,7 +79,7 @@ const Sheet: React.FC<SheetProps> = ({
     currentYRef.current = 0;
   };
 
-  const maxHeight = snapPoints.length > 0 ? `${Math.max(...snapPoints)}vh` : '75vh';
+  const maxHeight = snapPoints.length > 0 ? `${Math.max(...snapPoints)}dvh` : '75dvh';
 
   return (
     <div className={styles.sheetOverlay} onClick={handleOverlayClick}>

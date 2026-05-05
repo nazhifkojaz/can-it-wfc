@@ -93,35 +93,6 @@
   color: var(--neo-black);
 }
 
-/* Legend */
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: var(--neo-border-width-thin) solid var(--neo-black);
-}
-
-.legendItem {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--neo-black);
-  font-weight: var(--neo-font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.legendDot {
-  width: 10px;
-  height: 10px;
-  border: var(--neo-border-width-thin) solid var(--neo-black);
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
 /* Compact facility chips */
 .facilityRow {
   display: flex;
@@ -213,11 +184,6 @@
   .ratingValue {
     font-size: 14px;
     width: 40px;
-  }
-
-  .legend {
-    flex-direction: column;
-    gap: 8px;
   }
 
   .facilityChip {

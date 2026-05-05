@@ -113,25 +113,6 @@ const DetailedRatings: React.FC<DetailedRatingsProps> = ({ ratings, facilityStat
         </div>
       )}
 
-      <div className={styles.legend}>
-        <div className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ backgroundColor: '#10B981' }} />
-          <span>Excellent (4.0-5.0)</span>
-        </div>
-        <div className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ backgroundColor: '#F59E0B' }} />
-          <span>Good (3.0-3.9)</span>
-        </div>
-        <div className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ backgroundColor: '#F97316' }} />
-          <span>Fair (2.0-2.9)</span>
-        </div>
-        <div className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ backgroundColor: '#EF4444' }} />
-          <span>Poor (0-1.9)</span>
-        </div>
-      </div>
-
       {totalReviewers > 0 && (
         <div className={styles.reviewerFooter}>
           (from {totalReviewers} {totalReviewers === 1 ? 'reviewer' : 'reviewers'})
