@@ -5,7 +5,10 @@ import { useCafeInsights } from '../../hooks';
 import DetailedRatings from './DetailedRatings';
 import CostSummary from './insights/CostSummary';
 import TimeOfDayChart from './insights/TimeOfDayChart';
+import DayOfWeekChart from './insights/DayOfWeekChart';
+import RatingDistribution from './insights/RatingDistribution';
 import GoogleDelta from './insights/GoogleDelta';
+import Stickiness from './insights/Stickiness';
 import ConfidenceFooter from './insights/ConfidenceFooter';
 import styles from './insights/insights.module.css';
 
@@ -43,7 +46,10 @@ const CafeInsightsCard: React.FC<Props> = ({ cafe, ratings, facilityStats }) => 
     (
       !!insights.spend ||
       !!insights.time_of_day ||
-      !!insights.google_delta
+      !!insights.day_of_week ||
+      !!insights.rating_distribution ||
+      !!insights.google_delta ||
+      !!insights.stickiness
     );
 
   if (!cafe.is_registered) return null;
@@ -115,12 +121,17 @@ const CafeInsightsCard: React.FC<Props> = ({ cafe, ratings, facilityStats }) => 
 
             {!isLoading && insights && (
               <>
-                {/* TODO: Replace static "good for" chips with NLP-derived tags
-                    from review text analysis. See backend stats_utils.py TODO. */}
+                {insights.rating_distribution && (
+                  <RatingDistribution distribution={insights.rating_distribution} />
+                )}
                 {insights.spend && <CostSummary spend={insights.spend} exchangeRates={exchangeRates} />}
                 {insights.time_of_day && (
                   <TimeOfDayChart timeOfDay={insights.time_of_day} />
                 )}
+                {insights.day_of_week && (
+                  <DayOfWeekChart dayOfWeek={insights.day_of_week} />
+                )}
+                {insights.stickiness && <Stickiness stickiness={insights.stickiness} />}
                 {insights.google_delta && <GoogleDelta delta={insights.google_delta} />}
                 <ConfidenceFooter
                   totalVisits={totalVisits}
