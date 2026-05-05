@@ -10,12 +10,6 @@ export interface RatingsInsight {
   seating: DimensionRating;
 }
 
-export type BestForLabel =
-  | 'video_calls'
-  | 'long_sessions'
-  | 'focus_work'
-  | 'quick_stops';
-
 export interface SpendPrimary {
   currency: string;
   median: number;
@@ -28,9 +22,19 @@ export interface SpendSecondary {
   n: number;
 }
 
+export type PriceLabel = 'cheaper_than_most' | 'mid_range' | 'pricier_than_most';
+
+export interface SpendPercentile {
+  rank: number;
+  cluster_size: number;
+  currency: string;
+  label: PriceLabel;
+}
+
 export interface SpendInsight {
   primary: SpendPrimary;
   secondary?: SpendSecondary[];
+  percentile?: SpendPercentile;
 }
 
 export interface CafeInsightsResponse {
@@ -57,11 +61,18 @@ export interface RecentActivityInsight {
   as_of: string;
 }
 
-export type StickinessLabel = 'many_regulars' | 'mix' | 'mostly_first_timers';
+export type StickinessLabel =
+  | 'beloved'
+  | 'has_regulars'
+  | 'discovery_phase'
+  | 'steady_mix';
 
 export interface StickinessInsight {
   ratio: number;
   label: StickinessLabel;
+  active_regulars: number;
+  unique_visitors: number;
+  cadence_days?: number;
 }
 
 export interface GoogleDeltaInsight {
@@ -70,12 +81,35 @@ export interface GoogleDeltaInsight {
   delta: number;
 }
 
+export type ConsistencyLabel = 'consistent' | 'mixed' | 'polarizing';
+
+export interface RatingDistributionInsight {
+  distribution: Record<'1' | '2' | '3' | '4' | '5', number>;
+  n: number;
+  polarized: boolean;
+  consistency: ConsistencyLabel;
+  top_share: number;
+}
+
+export type DayOfWeekLabel = 'weekday_heavy' | 'weekend_heavy' | 'balanced';
+
+export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export interface DayOfWeekInsight {
+  weekday_share: number;
+  weekend_share: number;
+  n: number;
+  label: DayOfWeekLabel;
+  by_day?: Record<DayKey, number>;
+}
+
 export interface CafeInsights {
   version: number;
   ratings?: RatingsInsight;
-  best_for?: BestForLabel[];
+  rating_distribution?: RatingDistributionInsight;
   spend?: SpendInsight;
   time_of_day?: TimeOfDayInsight;
+  day_of_week?: DayOfWeekInsight;
   recent_activity?: RecentActivityInsight;
   stickiness?: StickinessInsight;
   google_delta?: GoogleDeltaInsight;
