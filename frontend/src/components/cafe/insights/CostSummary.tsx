@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { SpendInsight } from '../../../types/insights';
+import { SpendInsight, PriceLabel } from '../../../types/insights';
 import { CURRENCIES } from '../../../utils/currency';
 import styles from './insights.module.css';
 
@@ -28,6 +28,12 @@ const convertAmount = (
   const toRate = rates[toCurrency];
   if (!fromRate || !toRate) return fromAmount;
   return fromAmount * (fromRate / toRate);
+};
+
+const PERCENTILE_COPY: Record<PriceLabel, string> = {
+  cheaper_than_most: 'Cheaper than most cafes nearby',
+  mid_range: 'Mid-range for the area',
+  pricier_than_most: 'Pricier than most cafes nearby',
 };
 
 const CostSummary: React.FC<Props> = ({ spend, exchangeRates }) => {
@@ -60,6 +66,15 @@ const CostSummary: React.FC<Props> = ({ spend, exchangeRates }) => {
           ))}
         </select>
       </div>
+      {spend.percentile && (
+        <p className={styles.percentileLine}>
+          {PERCENTILE_COPY[spend.percentile.label]}
+          {' '}
+          <span className={styles.muted}>
+            ({spend.percentile.cluster_size} cafes compared)
+          </span>
+        </p>
+      )}
       {exchangeRates && primary.currency !== 'USD' && (
         <p className={styles.currencyDisclaimer}>
           1 {primary.currency} ≈ {exchangeRates[primary.currency]?.toFixed(6) ?? '—'} USD · updated monthly

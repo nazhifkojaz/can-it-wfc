@@ -35,9 +35,9 @@ const TimeOfDayChart: React.FC<Props> = ({ timeOfDay }) => {
                 />
               </div>
               <span className={styles.timeBarPct}>{pct}%</span>
-              {wfc !== undefined && (
-                <span className={styles.timeBarWfc}>WFC {wfc.toFixed(1)}</span>
-              )}
+              <span className={styles.timeBarWfc}>
+                ⭐ {wfc !== undefined ? wfc.toFixed(1) : '—'}
+              </span>
             </div>
           );
         })}

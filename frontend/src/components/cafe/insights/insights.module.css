@@ -116,7 +116,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: var(--neo-font-bold);
   color: var(--neo-black);
   overflow-wrap: break-word;
@@ -150,6 +150,14 @@
   color: var(--neo-gray-500);
   margin: 6px 0 0 0;
   font-style: italic;
+  overflow-wrap: break-word;
+}
+
+.percentileLine {
+  font-size: 12px;
+  color: var(--neo-black);
+  margin: 6px 0 0 0;
+  font-weight: var(--neo-font-bold);
   overflow-wrap: break-word;
 }
 
@@ -200,9 +208,11 @@
 }
 
 .timeBarWfc {
-  font-size: 11px;
-  color: var(--neo-gray-600);
+  font-size: 12px;
+  color: var(--neo-gray-500);
   font-weight: var(--neo-font-bold);
+  width: 58px;
+  text-align: left;
   flex-shrink: 0;
 }
 
@@ -232,6 +242,97 @@
 .badgeGray {
   background: var(--neo-gray-100);
   color: var(--neo-gray-600);
+}
+
+/* Rating Distribution */
+.distributionText {
+  font-size: 13px;
+  color: var(--neo-black);
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+/* Day of Week — detailed (7-bar) view */
+.dowDetailed {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 60px;
+}
+
+.dowDayCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.dowDayBarTrack {
+  flex: 1;
+  width: 100%;
+  background: var(--neo-gray-200);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.dowDayBarFill {
+  width: 100%;
+  background: var(--neo-primary);
+  transition: height 0.6s ease;
+  min-height: 2px;
+}
+
+.dowDayBarWeekend {
+  background: var(--neo-primary-light, var(--neo-gray-400));
+}
+
+.dowDayLabel {
+  font-size: 10px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-600);
+  text-transform: uppercase;
+}
+
+/* Stickiness */
+.stickinessRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stickinessIcon {
+  color: var(--neo-black);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.stickinessContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stickinessHeadline {
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.stickinessSubline {
+  font-size: 12px;
+  color: var(--neo-gray-600);
+  line-height: 1.4;
+  overflow-wrap: break-word;
 }
 
 /* Google Delta */
