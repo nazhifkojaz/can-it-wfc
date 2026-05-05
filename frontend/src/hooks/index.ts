@@ -9,3 +9,4 @@ export * from './useCafeDetail';
 export * from './useLists';
 export * from './useListDetail';
 export * from './useCafeLists';
+export * from './useCafeInsights';

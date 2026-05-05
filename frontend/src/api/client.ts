@@ -26,6 +26,7 @@ import {
   CafeListCreate,
   CafeListUpdate,
 } from '../types';
+import { CafeInsightsResponse } from '../types/insights';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
@@ -277,6 +278,9 @@ export const cafeApi = {
       google_ratings_count: number | null;
       google_rating_updated_at: string | null;
     }>(`/cafes/${cafeId}/refresh-google-rating/`),
+
+  getInsights: (cafeId: number) =>
+    get<CafeInsightsResponse>(`/cafes/${cafeId}/insights/`),
 
   // Find potential duplicates (not implemented in backend API yet)
   // findDuplicates: async (name: string, latitude: number, longitude: number) => {
