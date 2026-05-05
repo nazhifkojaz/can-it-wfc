@@ -67,3 +67,32 @@ VISIT_TIME_CHOICES = [
 MAX_LISTS_PER_USER = 50
 MAX_ITEMS_PER_LIST = 500
 DEFAULT_LIST_NAME = "Favorites"
+
+
+# ============================================================
+# CAFE INSIGHTS
+# ============================================================
+
+INSIGHTS_CACHE_VERSION = 2
+
+INSIGHTS_SAMPLE_THRESHOLDS = {
+    'BEST_FOR_REVIEWS': 5,
+    'COST_VISITS': 3,
+    'TIME_OF_DAY_RECORDS': 5,
+    'RATING_BY_TIME_PER_BUCKET': 3,
+    'RATING_BY_TIME_MIN_BUCKETS': 2,
+    'STICKINESS_UNIQUE_VISITORS': 5,
+    'GOOGLE_DELTA_MIN': 0.5,
+}
+
+INSIGHTS_STICKINESS_THRESHOLDS = {
+    'MANY_REGULARS': 3.0,
+    'MIX_MIN': 1.5,
+}
+
+INSIGHTS_BEST_FOR_RULES = {
+    'video_calls': {'min_wifi': 4.0, 'max_noise': 2.5},
+    'long_sessions': {'min_power': 4.0, 'min_seating': 4.0},
+    'focus_work': {'max_noise': 2.0, 'min_seating': 3.5},
+    'quick_stops': {'max_price': 2, 'min_wifi': 3.5},
+}
