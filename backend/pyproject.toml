@@ -32,6 +32,7 @@ dependencies = [
     "gunicorn>=21.2.0",
     "whitenoise>=6.6.0",
     "google-auth>=2.42.1",
+    "h3>=4.4.2",
 ]
 
 [project.optional-dependencies]

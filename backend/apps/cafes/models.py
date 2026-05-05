@@ -111,6 +111,15 @@ class Cafe(models.Model):
         help_text="Cached facility mention counts (smoking area, prayer room, indoor/outdoor seating) from latest 100 reviews"
     )
 
+    # H3 geospatial indexing for local cluster aggregates (price percentile, etc.)
+    h3_cell_r7 = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="H3 cell index at resolution 7 (~5 km) for local cluster aggregates"
+    )
+
     # Cafe insights cache (aggregated visit + review data for insights card)
     insights_cache = models.JSONField(
         null=True,
@@ -124,7 +133,7 @@ class Cafe(models.Model):
         help_text="Schema version of insights_cache. Bump to invalidate on logic changes."
     )
     insights_cache_computed_at = models.DateTimeField(null=True, blank=True)
-    
+
     # Status
     is_closed = models.BooleanField(
         default=False,
@@ -162,7 +171,15 @@ class Cafe(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Save cafe instance."""
+        """Save cafe instance. Auto-compute H3 cell if coordinates are present."""
+        if self.latitude is not None and self.longitude is not None:
+            try:
+                import h3
+                self.h3_cell_r7 = h3.latlng_to_cell(
+                    float(self.latitude), float(self.longitude), 7
+                )
+            except Exception:
+                self.h3_cell_r7 = None
         super().save(*args, **kwargs)
 
     @staticmethod
@@ -308,6 +325,32 @@ class CafeListItem(models.Model):
 
     def __str__(self):
         return f"{self.cafe_list} → {self.cafe.name}"
+
+
+class PriceCluster(models.Model):
+    """
+    Precomputed price cluster aggregates per H3 cell + currency.
+    Recomputed nightly by `recompute_price_clusters` management command.
+    """
+    h3_cell = models.CharField(max_length=15, db_index=True)
+    currency = models.CharField(max_length=3)
+    median_of_medians = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    cafe_medians = models.JSONField(
+        help_text="Sorted list of cafe-level spend medians in this cluster"
+    )
+    cafe_count = models.IntegerField()
+    computed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cafes_price_clusters'
+        unique_together = [('h3_cell', 'currency')]
+        verbose_name = 'Price Cluster'
+        verbose_name_plural = 'Price Clusters'
+
+    def __str__(self):
+        return f"{self.h3_cell} / {self.currency} ({self.cafe_count} cafes)"
 
 
 class CafeFlag(models.Model):
