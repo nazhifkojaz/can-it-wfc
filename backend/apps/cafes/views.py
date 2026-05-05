@@ -142,7 +142,7 @@ class CafeInsightsView(APIView):
     GET /api/cafes/{id}/insights/
 
     Returns aggregated visit + review data (ratings, spend, time-of-day patterns,
-    stickiness, best-for labels, etc.). Separate endpoint for snappy first paint
+    stickiness, google delta, etc.). Separate endpoint for snappy first paint
     on the cafe detail sheet.
     """
     permission_classes = [permissions.AllowAny]

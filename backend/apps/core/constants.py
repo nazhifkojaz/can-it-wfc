@@ -73,26 +73,35 @@ DEFAULT_LIST_NAME = "Favorites"
 # CAFE INSIGHTS
 # ============================================================
 
-INSIGHTS_CACHE_VERSION = 2
+INSIGHTS_CACHE_VERSION = 5
 
 INSIGHTS_SAMPLE_THRESHOLDS = {
-    'BEST_FOR_REVIEWS': 5,
     'COST_VISITS': 3,
     'TIME_OF_DAY_RECORDS': 5,
     'RATING_BY_TIME_PER_BUCKET': 3,
     'RATING_BY_TIME_MIN_BUCKETS': 2,
-    'STICKINESS_UNIQUE_VISITORS': 5,
     'GOOGLE_DELTA_MIN': 0.5,
+    'RATING_DISTRIBUTION_MIN_REVIEWS': 10,
+    'DAY_OF_WEEK_MIN_VISITS': 10,
+    'DAY_OF_WEEK_DETAILED_MIN_VISITS': 20,
+    'DAY_OF_WEEK_DETAILED_MIN_ACTIVE_DAYS': 4,
+    'PRICE_CLUSTER_MIN_CAFES': 5,
 }
 
 INSIGHTS_STICKINESS_THRESHOLDS = {
-    'MANY_REGULARS': 3.0,
-    'MIX_MIN': 1.5,
-}
-
-INSIGHTS_BEST_FOR_RULES = {
-    'video_calls': {'min_wifi': 4.0, 'max_noise': 2.5},
-    'long_sessions': {'min_power': 4.0, 'min_seating': 4.0},
-    'focus_work': {'max_noise': 2.0, 'min_seating': 3.5},
-    'quick_stops': {'max_price': 2, 'min_wifi': 3.5},
+    'MIN_UNIQUE_VISITORS': 10,
+    'MIN_TOTAL_VISITS': 15,
+    'ACTIVE_REGULARS_MIN_VISITS': 3,
+    'ACTIVE_REGULARS_RECENCY_DAYS': 60,
+    'NEWCOMER_RECENT_DAYS': 30,
+    'CADENCE_MIN_INTERVALS': 5,
+    'CADENCE_RECENT_DAYS': 90,
+    'CADENCE_MAX_FOR_DISPLAY': 21,
+    'BELOVED_MIN_REGULARS': 3,
+    'BELOVED_MIN_RATIO': 2.5,
+    'HAS_REGULARS_MIN_REGULARS': 1,
+    'HAS_REGULARS_MIN_RATIO': 2.0,
+    'DISCOVERY_NEWCOMER_SHARE': 0.7,
+    'DISCOVERY_MIN_TOTAL_VISITS': 10,
+    'STEADY_MIX_MIN_RATIO': 1.3,
 }
