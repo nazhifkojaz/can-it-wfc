@@ -10,8 +10,7 @@ import UserProfileModal from '../profile/UserProfileModal';
 import FlagCafeModal from './FlagCafeModal';
 import SaveToListPopover from './SaveToListPopover';
 import RatingsComparison from './RatingsComparison';
-import DetailedRatings from './DetailedRatings';
-import QuickInfo from './QuickInfo';
+import CafeInsightsCard from './CafeInsightsCard';
 import ActionButtons from './ActionButtons';
 
 import { formatDistance } from '../../utils/formatters';
@@ -311,19 +310,11 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         onRefreshRating={handleRefreshGoogleRating}
       />
 
-      {/* WFC Detailed Ratings + Facilities (only if has reviews) */}
-      {cafe.is_registered && cafe.average_ratings && (
-        <DetailedRatings
-          ratings={cafe.average_ratings}
-          facilityStats={cafe.facility_stats}
-        />
-      )}
-
-      {/* Quick Info */}
-      <QuickInfo
-        priceRange={cafe.price_range}
-        visitors={cafe.unique_visitors}
-        visits={cafe.total_visits}
+      {/* Insights block: DetailedRatings (default) + advanced slide-in */}
+      <CafeInsightsCard
+        cafe={cafe}
+        ratings={cafe.average_ratings}
+        facilityStats={cafe.facility_stats}
       />
 
       {/* Action Buttons */}
