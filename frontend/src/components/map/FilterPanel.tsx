@@ -1,5 +1,6 @@
 import { X, RotateCcw } from 'lucide-react';
 import { CafeFilters } from '../../types/filters';
+import { PRICE_RANGE_LABELS } from '../../config/constants';
 import styles from './FilterPanel.module.css';
 
 interface FilterPanelProps {
@@ -18,12 +19,7 @@ const MIN_REVIEWS_OPTIONS = [
   { value: 10, label: '10+' },
 ];
 
-const PRICE_OPTIONS = [
-  { value: 1, label: '$' },
-  { value: 2, label: '$$' },
-  { value: 3, label: '$$$' },
-  { value: 4, label: '$$$$' },
-];
+const PRICE_OPTIONS = Object.entries(PRICE_RANGE_LABELS).map(([v, l]) => ({ value: Number(v), label: l }));
 
 export function FilterPanel({
   filters,

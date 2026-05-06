@@ -1,24 +1,32 @@
 import { CafeFilters, DEFAULT_FILTERS } from '../types/filters';
+import { PRICE_RANGE_LABELS } from '../config/constants';
 
 export const FILTER_PARAM_KEYS = [
   'min_wifi', 'max_noise', 'min_power', 'min_seating', 'min_wfc',
   'price', 'hide_closed', 'verified', 'min_reviews', 'include_unregistered',
 ] as const;
 
+/** Convert CafeFilters to backend API query params (only sends non-default values). */
+export function filtersToApiParams(filters: CafeFilters): Record<string, string | number | boolean> {
+  const params: Record<string, string | number | boolean> = {};
+  if (filters.min_wifi !== undefined) params.min_wifi = filters.min_wifi;
+  if (filters.max_noise !== undefined) params.max_noise = filters.max_noise;
+  if (filters.min_power !== undefined) params.min_power = filters.min_power;
+  if (filters.min_seating !== undefined) params.min_seating = filters.min_seating;
+  if (filters.min_wfc !== undefined) params.min_wfc = filters.min_wfc;
+  if (filters.price && filters.price.length > 0) params.price = filters.price.join(',');
+  if (!filters.hide_closed) params.hide_closed = false;
+  if (filters.verified) params.verified = true;
+  if (filters.min_reviews > 0) params.min_reviews = filters.min_reviews;
+  if (!filters.include_unregistered) params.include_unregistered = false;
+  return params;
+}
+
 /** Convert CafeFilters to URL query params (omits default values for clean URLs). */
 export function filtersToParams(filters: CafeFilters): Record<string, string> {
-  const params: Record<string, string> = {};
-  if (filters.min_wifi !== undefined) params.min_wifi = String(filters.min_wifi);
-  if (filters.max_noise !== undefined) params.max_noise = String(filters.max_noise);
-  if (filters.min_power !== undefined) params.min_power = String(filters.min_power);
-  if (filters.min_seating !== undefined) params.min_seating = String(filters.min_seating);
-  if (filters.min_wfc !== undefined) params.min_wfc = String(filters.min_wfc);
-  if (filters.price && filters.price.length > 0) params.price = filters.price.join(',');
-  if (!filters.hide_closed) params.hide_closed = 'false';
-  if (filters.verified) params.verified = 'true';
-  if (filters.min_reviews > 0) params.min_reviews = String(filters.min_reviews);
-  if (!filters.include_unregistered) params.include_unregistered = 'false';
-  return params;
+  return Object.fromEntries(
+    Object.entries(filtersToApiParams(filters)).map(([k, v]) => [k, String(v)])
+  );
 }
 
 /** Parse URL search params back into CafeFilters, falling back to defaults. */
@@ -57,24 +65,6 @@ export function paramsToFilters(params: URLSearchParams): CafeFilters {
   return filters;
 }
 
-/** Convert CafeFilters to backend API query params (only sends non-default values). */
-export function filtersToApiParams(filters: CafeFilters): Record<string, string | number | boolean> {
-  const params: Record<string, string | number | boolean> = {};
-  if (filters.min_wifi !== undefined) params.min_wifi = filters.min_wifi;
-  if (filters.max_noise !== undefined) params.max_noise = filters.max_noise;
-  if (filters.min_power !== undefined) params.min_power = filters.min_power;
-  if (filters.min_seating !== undefined) params.min_seating = filters.min_seating;
-  if (filters.min_wfc !== undefined) params.min_wfc = filters.min_wfc;
-  if (filters.price && filters.price.length > 0) params.price = filters.price.join(',');
-  if (!filters.hide_closed) params.hide_closed = false;
-  if (filters.verified) params.verified = true;
-  if (filters.min_reviews > 0) params.min_reviews = filters.min_reviews;
-  if (!filters.include_unregistered) params.include_unregistered = false;
-  return params;
-}
-
-const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
-
 /** Return the set of active filters as displayable chip descriptors. */
 export function getActiveChips(filters: CafeFilters): Array<{ key: keyof CafeFilters; label: string }> {
   const chips: Array<{ key: keyof CafeFilters; label: string }> = [];
@@ -84,7 +74,7 @@ export function getActiveChips(filters: CafeFilters): Array<{ key: keyof CafeFil
   if (filters.min_seating !== undefined) chips.push({ key: 'min_seating', label: `Seating ≥ ${filters.min_seating}` });
   if (filters.min_wfc !== undefined) chips.push({ key: 'min_wfc', label: `WFC ≥ ${filters.min_wfc}` });
   if (filters.price && filters.price.length > 0) {
-    chips.push({ key: 'price', label: filters.price.map(p => PRICE_LABELS[p]).join(' ') });
+    chips.push({ key: 'price', label: filters.price.map(p => PRICE_RANGE_LABELS[p as keyof typeof PRICE_RANGE_LABELS]).join(' ') });
   }
   if (!filters.hide_closed) chips.push({ key: 'hide_closed', label: 'Show Closed' });
   if (filters.verified) chips.push({ key: 'verified', label: 'Verified Only' });

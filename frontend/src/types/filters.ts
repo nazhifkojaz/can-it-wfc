@@ -17,18 +17,3 @@ export const DEFAULT_FILTERS: CafeFilters = {
   min_reviews: 0,
   include_unregistered: true,
 };
-
-export function countActiveFilters(filters: CafeFilters): number {
-  let count = 0;
-  if (filters.min_wifi !== undefined) count++;
-  if (filters.max_noise !== undefined) count++;
-  if (filters.min_power !== undefined) count++;
-  if (filters.min_seating !== undefined) count++;
-  if (filters.min_wfc !== undefined) count++;
-  if (filters.price && filters.price.length > 0) count++;
-  if (!filters.hide_closed) count++;
-  if (filters.verified) count++;
-  if (filters.min_reviews > 0) count++;
-  if (!filters.include_unregistered) count++;
-  return count;
-}

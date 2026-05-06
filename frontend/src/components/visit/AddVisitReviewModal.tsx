@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, MapPinned, DollarSign, Star, Wifi, Zap, Armchair, Volume2, CheckCircle, Cigarette, Home, Building2, TreePine } from 'lucide-react';
+import { Clock, MapPinned, DollarSign, Star, CheckCircle } from 'lucide-react';
 import { Cafe, CombinedVisitReviewCreate, Review, Visit } from '../../types';
 import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
 import ReviewForm from '../review/ReviewForm';
-import { useVisits, useGeolocation, useResultModal } from '../../hooks';
-import { calculateDistance, formatVisitTime, computeWfcRating } from '../../utils';
+import { useVisits, useGeolocation, useResultModal, useReviewForm } from '../../hooks';
+import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
-import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP } from '../../config/constants';
+import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP, REVIEW_CONFIG } from '../../config/constants';
+import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
@@ -101,24 +102,9 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
   const [showEditReviewForm, setShowEditReviewForm] = useState(false);
   const [reviewCheckFailed, setReviewCheckFailed] = useState(false);
 
-  // Result modal
   const resultModal = useResultModal();
 
-  // Review fields (simplified form with 4 key criteria + auto-computed overall)
-  const [wifiQuality, setWifiQuality] = useState<number>(3);
-  const [powerOutlets, setPowerOutlets] = useState<number>(3);
-  const [seatingComfort, setSeatingComfort] = useState<number>(3);
-  const [noiseLevel, setNoiseLevel] = useState<number>(3);
-
-  // Auto-compute overall WFC rating
-  const wfcRating = useMemo(() => {
-    return computeWfcRating(wifiQuality, noiseLevel, seatingComfort, powerOutlets);
-  }, [wifiQuality, powerOutlets, seatingComfort, noiseLevel]);
-  const [hasSmokingArea, setHasSmokingArea] = useState<boolean>(false);
-  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean>(false);
-  const [hasIndoorSeating, setHasIndoorSeating] = useState<boolean>(false);
-  const [hasOutdoorSeating, setHasOutdoorSeating] = useState<boolean>(false);
-  const [comment, setComment] = useState('');
+  const form = useReviewForm();
 
   const { createWithReview, loading: submitting } = useVisits();
   const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation({ watch: false });
@@ -187,15 +173,14 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       setAmountSpent('');
       setVisitTime(null);
       setIncludeReview(false);
-      setWifiQuality(3);
-      setPowerOutlets(3);
-      setSeatingComfort(3);
-      setNoiseLevel(3);
-      setHasSmokingArea(false);
-      setHasPrayerRoom(false);
-      setHasIndoorSeating(false);
-      setHasOutdoorSeating(false);
-      setComment('');
+      form.setWifiQuality(3);
+      form.setSeatingComfort(3);
+      form.setNoiseLevel(3);
+      form.setHasSmokingArea(false);
+      form.setHasPrayerRoom(false);
+      form.setHasIndoorSeating(false);
+      form.setHasOutdoorSeating(false);
+      form.setComment('');
       setShowEditReviewForm(false);
       setExistingReviewData(null);
       setReviewCheckFailed(false);
@@ -277,20 +262,19 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
     // Validate review fields if review is included
       if (includeReview) {
-        const reviewError = visitReviewValidation.validateReviewFields(includeReview, wfcRating);
+        const reviewError = visitReviewValidation.validateReviewFields(includeReview, form.wfcRating);
         if (reviewError) validationErrors.push(reviewError);
 
-        const commentError = visitReviewValidation.validateComment(comment);
+        const commentError = visitReviewValidation.validateComment(form.comment);
         if (commentError) validationErrors.push(commentError);
 
-        // Validate sub-criteria rating fields (overall is auto-computed)
         const ratingErrors = [
-          visitReviewValidation.validateRating(wifiQuality, 'WiFi quality'),
-          visitReviewValidation.validateRating(seatingComfort, 'Seating comfort'),
-          visitReviewValidation.validateRating(noiseLevel, 'Noise level'),
+          visitReviewValidation.validateRating(form.wifi_quality, 'WiFi quality'),
+          visitReviewValidation.validateRating(form.seating_comfort, 'Seating comfort'),
+          visitReviewValidation.validateRating(form.noise_level, 'Noise level'),
         ];
-        if (powerOutlets !== undefined) {
-          ratingErrors.push(visitReviewValidation.validateRating(powerOutlets, 'Power outlets'));
+        if (form.power_outlets_rating !== undefined) {
+          ratingErrors.push(visitReviewValidation.validateRating(form.power_outlets_rating, 'Power outlets'));
         }
 
         validationErrors.push(...ratingErrors.filter(Boolean) as string[]);
@@ -351,17 +335,9 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
 
       if (includeReview) {
-        visitReviewData.wfc_rating = wfcRating;
-        visitReviewData.wifi_quality = wifiQuality;
-        visitReviewData.power_outlets_rating = powerOutlets;
-        visitReviewData.seating_comfort = seatingComfort;
-        visitReviewData.noise_level = noiseLevel;
-        visitReviewData.has_smoking_area = hasSmokingArea ? true : null;
-        visitReviewData.has_prayer_room = hasPrayerRoom ? true : null;
-        visitReviewData.has_indoor_seating = hasIndoorSeating ? true : null;
-        visitReviewData.has_outdoor_seating = hasOutdoorSeating ? true : null;
-        if (comment.trim()) {
-          visitReviewData.comment = comment.trim();
+        Object.assign(visitReviewData, form.ratingPayload(), form.facilityPayload());
+        if (form.comment.trim()) {
+          visitReviewData.comment = form.comment.trim();
         }
       }
 
@@ -383,15 +359,15 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         trackReviewCreated({
           cafeId: selectedCafe.id,
           cafeName: selectedCafe.name,
-          wfcRating: wfcRating,
-          wifiQuality: wifiQuality,
-          hasComment: !!comment.trim(),
-          commentLength: comment.length,
+          wfcRating: form.wfcRating,
+          wifiQuality: form.wifi_quality,
+          hasComment: !!form.comment.trim(),
+          commentLength: form.comment.length,
           source: 'visit_modal',
-          hasSmokingArea: hasSmokingArea ? true : null,
-          hasPrayerRoom: hasPrayerRoom ? true : null,
-          hasIndoorSeating: hasIndoorSeating ? true : null,
-          hasOutdoorSeating: hasOutdoorSeating ? true : null,
+          hasSmokingArea: form.hasSmokingArea ? true : null,
+          hasPrayerRoom: form.hasPrayerRoom ? true : null,
+          hasIndoorSeating: form.hasIndoorSeating ? true : null,
+          hasOutdoorSeating: form.hasOutdoorSeating ? true : null,
         });
       }
 
@@ -423,7 +399,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             {includeReview && (
               <div className={styles.summaryItem}>
                 <Star size={16} />
-                <span>{wfcRating}/5 Rating</span>
+                <span>{form.wfcRating}/5 Rating</span>
               </div>
             )}
           </div>
@@ -714,86 +690,77 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
           <div className={styles.reviewSection}>
             <h4 className={styles.reviewSectionTitle}>Work From Cafe Review</h4>
 
-            <div className={styles.ratingField}>
-              <label className={styles.ratingLabel}>
-                <Star size={18} />
-                Overall WFC Rating
-                <span className={styles.optional}>(Auto)</span>
-              </label>
-              <StarRating value={wfcRating} disabled />
-            </div>
-            <div className={styles.ratingField}>
-              <label className={styles.ratingLabel}>
-                <Wifi size={18} />
-                WiFi Quality
-              </label>
-              <StarRating value={wifiQuality} onChange={setWifiQuality} />
-            </div>
-            <div className={styles.ratingField}>
-              <label className={styles.ratingLabel}>
-                <Zap size={18} />
-                Power Outlets
-              </label>
-              <StarRating value={powerOutlets} onChange={setPowerOutlets} />
-            </div>
-            <div className={styles.ratingField}>
-              <label className={styles.ratingLabel}>
-                <Armchair size={18} />
-                Seat/Desk Comfort
-              </label>
-              <StarRating value={seatingComfort} onChange={setSeatingComfort} />
-            </div>
-            <div className={styles.ratingField}>
-              <label className={styles.ratingLabel}>
-                <Volume2 size={18} />
-                Audio Comfort
-              </label>
-              <StarRating value={noiseLevel} onChange={setNoiseLevel} />
-            </div>
-
-            <div className={styles.checkboxGrid}>
-              <FacilityCheckbox
-                label="Smoking area"
-                icon={<Cigarette size={18} />}
-                checked={hasSmokingArea}
-                onChange={setHasSmokingArea}
-              />
-              <FacilityCheckbox
-                label="Prayer room"
-                icon={<Home size={18} />}
-                checked={hasPrayerRoom}
-                onChange={setHasPrayerRoom}
-              />
-              <FacilityCheckbox
-                label="Indoor seating"
-                icon={<Building2 size={18} />}
-                checked={hasIndoorSeating}
-                onChange={setHasIndoorSeating}
-              />
-              <FacilityCheckbox
-                label="Outdoor seating"
-                icon={<TreePine size={18} />}
-                checked={hasOutdoorSeating}
-                onChange={setHasOutdoorSeating}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="comment">
-                Comment (Optional, max 160 chars)
-              </label>
-              <textarea
-                id="comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value.slice(0, 160))}
-                placeholder="Share your experience..."
-                maxLength={160}
-                rows={3}
-              />
-              <div className={styles.charCount}>
-                {comment.length}/160
-              </div>
-            </div>
+            {(() => {
+              const ratingStateMap: Record<string, { value: number; setter: (v: number) => void }> = {
+                wifi_quality: { value: form.wifi_quality, setter: form.setWifiQuality },
+                power_outlets_rating: { value: form.power_outlets_rating, setter: form.setPowerOutlets },
+                seating_comfort: { value: form.seating_comfort, setter: form.setSeatingComfort },
+                noise_level: { value: form.noise_level, setter: form.setNoiseLevel },
+              };
+              const facilityStateMap: Record<string, { checked: boolean; setter: (v: boolean) => void }> = {
+                smoking_area: { checked: form.hasSmokingArea, setter: form.setHasSmokingArea },
+                prayer_room: { checked: form.hasPrayerRoom, setter: form.setHasPrayerRoom },
+                indoor_seating: { checked: form.hasIndoorSeating, setter: form.setHasIndoorSeating },
+                outdoor_seating: { checked: form.hasOutdoorSeating, setter: form.setHasOutdoorSeating },
+              };
+              const subRatings = RATING_DIMENSIONS.filter(d => d.key !== 'wfc_rating');
+              return (
+                <>
+                  <div className={styles.ratingField}>
+                    <label className={styles.ratingLabel}>
+                      <Star size={18} />
+                      Overall WFC Rating
+                      <span className={styles.optional}>(Auto)</span>
+                    </label>
+                    <StarRating value={form.wfcRating} disabled />
+                  </div>
+                  {subRatings.map(d => {
+                    const entry = ratingStateMap[d.key];
+                    if (!entry) return null;
+                    return (
+                      <div key={d.key} className={styles.ratingField}>
+                        <label className={styles.ratingLabel}>
+                          {d.icon}
+                          {d.label}
+                        </label>
+                        <StarRating value={entry.value} onChange={entry.setter} />
+                      </div>
+                    );
+                  })}
+                  <div className={styles.checkboxGrid}>
+                    {FACILITY_CONFIG.map(f => {
+                      const entry = facilityStateMap[f.key];
+                      if (!entry) return null;
+                      return (
+                        <FacilityCheckbox
+                          key={f.key}
+                          label={f.label}
+                          icon={f.icon}
+                          checked={entry.checked}
+                          onChange={entry.setter}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="comment">
+                      Comment (Optional, max {REVIEW_CONFIG.MAX_COMMENT_LENGTH} chars)
+                    </label>
+                    <textarea
+                      id="comment"
+                      value={form.comment}
+                      onChange={(e) => form.setComment(e.target.value.slice(0, REVIEW_CONFIG.MAX_COMMENT_LENGTH))}
+                      placeholder="Share your experience..."
+                      maxLength={REVIEW_CONFIG.MAX_COMMENT_LENGTH}
+                      rows={3}
+                    />
+                    <div className={styles.charCount}>
+                      {form.comment.length}/{REVIEW_CONFIG.MAX_COMMENT_LENGTH}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 

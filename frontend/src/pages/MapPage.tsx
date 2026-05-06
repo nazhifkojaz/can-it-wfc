@@ -18,7 +18,7 @@ import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
 import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
-import { countActiveFilters } from '../types/filters';
+import { getActiveChips } from '../lib/filterEncoding';
 import './MapPage.css';
 
 const MapPage: React.FC = () => {
@@ -195,7 +195,7 @@ const MapPage: React.FC = () => {
           <h1 className="page-title">Can-It-WFC</h1>
           <div className="header-actions">
             <FilterPanelTrigger
-              activeCount={countActiveFilters(appliedFilters)}
+              activeCount={getActiveChips(appliedFilters).length}
               onClick={() => { syncPending(); setShowFilterPanel(true); }}
             />
             <button
