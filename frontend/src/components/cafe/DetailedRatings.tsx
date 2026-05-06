@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Wifi, Zap, Armchair, Volume2, Coffee, Cigarette, Home, Building2, TreePine } from 'lucide-react';
 import { AverageRatings, FacilityStats } from '../../types';
+import { getRatingColor } from '../../utils';
+import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { Tooltip } from '../common';
 import styles from './DetailedRatings.module.css';
 

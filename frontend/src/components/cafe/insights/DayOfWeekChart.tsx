@@ -32,22 +32,25 @@ const DayOfWeekChart: React.FC<Props> = ({ dayOfWeek }) => {
 
       {by_day ? (
         <div className={styles.dowDetailed}>
-          {DAY_ORDER.map((day) => {
-            const share = by_day[day] ?? 0;
-            const pct = Math.round(share * 100);
-            const isWeekend = day === 'sat' || day === 'sun';
-            return (
-              <div key={day} className={styles.dowDayCol}>
-                <div className={styles.dowDayBarTrack}>
-                  <div
-                    className={`${styles.dowDayBarFill} ${isWeekend ? styles.dowDayBarWeekend : ''}`}
-                    style={{ height: `${Math.max(pct * 2, 2)}%` }}
-                  />
+          {(() => {
+            const maxShare = Math.max(...DAY_ORDER.map(d => by_day[d] ?? 0));
+            return DAY_ORDER.map((day) => {
+              const share = by_day[day] ?? 0;
+              const isWeekend = day === 'sat' || day === 'sun';
+              const barPct = maxShare > 0 ? Math.max((share / maxShare) * 100, 2) : 2;
+              return (
+                <div key={day} className={styles.dowDayCol}>
+                  <div className={styles.dowDayBarTrack}>
+                    <div
+                      className={`${styles.dowDayBarFill} ${isWeekend ? styles.dowDayBarWeekend : ''}`}
+                      style={{ height: `${barPct}%` }}
+                    />
+                  </div>
+                  <span className={styles.dowDayLabel}>{DAY_INITIALS[day]}</span>
                 </div>
-                <span className={styles.dowDayLabel}>{DAY_INITIALS[day]}</span>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       ) : (
         <div className={styles.timeBars}>

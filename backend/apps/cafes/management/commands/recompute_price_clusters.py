@@ -71,7 +71,7 @@ class Command(BaseCommand):
 
         for (h3_cell, currency), cafe_data in groups.items():
             try:
-                if len(cafe_data) < 5:
+                if len(cafe_data) < INSIGHTS_SAMPLE_THRESHOLDS['PRICE_CLUSTER_MIN_CAFES']:
                     skipped_count += 1
                     continue
 
