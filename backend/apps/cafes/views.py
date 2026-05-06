@@ -10,6 +10,7 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.constants import DEFAULT_LIST_NAME, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_USER, MAX_NEARBY_CAFES
+from apps.core.geo_utils import bounding_box_deltas
 from core.exceptions import (
     CafeNotFound,
     DefaultListCannotBeDeleted,
@@ -192,9 +193,7 @@ class NearbyCafesView(APIView):
         limit = serializer.validated_data.get('limit', 100)
 
         # Pre-filter with bounding box before Haversine calculation
-        radius_float = float(radius_km)
-        lat_delta = Decimal(str(radius_float / 111.0))
-        lon_delta = Decimal(str(radius_float / (111.0 * math.cos(math.radians(float(latitude))))))
+        lat_delta, lon_delta = bounding_box_deltas(float(radius_km), latitude)
 
         candidates = Cafe.objects.filter(
             latitude__gte=latitude - lat_delta,
@@ -679,8 +678,7 @@ class CafeNearbyCountView(APIView):
         longitude = location_serializer.validated_data['longitude']
         radius_km = float(location_serializer.validated_data.get('radius_km', 1))
 
-        lat_delta = Decimal(str(radius_km / 111.0))
-        lon_delta = Decimal(str(radius_km / (111.0 * math.cos(math.radians(float(latitude))))))
+        lat_delta, lon_delta = bounding_box_deltas(radius_km, latitude)
 
         candidates = Cafe.objects.filter(
             latitude__gte=latitude - lat_delta,

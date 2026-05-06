@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from apps.core.constants import EARTH_RADIUS_KM
+from apps.core.geo_utils import bounding_box_deltas
 from decimal import Decimal
 import math
 
@@ -217,18 +218,9 @@ class Cafe(models.Model):
         """
         Find potential duplicate cafes by name similarity and proximity.
         """
-        # Convert to float for calculations
-        lat_float = float(latitude)
-        
         threshold_km = threshold_meters / 1000.0
         
-        # Calculate bounding box
-        lat_delta = threshold_km / 111.0
-        lon_delta = threshold_km / (111.0 * math.cos(math.radians(lat_float)))
-        
-        # Convert deltas to Decimal for database query
-        lat_delta_decimal = Decimal(str(lat_delta))
-        lon_delta_decimal = Decimal(str(lon_delta))
+        lat_delta_decimal, lon_delta_decimal = bounding_box_deltas(threshold_km, latitude)
         
         nearby_cafes = cls.objects.filter(
             name__icontains=name.split()[0],

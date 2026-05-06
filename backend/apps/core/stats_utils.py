@@ -524,13 +524,13 @@ def _compute_google_delta(cafe):
     return {'wfc': round(wfc, 1), 'google': round(google, 1), 'delta': delta}
 
 
-def compute_cafe_insights(cafe):
-    from apps.reviews.models import Review
-
-    recent_reviews = list(
-        Review.objects.filter(cafe=cafe, is_hidden=False)
-        .order_by('-created_at')[:100]
-    )
+def compute_cafe_insights(cafe, recent_reviews=None):
+    if recent_reviews is None:
+        from apps.reviews.models import Review
+        recent_reviews = list(
+            Review.objects.filter(cafe=cafe, is_hidden=False)
+            .order_by('-created_at')[:100]
+        )
 
     ratings = _compute_ratings(recent_reviews)
     rating_distribution = _compute_rating_distribution(recent_reviews)
@@ -579,8 +579,8 @@ def refresh_cafe_insights(cafe):
         recompute_cafe_insights(cafe)
 
 
-def recompute_cafe_insights(cafe):
-    insights = compute_cafe_insights(cafe)
+def recompute_cafe_insights(cafe, recent_reviews=None):
+    insights = compute_cafe_insights(cafe, recent_reviews=recent_reviews)
     cafe.insights_cache = insights
     cafe.insights_cache_version = INSIGHTS_CACHE_VERSION
     cafe.insights_cache_computed_at = timezone.now()

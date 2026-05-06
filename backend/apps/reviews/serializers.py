@@ -10,7 +10,64 @@ from apps.cafes.models import Cafe
 logger = get_logger(__name__)
 
 
-class VisitSerializer(serializers.ModelSerializer):
+class CafeVisitValidationMixin:
+    def _resolve_cafe(self, data, request):
+        if 'cafe_id' in data:
+            try:
+                return Cafe.objects.get(id=data['cafe_id'], is_closed=False)
+            except Cafe.DoesNotExist:
+                raise serializers.ValidationError({
+                    'cafe_id': 'Cafe not found or is closed.'
+                })
+        elif 'google_place_id' in data:
+            required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
+            missing_fields = [f for f in required_fields if f not in data]
+            if missing_fields:
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        f'Missing required fields for new cafe: {", ".join(missing_fields)}'
+                    ]
+                })
+            return None
+        else:
+            raise serializers.ValidationError({
+                'non_field_errors': [
+                    'Either cafe_id or google_place_id must be provided.'
+                ]
+            })
+
+    def _validate_no_duplicate_visit(self, user, cafe, visit_date):
+        if cafe and visit_date:
+            if Visit.objects.filter(user=user, cafe=cafe, visit_date=visit_date).exists():
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        'You already logged a visit to this cafe on this date.'
+                    ]
+                })
+
+    def _validate_checkin_distance(self, cafe, check_in_lat, check_in_lng):
+        if cafe:
+            if not check_in_lat or not check_in_lng:
+                raise serializers.ValidationError({
+                    'non_field_errors': [
+                        'Check-in location is required to verify you are at the cafe.'
+                    ]
+                })
+
+            distance = Cafe.calculate_distance(
+                check_in_lat, check_in_lng,
+                cafe.latitude, cafe.longitude
+            )
+            if distance > MAX_CHECKIN_DISTANCE_KM:
+                raise serializers.ValidationError({
+                    'check_in_latitude': [
+                        f'You are {distance:.2f}km away from {cafe.name}. '
+                        f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
+                    ]
+                })
+
+
+class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
     """
     Serializer for Visit model with auto-cafe-registration support.
 
@@ -63,37 +120,14 @@ class VisitSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at']
     
     def validate(self, attrs):
-        """Validate visit data and handle cafe creation if needed."""
         request = self.context.get('request')
 
-        # Skip most validation for updates (only allow amount_spent and visit_time)
         if self.instance is not None:
             return attrs
 
-        if 'cafe_id' in attrs:
-            try:
-                cafe = Cafe.objects.get(id=attrs['cafe_id'], is_closed=False)
-                attrs['cafe_id'] = cafe
-            except Cafe.DoesNotExist:
-                raise serializers.ValidationError({
-                    'cafe_id': 'Cafe not found or is closed.'
-                })
+        cafe = self._resolve_cafe(attrs, request)
 
-        elif 'google_place_id' in attrs:
-            google_place_id = attrs['google_place_id']
-
-            # Validate required fields for new cafe
-            required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
-            missing_fields = [f for f in required_fields if f not in attrs]
-
-            if missing_fields:
-                raise serializers.ValidationError({
-                    'non_field_errors': [
-                        f'Missing required fields for new cafe: {", ".join(missing_fields)}'
-                    ]
-                })
-
-            # Use CafeService to get or create cafe with complete Google data
+        if cafe is None and 'google_place_id' in attrs:
             from apps.cafes.services import CafeService
 
             cafe_data = {
@@ -105,62 +139,20 @@ class VisitSerializer(serializers.ModelSerializer):
 
             try:
                 cafe, created = CafeService.get_or_create_from_google(
-                    google_place_id=google_place_id,
+                    google_place_id=attrs['google_place_id'],
                     cafe_data=cafe_data,
                     created_by=request.user
                 )
-                attrs['cafe_id'] = cafe
             except ValueError as e:
                 logger.error(f'Cafe validation error: {str(e)}', exc_info=True)
                 raise serializers.ValidationError({
                     'non_field_errors': ['An error occurred while processing the cafe data. Please try again.']
                 })
 
-        else:
-            raise serializers.ValidationError({
-                'non_field_errors': [
-                    'Either cafe_id or google_place_id must be provided.'
-                ]
-            })
+        attrs['cafe_id'] = cafe
 
-        visit_date = attrs.get('visit_date')
-        cafe = attrs['cafe_id']
-
-        if Visit.objects.filter(
-            user=request.user,
-            cafe=cafe,
-            visit_date=visit_date
-        ).exists():
-            raise serializers.ValidationError({
-                'non_field_errors': [
-                    'You already logged a visit to this cafe on this date.'
-                ]
-            })
-
-        check_in_lat = attrs.get('check_in_latitude')
-        check_in_lng = attrs.get('check_in_longitude')
-
-        if not check_in_lat or not check_in_lng:
-            raise serializers.ValidationError({
-                'non_field_errors': [
-                    'Check-in location is required to verify you are at the cafe.'
-                ]
-            })
-
-        distance = Cafe.calculate_distance(
-            check_in_lat,
-            check_in_lng,
-            cafe.latitude,
-            cafe.longitude
-        )
-
-        if distance > MAX_CHECKIN_DISTANCE_KM:
-            raise serializers.ValidationError({
-                'check_in_latitude': [
-                    f'You are {distance:.2f}km away from {cafe.name}. '
-                    f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
-                ]
-            })
+        self._validate_no_duplicate_visit(request.user, cafe, attrs.get('visit_date'))
+        self._validate_checkin_distance(cafe, attrs.get('check_in_latitude'), attrs.get('check_in_longitude'))
 
         return attrs
 
@@ -499,7 +491,7 @@ class ReviewFlagSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class CombinedVisitReviewSerializer(serializers.Serializer):
+class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serializer):
     """
     Serializer for creating a visit with optional review in one request.
     Simplified review form with 5 key criteria.
@@ -604,74 +596,17 @@ class CombinedVisitReviewSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
+        request = self.context['request']
+        user = request.user
 
-        # Validate that either cafe_id or google_place_id is provided
-        cafe = None
-        if 'cafe_id' in data:
-            # Scenario 1: Registered cafe
-            try:
-                cafe = Cafe.objects.get(id=data['cafe_id'], is_closed=False)
-            except Cafe.DoesNotExist:
-                raise serializers.ValidationError({
-                    'cafe_id': 'Cafe not found or is closed.'
-                })
-        elif 'google_place_id' in data:
-            # Scenario 2: Unregistered cafe - validate required fields
-            required_fields = ['cafe_name', 'cafe_address', 'cafe_latitude', 'cafe_longitude']
-            missing_fields = [f for f in required_fields if f not in data]
-            if missing_fields:
-                raise serializers.ValidationError({
-                    'non_field_errors': [
-                        f'Missing required fields for new cafe: {", ".join(missing_fields)}'
-                    ]
-                })
-            # Check if cafe already exists with this google_place_id
+        cafe = self._resolve_cafe(data, request)
+
+        if cafe is None and 'google_place_id' in data:
             cafe = Cafe.objects.filter(google_place_id=data['google_place_id']).first()
-        else:
-            raise serializers.ValidationError({
-                'non_field_errors': [
-                    'Either cafe_id or google_place_id must be provided.'
-                ]
-            })
 
-        # Check for duplicate visit (same user, cafe, date)
-        if cafe and data.get('visit_date'):
-            user = self.context['request'].user
-            existing_visit = Visit.objects.filter(
-                user=user,
-                cafe=cafe,
-                visit_date=data['visit_date']
-            ).exists()
-            if existing_visit:
-                raise serializers.ValidationError({
-                    'visit_date': 'You have already logged a visit to this cafe on this date.'
-                })
+        self._validate_no_duplicate_visit(user, cafe, data.get('visit_date'))
+        self._validate_checkin_distance(cafe, data.get('check_in_latitude'), data.get('check_in_longitude'))
 
-        # Validate check-in distance
-        if cafe:
-            check_in_lat = data.get('check_in_latitude')
-            check_in_lng = data.get('check_in_longitude')
-
-            if not check_in_lat or not check_in_lng:
-                raise serializers.ValidationError({
-                    'non_field_errors': [
-                        'Check-in location is required to verify you are at the cafe.'
-                    ]
-                })
-
-            distance = Cafe.calculate_distance(
-                check_in_lat, check_in_lng,
-                cafe.latitude, cafe.longitude
-            )
-            if distance > MAX_CHECKIN_DISTANCE_KM:
-                raise serializers.ValidationError({
-                    'check_in_latitude': [
-                        f'You are {distance:.2f}km away from {cafe.name}. '
-                        f'You must be within {MAX_CHECKIN_DISTANCE_KM}km to log a visit.'
-                    ]
-                })
-
-        # Set defaults for missing review sub-criteria and auto-compute wfc_rating
         if data.get('include_review', False):
             if data.get('wifi_quality') is None:
                 data['wifi_quality'] = 3
