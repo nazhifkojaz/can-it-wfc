@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { trackPanelOpened } from '../lib/analytics';
 
-type Panel = 'activity' | 'profile' | 'visits' | 'lists' | 'userProfile';
+type Panel = 'activity' | 'profile' | 'userProfile';
 
 interface PanelContextType {
   activePanel: Panel | null;
@@ -19,7 +19,7 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.substring(1);
-      const validPanels: Panel[] = ['activity', 'profile', 'visits', 'lists', 'userProfile'];
+      const validPanels: Panel[] = ['activity', 'profile', 'userProfile'];
 
       // Check if hash contains encoded data (e.g., userProfile:username)
       const [panelType, ...dataParts] = hash.split(':');
@@ -32,7 +32,6 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (activePanel !== newPanel) {
           const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
             newPanel === 'userProfile' ? 'user_profile' :
-            newPanel === 'visits' || newPanel === 'lists' ? 'profile' :
             newPanel as 'activity' | 'profile';
 
           trackPanelOpened({ panel: analyticsPanel });
@@ -66,7 +65,6 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Map panel types to analytics panel types
       const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
         panel === 'userProfile' ? 'user_profile' :
-        panel === 'visits' || panel === 'lists' ? 'profile' :
         panel as 'activity' | 'profile';
 
       trackPanelOpened({ panel: analyticsPanel });
