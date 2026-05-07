@@ -59,7 +59,7 @@
 
 .favoriteButton.active {
   color: var(--neo-danger);
-  background: var(--neo-danger-light);
+  background: var(--neo-white);
 }
 
 .favoriteButton:hover {
@@ -111,6 +111,31 @@
 .listsCount {
   color: var(--neo-primary);
   font-weight: var(--neo-font-bold);
+}
+
+.myListsSection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.myListBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--neo-primary-light, #FFEDD5);
+  border: var(--neo-border-width-thin, 2px) solid var(--neo-black);
+  border-radius: var(--neo-border-radius, 4px);
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.myListBadge span {
+  white-space: nowrap;
 }
 
 .cafeMeta {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Heart, Star, Flag, ChevronDown, ListPlus } from 'lucide-react';
+import { MapPin, Bookmark, Star, Flag, ChevronDown } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
 import { Sheet, Loading, EmptyState, SharedResultModal } from '../common';
@@ -15,9 +15,8 @@ import ActionButtons from './ActionButtons';
 
 import { formatDistance } from '../../utils/formatters';
 import { calculateDistance } from '../../utils';
-import { extractApiError } from '../../utils/errorUtils';
-import { logger } from '../../utils/logger';
-import { trackCafeViewed, trackDirectionsClicked, trackCafeFavorited, trackCafeUnfavorited, trackGoogleRatingRefreshed } from '../../lib/analytics';
+import { ListIcon } from '../../utils/listIcons';
+import { trackCafeViewed, trackDirectionsClicked, trackGoogleRatingRefreshed } from '../../lib/analytics';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -38,7 +37,6 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   const { user } = useAuth();
   const { location } = useGeolocation({ watch: false });
 
-  // Use custom hook for cafe state management (replaces 2 useState + 3 useEffect)
   const { cafe, isRefreshingRating, refreshGoogleRating } = useCafeDetail({
     initialCafe,
     isOpen,
@@ -85,9 +83,18 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     toggleHelpful,
     flagReview,
   } = useReviews(cafe.is_registered && cafe.id > 0 ? cafe.id : undefined);
-  const { isInDefaultList, toggleDefault, isToggling: isSaving } = useCafeLists(
+  const { memberships, isToggling: isSaving } = useCafeLists(
     cafe.is_registered && cafe.id > 0 ? cafe.id : undefined
   );
+
+  // Determine dynamic icon based on list memberships with priority: to_go > favorites > custom
+  const sortedMemberships = [...memberships].sort((a, b) => {
+    const priority = { to_go: 0, favorites: 1, custom: 2 };
+    return (priority[a.list_type] ?? 3) - (priority[b.list_type] ?? 3);
+  });
+  const firstInListMembership = sortedMemberships.find(m => m.in_list);
+  const isInAnyList = !!firstInListMembership;
+  const activeIcon = firstInListMembership?.icon || 'bookmark';
   const resultModal = useResultModal();
 
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
@@ -106,46 +113,6 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const handleToggleFavorite = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    // Don't allow favoriting unregistered cafes
-    if (!cafe.is_registered) {
-      resultModal.showResultModal({
-        type: 'warning',
-        title: 'Cafe Not Registered',
-        message: 'This cafe is not registered yet. Log a visit first to add it to the platform!',
-        details: (
-          <div style={{ marginTop: '12px', fontSize: '14px', color: 'var(--neo-gray-600)' }}>
-            <p>💡 Tip: Click "Log Visit" below to add this cafe and be the first to review it!</p>
-          </div>
-        ),
-      });
-      return;
-    }
-
-    const wasFavorite = isInDefaultList;
-
-    try {
-      await toggleDefault();
-
-      // Track analytics after successful toggle
-      if (!wasFavorite) {
-        trackCafeFavorited({ cafeId: cafe.id, cafeName: cafe.name });
-      } else {
-        trackCafeUnfavorited({ cafeId: cafe.id, source: 'detail_sheet' });
-      }
-    } catch (error) {
-      const apiError = extractApiError(error);
-      logger.error('Error toggling favorite', apiError, 'CafeDetailSheet');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Toggle Favorite',
-        message: apiError.message || 'Failed to toggle favorite. Please try again.',
-      });
-    }
-  };
-
   const handleDirections = () => {
     if (!location) {
       resultModal.showResultModal({
@@ -154,7 +121,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         message: 'Location permission needed for directions. Please enable location access.',
         details: (
           <div style={{ marginTop: '12px', fontSize: '14px', color: 'var(--neo-gray-600)' }}>
-            <p>💡 Tip: Enable location in your browser settings to get turn-by-turn directions.</p>
+            <p>Tip: Enable location in your browser settings to get turn-by-turn directions.</p>
           </div>
         ),
       });
@@ -168,7 +135,6 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       parseFloat(cafe.longitude)
     );
 
-    // Track analytics before opening directions
     trackDirectionsClicked({
       cafeId: cafe.id,
       cafeName: cafe.name,
@@ -195,7 +161,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
         message: 'This cafe is not registered yet. You can only report issues with registered cafes.',
         details: (
           <div style={{ marginTop: '12px', fontSize: '14px', color: 'var(--neo-gray-600)' }}>
-            <p>💡 Tip: Log a visit to register this cafe first!</p>
+            <p>Tip: Log a visit to register this cafe first!</p>
           </div>
         ),
       });
@@ -246,17 +212,18 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
             <Flag size={20} />
           </button>
 
-          {/* Heart + chevron group */}
-          <div className={`${styles.saveGroup}${cafe.is_registered && user ? ` ${styles.saveGroupJoined}` : ''}`} style={{ position: 'relative' }}>
+          {/* Bookmark + chevron group */}
+          <div className={`${styles.saveGroup}${user ? ` ${styles.saveGroupJoined}` : ''}`} style={{ position: 'relative' }}>
             <button
-              className={`${styles.favoriteButton} ${isInDefaultList ? styles.active : ''}`}
-              onClick={handleToggleFavorite}
+              className={`${styles.favoriteButton} ${isInAnyList ? styles.active : ''}`}
+              onClick={(e) => { e.stopPropagation(); setShowListPopover((v) => !v); }}
               disabled={isSaving}
-              aria-label={isInDefaultList ? 'Remove from saved' : 'Save to default list'}
+              aria-label={isInAnyList ? 'Manage lists' : 'Save to lists'}
+              title={isInAnyList ? 'Manage lists' : 'Save to lists'}
             >
-              <Heart size={22} fill={isInDefaultList ? 'currentColor' : 'none'} />
+              <ListIcon icon={activeIcon} size={22} fill={isInAnyList ? 'currentColor' : 'none'} />
             </button>
-            {cafe.is_registered && user && (
+            {user && (
               <button
                 className={styles.listChevron}
                 onClick={(e) => { e.stopPropagation(); setShowListPopover((v) => !v); }}
@@ -266,9 +233,9 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
                 <ChevronDown size={14} />
               </button>
             )}
-            {showListPopover && cafe.is_registered && (
+            {showListPopover && (
               <SaveToListPopover
-                cafeId={cafe.id}
+                cafe={cafe}
                 onClose={() => setShowListPopover(false)}
               />
             )}
@@ -287,12 +254,24 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
             <span className={styles.distance}>📍 {formatDistance(cafe.distance)} away</span>
           </div>
         )}
-        {user && cafe.is_registered && !!cafe.my_lists_count && (
+        {cafe.saved_by_count !== undefined && cafe.saved_by_count > 0 && (
           <div className={styles.metaItem}>
-            <ListPlus size={14} />
+            <Bookmark size={14} />
             <span className={styles.listsCount}>
-              In {cafe.my_lists_count} of your {cafe.my_lists_count === 1 ? 'list' : 'lists'}
+              Saved by {cafe.saved_by_count} {cafe.saved_by_count === 1 ? 'user' : 'users'}
             </span>
+          </div>
+        )}
+        {user && cafe.is_registered && memberships.some(m => m.in_list) && (
+          <div className={styles.myListsSection}>
+            {memberships
+              .filter(m => m.in_list)
+              .map(m => (
+                <div key={m.id} className={styles.myListBadge}>
+                  <ListIcon icon={m.icon} size={14} />
+                  <span>{m.name}</span>
+                </div>
+              ))}
           </div>
         )}
       </div>

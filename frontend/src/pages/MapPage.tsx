@@ -111,6 +111,36 @@ const MapPage: React.FC = () => {
     filters: appliedFilters,
   });
 
+  // Sync selectedCafe with cafes array when data refreshes (e.g. after registration)
+  React.useEffect(() => {
+    if (!selectedCafe || !cafes.length) return;
+
+    // Try matching by id first (most common case)
+    const idMatch = cafes.find(c => c.id === selectedCafe.id);
+    if (idMatch) {
+      // Only update if the cafe data actually changed
+      if (idMatch !== selectedCafe) {
+        setSelectedCafe(idMatch);
+      }
+      return;
+    }
+
+    // If not found by id, try matching by google_place_id
+    // This handles the case where an unregistered cafe gets registered (id changes)
+    if (selectedCafe.google_place_id) {
+      const placeMatch = cafes.find(c => c.google_place_id === selectedCafe.google_place_id);
+      if (placeMatch) {
+        setSelectedCafe(placeMatch);
+
+        // Clear tempSearchMarker since the cafe is now in the nearby list
+        setTempSearchMarker(prev => {
+          if (prev?.google_place_id === selectedCafe.google_place_id) return null;
+          return prev;
+        });
+      }
+    }
+  }, [cafes, selectedCafe]);
+
   const handleSearchArea = (center: { lat: number; lng: number }) => {
     // Track analytics
     trackMapAreaSearched({
