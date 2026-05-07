@@ -18,7 +18,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useResultModal, useVisits } from '../../hooks';
+import { useResultModal, useVisits, useFollowersModal } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -37,11 +37,11 @@ import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
 import { logger } from '../../utils/logger';
-import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, trackProfileTabViewed, trackUserProfileViewed } from '../../lib/analytics';
+import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, trackProfileTabViewed } from '../../lib/analytics';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
-  const { hidePanel, showPanel } = usePanel();
+  const { hidePanel } = usePanel();
   const { user, logout, updateUser } = useAuth();
   const resultModal = useResultModal();
 
@@ -49,8 +49,7 @@ const ProfilePanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'lists'>('visits');
 
   // Followers/Following modal state
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [followModalType, setFollowModalType] = useState<'followers' | 'following'>('followers');
+  const { openFollowersModal, followersModalProps } = useFollowersModal();
 
   // Settings tab state
   const [isEditing, setIsEditing] = useState(false);
@@ -176,13 +175,7 @@ const ProfilePanel: React.FC = () => {
       updateUser({ ...user, ...updatedUser });
       setIsEditing(false);
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Profile Updated',
-        message: 'Your profile has been updated successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Profile Updated', 'Your profile has been updated successfully!');
     } catch (error) {
       const apiError = extractApiError(error);
       const bioError = getFieldError(apiError, 'bio');
@@ -205,13 +198,7 @@ const ProfilePanel: React.FC = () => {
       updateUser({ ...user, ...updatedUser });
       setEditingDisplayName(false);
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Display Name Updated',
-        message: 'Your display name has been updated successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Display Name Updated', 'Your display name has been updated successfully!');
     } catch (error) {
       const apiError = extractApiError(error);
       const displayNameError = getFieldError(apiError, 'display_name');
@@ -257,13 +244,7 @@ const ProfilePanel: React.FC = () => {
       updateUser({ ...user, ...updatedUser });
       setEditingUsername(false);
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Username Updated',
-        message: 'Your username has been updated successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Username Updated', 'Your username has been updated successfully!');
     } catch (error) {
       const apiError = extractApiError(error);
       const usernameError = getFieldError(apiError, 'username');
@@ -363,19 +344,9 @@ const ProfilePanel: React.FC = () => {
       setEditingVisit(null);
       refetchVisits();
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Visit Updated!',
-        message: 'Your visit has been updated successfully.',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Visit Updated!', 'Your visit has been updated successfully.');
     } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Update Visit',
-        message: extractApiError(error).message,
-      });
+      resultModal.showError('Failed to Update Visit', error);
     }
   };
 
@@ -411,19 +382,9 @@ const ProfilePanel: React.FC = () => {
       setVisitToDelete(null);
       refetchVisits();
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Visit Deleted',
-        message: 'Your visit has been deleted successfully.',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Visit Deleted', 'Your visit has been deleted successfully.');
     } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Delete Visit',
-        message: extractApiError(error).message,
-      });
+      resultModal.showError('Failed to Delete Visit', error);
     } finally {
       setIsDeleting(false);
     }
@@ -469,13 +430,7 @@ const ProfilePanel: React.FC = () => {
 
     refetchVisits();
 
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Review Submitted!',
-      message: 'Your review has been submitted successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
+    resultModal.showSuccess('Review Submitted!', 'Your review has been submitted successfully.');
   };
 
   return (
@@ -610,10 +565,7 @@ const ProfilePanel: React.FC = () => {
       <div className="stats-section">
         <div
           className="stat-card clickable"
-          onClick={() => {
-            setFollowModalType('followers');
-            setShowFollowersModal(true);
-          }}
+          onClick={() => openFollowersModal('followers')}
         >
           <UserIcon size={24} />
           <div className="stat-info">
@@ -624,10 +576,7 @@ const ProfilePanel: React.FC = () => {
 
         <div
           className="stat-card clickable"
-          onClick={() => {
-            setFollowModalType('following');
-            setShowFollowersModal(true);
-          }}
+          onClick={() => openFollowersModal('following')}
         >
           <UserIcon size={24} />
           <div className="stat-info">
@@ -1095,15 +1044,8 @@ const ProfilePanel: React.FC = () => {
 
       {/* Followers/Following Modal */}
       <FollowersModal
-        isOpen={showFollowersModal}
-        onClose={() => setShowFollowersModal(false)}
+        {...followersModalProps}
         username={user?.username || ''}
-        type={followModalType}
-        onUserClick={(clickedUsername) => {
-          setShowFollowersModal(false);
-          trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
-          showPanel('userProfile', { username: clickedUsername });
-        }}
       />
     </div>
   );

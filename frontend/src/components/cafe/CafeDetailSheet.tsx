@@ -182,13 +182,7 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   };
 
   const handleFlagSuccess = () => {
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Report Submitted',
-      message: 'Thank you for helping us keep the platform accurate!',
-      autoClose: true,
-      autoCloseDelay: 3000,
-    });
+    resultModal.showSuccess('Report Submitted', 'Thank you for helping us keep the platform accurate!', { autoCloseDelay: 3000 });
   };
 
   return (

@@ -4,7 +4,7 @@ import { Review } from '../../types';
 import { formatRelativeTime, formatRating, getRatingColor } from '../../utils';
 import { ConfirmDialog, SharedResultModal } from '../common';
 import { useResultModal } from '../../hooks';
-import { extractApiError } from '../../utils/errorUtils';
+
 import FlagReviewModal from './FlagReviewModal';
 import { logger } from '../../utils/logger';
 import { trackReviewMarkedHelpful, trackReviewFlagged, trackReviewDeleted } from '../../lib/analytics';
@@ -71,22 +71,12 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       setShowDeleteConfirm(false);
 
       // Show success modal
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Review Deleted',
-        message: 'Your review has been deleted successfully.',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Review Deleted', 'Your review has been deleted successfully.');
     } catch (error) {
       logger.error('Failed to delete review', error as Error, 'ReviewCard');
       setShowDeleteConfirm(false);
 
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Delete Review',
-        message: extractApiError(error).message,
-      });
+      resultModal.showError('Failed to Delete Review', error);
     } finally {
       setIsDeleting(false);
     }
@@ -145,21 +135,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       // Mark as flagged locally
       setHasFlagged(true);
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Report Submitted',
-        message: 'Thank you for reporting this review. Our team will review it shortly.',
-        autoClose: true,
-        autoCloseDelay: 3000,
-      });
+      resultModal.showSuccess('Report Submitted', 'Thank you for reporting this review. Our team will review it shortly.', { autoCloseDelay: 3000 });
     } catch (error) {
       logger.error('Failed to flag review', error as Error, 'ReviewCard');
 
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Report Failed',
-        message: extractApiError(error).message,
-      });
+      resultModal.showError('Report Failed', error);
 
       throw error; // Re-throw so modal knows to not close
     }
