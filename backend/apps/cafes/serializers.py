@@ -109,6 +109,8 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
     facility_stats = serializers.SerializerMethodField()
     # Annotated by CafeDetailView.get_queryset for authenticated users; 0 for anon.
     my_lists_count = serializers.IntegerField(read_only=True, default=0)
+    # Annotated by CafeDetailView.get_queryset; count of distinct users who saved this cafe.
+    saved_by_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Cafe
@@ -131,6 +133,7 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'updated_at',
             'distance',
             'my_lists_count',
+            'saved_by_count',
             'is_registered',
             'source',
             'average_ratings',
@@ -251,8 +254,8 @@ class CafeListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['id', 'name', 'description', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'list_type', 'icon', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'list_type', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
 
 
 class CafeListItemSerializer(serializers.ModelSerializer):
@@ -280,7 +283,7 @@ class CafeListCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'icon']
 
 
 class CafeListUpdateSerializer(serializers.ModelSerializer):
@@ -288,15 +291,24 @@ class CafeListUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'icon']
         extra_kwargs = {'name': {'required': False}}
 
 
 class CafeListItemCreateSerializer(serializers.Serializer):
     """Write serializer for POST /api/lists/<id>/items/."""
 
-    cafe_id = serializers.IntegerField()
+    cafe_id = serializers.IntegerField(required=False)
     note = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+
+    # Fields for auto-registering an unregistered cafe from Google Places.
+    # Latitude/longitude are CharField to accept high-precision strings from
+    # Google Places; rounding to model precision happens in the view.
+    google_place_id = serializers.CharField(required=False, allow_blank=True)
+    cafe_name = serializers.CharField(required=False, allow_blank=True)
+    cafe_address = serializers.CharField(required=False, allow_blank=True)
+    cafe_latitude = serializers.CharField(required=False, allow_blank=True)
+    cafe_longitude = serializers.CharField(required=False, allow_blank=True)
 
 
 class CafeListItemNoteSerializer(serializers.ModelSerializer):
@@ -314,7 +326,7 @@ class CafeListMembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['id', 'name', 'is_default', 'in_list']
+        fields = ['id', 'name', 'list_type', 'icon', 'is_default', 'in_list']
 
 
 class CafeFlagCreateSerializer(serializers.ModelSerializer):

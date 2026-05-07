@@ -713,7 +713,7 @@ class TestCafeListCRUD:
 
     def test_delete_default_list_returns_400(self, authenticated_client, test_user):
         from apps.cafes.models import CafeList
-        default_list = CafeList.objects.get(owner=test_user, is_default=True)
+        default_list = CafeList.objects.get(owner=test_user, list_type='favorites')
         response = authenticated_client.delete(f'/api/lists/{default_list.id}/')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert CafeList.objects.filter(pk=default_list.id).exists()
@@ -791,33 +791,33 @@ class TestCafeListItems:
 
 
 @pytest.mark.django_db
-class TestDefaultListConvenience:
-    """Tests for POST/DELETE /api/lists/default/items/."""
+class TestSpecialListConvenience:
+    """Tests for POST/DELETE /api/lists/<special>/items/."""
 
-    def test_add_to_default_list(self, authenticated_client, test_user):
+    def test_add_to_favorites_list(self, authenticated_client, test_user):
         from apps.cafes.models import CafeList
-        default_list = CafeList.objects.get(owner=test_user, is_default=True)
-        cafe = _make_cafe(test_user, suffix='_def')
+        favorites_list = CafeList.objects.get(owner=test_user, list_type='favorites')
+        cafe = _make_cafe(test_user, suffix='_fav')
 
-        response = authenticated_client.post('/api/lists/default/items/', {'cafe_id': cafe.id})
+        response = authenticated_client.post('/api/lists/favorites/items/', {'cafe_id': cafe.id})
         assert response.status_code == status.HTTP_201_CREATED
-        default_list.refresh_from_db()
-        assert default_list.item_count == 1
+        favorites_list.refresh_from_db()
+        assert favorites_list.item_count == 1
 
-    def test_remove_from_default_list(self, authenticated_client, test_user):
+    def test_remove_from_favorites_list(self, authenticated_client, test_user):
         from apps.cafes.models import CafeList, CafeListItem
-        default_list = CafeList.objects.get(owner=test_user, is_default=True)
-        cafe = _make_cafe(test_user, suffix='_defrm')
-        CafeListItem.objects.create(cafe_list=default_list, cafe=cafe)
-        default_list.refresh_from_db()
+        favorites_list = CafeList.objects.get(owner=test_user, list_type='favorites')
+        cafe = _make_cafe(test_user, suffix='_favrm')
+        CafeListItem.objects.create(cafe_list=favorites_list, cafe=cafe)
+        favorites_list.refresh_from_db()
 
-        response = authenticated_client.delete(f'/api/lists/default/items/{cafe.id}/')
+        response = authenticated_client.delete(f'/api/lists/favorites/items/{cafe.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        default_list.refresh_from_db()
-        assert default_list.item_count == 0
+        favorites_list.refresh_from_db()
+        assert favorites_list.item_count == 0
 
-    def test_default_convenience_requires_auth(self, api_client):
-        response = api_client.post('/api/lists/default/items/', {'cafe_id': 999})
+    def test_special_list_convenience_requires_auth(self, api_client):
+        response = api_client.post('/api/lists/favorites/items/', {'cafe_id': 999})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 

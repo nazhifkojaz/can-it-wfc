@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
-from apps.core.constants import DEFAULT_LIST_NAME, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_USER, MAX_NEARBY_CAFES
+from apps.core.constants import DEFAULT_LIST_NAME, DEFAULT_TO_GO_NAME, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_USER, MAX_NEARBY_CAFES
 from apps.core.geo_utils import bounding_box_deltas
 from core.exceptions import (
     CafeNotFound,
@@ -114,7 +114,12 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsOwnerOrReadOnly]
 
     def get_queryset(self):
-        queryset = Cafe.objects.all()
+        queryset = Cafe.objects.all().annotate(
+            saved_by_count=Count(
+                'list_entries__cafe_list__owner',
+                distinct=True,
+            )
+        )
         if self.request.user.is_authenticated:
             queryset = queryset.annotate(
                 my_lists_count=Count(
@@ -207,7 +212,7 @@ class NearbyCafesView(APIView):
         nearby_cafes = []
         for cafe in candidates:
             distance = cafe.distance_to(latitude, longitude)
-            if distance <= radius_float:
+            if distance <= float(radius_km):
                 cafe.distance = distance
                 nearby_cafes.append(cafe)
 
@@ -299,10 +304,71 @@ class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         cafe_list = self.get_object()
-        if cafe_list.is_default:
+        if cafe_list.list_type != 'custom':
             raise DefaultListCannotBeDeleted()
         cafe_list.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _get_or_create_cafe_from_request(serializer, user):
+    """
+    Resolve a cafe from the request data.
+
+    If `cafe_id` is provided, returns the existing cafe.
+    If Google Places data is provided, auto-registers the cafe first.
+    Raises ValidationError if insufficient data is provided.
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+
+    cafe_id = serializer.validated_data.get('cafe_id')
+    if cafe_id:
+        try:
+            return Cafe.objects.get(pk=cafe_id)
+        except Cafe.DoesNotExist:
+            raise CafeNotFound()
+
+    # Auto-registration path
+    google_place_id = serializer.validated_data.get('google_place_id')
+    if not google_place_id:
+        raise ValidationError({'cafe_id': 'Either cafe_id or google_place_id is required.'})
+
+    cafe_name = serializer.validated_data.get('cafe_name')
+    cafe_address = serializer.validated_data.get('cafe_address')
+    cafe_latitude = serializer.validated_data.get('cafe_latitude')
+    cafe_longitude = serializer.validated_data.get('cafe_longitude')
+
+    if not all([cafe_name, cafe_address, cafe_latitude, cafe_longitude]):
+        raise ValidationError({
+            'cafe_name': 'Required when auto-registering.',
+            'cafe_address': 'Required when auto-registering.',
+            'cafe_latitude': 'Required when auto-registering.',
+            'cafe_longitude': 'Required when auto-registering.',
+        })
+
+    # Round to model precision (8 decimal places) to avoid DecimalField
+    # validation errors on high-precision Google Places coordinates.
+    try:
+        lat = Decimal(cafe_latitude).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
+        lng = Decimal(cafe_longitude).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
+    except Exception:
+        raise ValidationError({
+            'cafe_latitude': 'Invalid coordinate format.',
+            'cafe_longitude': 'Invalid coordinate format.',
+        })
+
+    from .services import CafeService
+    cafe_data = {
+        'name': cafe_name,
+        'address': cafe_address,
+        'latitude': lat,
+        'longitude': lng,
+    }
+    cafe, _ = CafeService.get_or_create_from_google(
+        google_place_id=google_place_id,
+        cafe_data=cafe_data,
+        created_by=user,
+    )
+    return cafe
 
 
 class CafeListItemCreateView(APIView):
@@ -319,13 +385,8 @@ class CafeListItemCreateView(APIView):
         serializer = CafeListItemCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cafe_id = serializer.validated_data['cafe_id']
+        cafe = _get_or_create_cafe_from_request(serializer, request.user)
         note = serializer.validated_data.get('note', '')
-
-        try:
-            cafe = Cafe.objects.get(pk=cafe_id)
-        except Cafe.DoesNotExist:
-            raise CafeNotFound()
 
         # Idempotent: if already in list, return the existing item
         item, created = CafeListItem.objects.get_or_create(
@@ -378,34 +439,46 @@ class CafeListItemDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class DefaultListItemView(APIView):
+class SpecialListItemView(APIView):
     """
-    POST   /api/lists/default/items/           — add cafe to default list
-    DELETE /api/lists/default/items/<cafe_id>/ — remove cafe from default list
+    POST   /api/lists/<list_type>/items/           — add cafe to special list
+    DELETE /api/lists/<list_type>/items/<cafe_id>/ — remove cafe from special list
+
+    Supports 'to-go' and 'favorites' list types.
+    list_type is passed via as_view(list_type='...') in URL conf.
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    list_type: str = ''  # Set via as_view(list_type='...')
 
-    def _get_default_list(self, user):
-        # get_or_create guards against users who slipped through the signup signal
+    def _get_special_list(self, user):
+        """Get or create a special list (to-go or favorites) for a user."""
+        list_type = self._db_list_type
+        defaults = {'name': DEFAULT_TO_GO_NAME if list_type == 'to_go' else DEFAULT_LIST_NAME}
+        defaults['icon'] = 'bookmark' if list_type == 'to_go' else 'heart'
         cafe_list, _ = CafeList.objects.get_or_create(
             owner=user,
-            is_default=True,
-            defaults={'name': DEFAULT_LIST_NAME},
+            list_type=list_type,
+            defaults=defaults,
         )
         return cafe_list
 
+    @property
+    def _db_list_type(self):
+        """Return the DB list_type (to_go or favorites) from initkwargs."""
+        raw = getattr(self, 'list_type', '')
+        if raw == 'to-go':
+            return 'to_go'
+        if raw == 'favorites':
+            return 'favorites'
+        raise ValidationError({'list_type': 'Must be "to-go" or "favorites".'})
+
     def post(self, request):
-        cafe_id = request.data.get('cafe_id')
-        if not cafe_id:
-            raise ValidationError({'cafe_id': 'This field is required.'})
+        serializer = CafeListItemCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            cafe = Cafe.objects.get(pk=cafe_id)
-        except Cafe.DoesNotExist:
-            raise CafeNotFound()
-
-        cafe_list = self._get_default_list(request.user)
+        cafe = _get_or_create_cafe_from_request(serializer, request.user)
+        cafe_list = self._get_special_list(request.user)
 
         item, created = CafeListItem.objects.get_or_create(
             cafe_list=cafe_list,
@@ -423,11 +496,12 @@ class DefaultListItemView(APIView):
         )
 
     def delete(self, request, cafe_id):
-        cafe_list = self._get_default_list(request.user)
+        cafe_list = self._get_special_list(request.user)
         try:
             item = CafeListItem.objects.get(cafe_list=cafe_list, cafe_id=cafe_id)
         except CafeListItem.DoesNotExist:
-            raise NotFound(detail='Cafe not found in default list.')
+            list_label = 'to-go' if self._db_list_type == 'to_go' else 'favorites'
+            raise NotFound(detail=f'Cafe not found in {list_label} list.')
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -450,6 +524,8 @@ class CafeMembershipView(APIView):
             {
                 'id': lst.id,
                 'name': lst.name,
+                'list_type': lst.list_type,
+                'icon': lst.icon,
                 'is_default': lst.is_default,
                 'in_list': lst.in_list > 0,
             }

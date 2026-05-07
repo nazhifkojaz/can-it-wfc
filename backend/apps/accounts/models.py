@@ -279,12 +279,18 @@ def create_user_settings(sender, instance, created, **kwargs):
     """
     if created:
         UserSettings.objects.get_or_create(user=instance)
-        # Auto-create the default "Favorites" cafe list for every new user.
+        # Auto-create the default "to-go" and "favorites" cafe lists for every new user.
         # Lazy import avoids a circular dependency between accounts and cafes.
         from apps.cafes.models import CafeList
-        from apps.core.constants import DEFAULT_LIST_NAME
+        from apps.core.constants import DEFAULT_LIST_NAME, DEFAULT_TO_GO_NAME
+
         CafeList.objects.get_or_create(
             owner=instance,
-            is_default=True,
-            defaults={'name': DEFAULT_LIST_NAME},
+            list_type='to_go',
+            defaults={'name': DEFAULT_TO_GO_NAME, 'icon': 'bookmark'},
+        )
+        CafeList.objects.get_or_create(
+            owner=instance,
+            list_type='favorites',
+            defaults={'name': DEFAULT_LIST_NAME, 'icon': 'heart'},
         )
