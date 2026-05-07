@@ -1,7 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
-from apps.core.constants import EARTH_RADIUS_KM
+from apps.core.constants import EARTH_RADIUS_KM, LIST_ICON_CHOICES
 from apps.core.geo_utils import bounding_box_deltas
 from decimal import Decimal
 import math
@@ -248,6 +248,12 @@ class Cafe(models.Model):
 class CafeList(models.Model):
     """A named collection of cafes owned by a user."""
 
+    LIST_TYPE_CHOICES = [
+        ('to_go', 'to-go'),
+        ('favorites', 'favorites'),
+        ('custom', 'Custom'),
+    ]
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -255,9 +261,21 @@ class CafeList(models.Model):
     )
     name = models.CharField(max_length=80)
     description = models.TextField(blank=True, max_length=300)
+    list_type = models.CharField(
+        max_length=20,
+        choices=LIST_TYPE_CHOICES,
+        default='custom',
+        help_text="Special lists (to-go, favorites) are protected and auto-created.",
+    )
+    icon = models.CharField(
+        max_length=30,
+        choices=LIST_ICON_CHOICES,
+        default='bookmark',
+        help_text="Lucide icon name for this list.",
+    )
     is_default = models.BooleanField(
         default=False,
-        help_text="The auto-created 'Favorites' list. One per user.",
+        help_text="True for to-go and favorites (protected special lists).",
     )
     is_public = models.BooleanField(
         default=False,
@@ -276,18 +294,28 @@ class CafeList(models.Model):
         ordering = ['-updated_at']
         indexes = [
             models.Index(fields=['owner', '-updated_at']),
-            models.Index(fields=['owner', 'is_default']),
+            models.Index(fields=['owner', 'list_type']),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['owner'],
-                condition=models.Q(is_default=True),
-                name='unique_default_list_per_user',
+                fields=['owner', 'list_type'],
+                condition=~models.Q(list_type='custom'),
+                name='unique_special_list_per_user',
             )
         ]
 
+    def save(self, *args, **kwargs):
+        """Auto-set is_default based on list_type."""
+        self.is_default = self.list_type in ('to_go', 'favorites')
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.owner.username} / {self.name}"
+
+    @property
+    def is_special(self):
+        """Whether this is a protected special list (to-go or favorites)."""
+        return self.list_type in ('to_go', 'favorites')
 
 
 class CafeListItem(models.Model):

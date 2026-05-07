@@ -67,6 +67,28 @@ VISIT_TIME_CHOICES = [
 MAX_LISTS_PER_USER = 50
 MAX_ITEMS_PER_LIST = 500
 DEFAULT_LIST_NAME = "Favorites"
+DEFAULT_TO_GO_NAME = "to-go"
+
+# Icon choices for custom cafe lists (kept in sync with frontend Lucide icon names)
+LIST_ICON_CHOICES = [
+    ('bookmark', 'Bookmark'),
+    ('heart', 'Heart'),
+    ('coffee', 'Coffee'),
+    ('wifi', 'WiFi'),
+    ('star', 'Star'),
+    ('map-pin', 'Map Pin'),
+    ('briefcase', 'Briefcase'),
+    ('users', 'Users'),
+    ('moon', 'Moon'),
+    ('sun', 'Sun'),
+    ('music', 'Music'),
+    ('book-open', 'Book Open'),
+    ('camera', 'Camera'),
+    ('gift', 'Gift'),
+    ('home', 'Home'),
+    ('plane', 'Plane'),
+    ('zap', 'Zap'),
+]
 
 
 # ============================================================
