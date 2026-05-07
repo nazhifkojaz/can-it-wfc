@@ -70,8 +70,6 @@ class CafeVisitValidationMixin:
 class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
     """
     Serializer for Visit model with auto-cafe-registration support.
-
-    UPDATED: Removed has_review field - reviews are now independent of visits.
     """
 
     cafe = CafeListSerializer(read_only=True)
@@ -266,8 +264,6 @@ class ReviewListSerializer(serializers.ModelSerializer):
 class ReviewDetailSerializer(serializers.ModelSerializer):
     """
     Detailed serializer for review.
-
-    UPDATED: Removed visit field - reviews are now independent of visits.
     """
 
     user = UserSerializer(read_only=True)
@@ -316,8 +312,6 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
 class ReviewCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating a review.
-
-    UPDATED: Reviews are now created per cafe (not per visit).
     One user can only have one review per cafe.
     """
 
@@ -698,7 +692,7 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
                     message = 'Visit created. You already have a review for this cafe.'
                 else:
                     # Create new review
-                    # Copy visit_time from Visit to Review for backward compatibility
+                    # Set visit_time on the review from the visit
                     review_data['visit_time'] = visit.visit_time
 
                     review = Review.objects.create(

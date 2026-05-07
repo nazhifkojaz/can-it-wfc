@@ -69,8 +69,6 @@ class VisitListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         """
         Get user's visits.
-
-        UPDATED: Removed select_related('review') - reviews are now independent of visits.
         """
         return Visit.objects.filter(user=self.request.user).select_related('cafe')
 

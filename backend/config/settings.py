@@ -37,7 +37,6 @@ INSTALLED_APPS = [
 
     # Third-party apps
     'rest_framework',
-    # Removed: 'rest_framework.authtoken' - Using JWT instead
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
