@@ -40,8 +40,6 @@ class Activity(models.Model):
     Visits are private and not distributed to followers.
     """
 
-    # === WHO SEES THIS ===
-    # Most important field - heavily indexed!
     recipient = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -50,7 +48,6 @@ class Activity(models.Model):
         help_text="User who sees this activity in their feed"
     )
 
-    # === WHO DID IT ===
     actor = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -58,7 +55,6 @@ class Activity(models.Model):
         help_text="User who performed the action"
     )
 
-    # === WHAT HAPPENED ===
     activity_type = models.CharField(
         max_length=20,
         choices=ActivityType.choices,
@@ -66,8 +62,6 @@ class Activity(models.Model):
         help_text="Type of activity"
     )
 
-    # === WHAT IT'S ABOUT (Polymorphic) ===
-    # Points to Visit, Review, or Follow object
     target_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
@@ -82,9 +76,6 @@ class Activity(models.Model):
     )
     target = GenericForeignKey('target_content_type', 'target_object_id')
 
-    # === DENORMALIZED DATA ===
-    # Store everything needed to display the activity
-    # Avoids expensive joins when rendering feed
     data = models.JSONField(
         default=dict,
         help_text="Denormalized data: cafe_name, rating, comment, actor info, etc."
@@ -104,7 +95,6 @@ class Activity(models.Model):
     #   "currency": "USD"
     # }
 
-    # === METADATA ===
     created_at = models.DateTimeField(
         auto_now_add=True,
         db_index=True,
@@ -125,8 +115,6 @@ class Activity(models.Model):
         verbose_name_plural = 'Activities'
         ordering = ['-created_at']
 
-        # === CRITICAL INDEXES ===
-        # These make queries fast even with millions of records
         indexes = [
             # Primary feed query: Get user's feed ordered by date
             # This is THE MOST IMPORTANT index
