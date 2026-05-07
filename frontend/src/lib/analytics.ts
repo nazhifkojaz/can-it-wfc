@@ -10,10 +10,6 @@
 
 import { posthog } from './posthog';
 
-// ============================================================================
-// AUTH EVENTS (Critical)
-// ============================================================================
-
 /**
  * Track when a user completes registration.
  * @param method - 'email' for email/password, 'google' for Google OAuth
@@ -36,10 +32,6 @@ export const trackUserLoggedIn = (method: 'email' | 'google') => {
 export const trackUserLoggedOut = () => {
   posthog.capture('user_logged_out');
 };
-
-// ============================================================================
-// CAFE EVENTS (Critical)
-// ============================================================================
 
 type CafeViewSource =
   | 'map_marker'
@@ -70,10 +62,6 @@ export const trackCafeViewed = (props: {
     distance_km: props.distanceKm,
   });
 };
-
-// ============================================================================
-// VISIT EVENTS (Critical)
-// ============================================================================
 
 type VisitTimeLabel = 'morning' | 'afternoon' | 'evening';
 
@@ -113,10 +101,6 @@ export const trackVisitDeleted = (props: {
     cafe_name: props.cafeName,
   });
 };
-
-// ============================================================================
-// REVIEW EVENTS (Critical)
-// ============================================================================
 
 type ReviewSource = 'visit_modal' | 'standalone';
 
@@ -180,10 +164,6 @@ export const trackReviewDeleted = (props: {
   });
 };
 
-// ============================================================================
-// SEARCH & DISCOVERY EVENTS (High Priority)
-// ============================================================================
-
 type SearchResultType = 'wfc' | 'google';
 
 /**
@@ -232,10 +212,6 @@ export const trackMapAreaSearched = (props: {
   });
 };
 
-// ============================================================================
-// FAVORITE EVENTS (High Priority)
-// ============================================================================
-
 type FavoriteSource = 'detail_sheet' | 'favorites_panel';
 
 /**
@@ -265,10 +241,6 @@ export const trackCafeUnfavorited = (props: {
   });
 };
 
-// ============================================================================
-// DIRECTIONS EVENTS (High Priority)
-// ============================================================================
-
 /**
  * Track when a user clicks "Get Directions" button.
  * Strongest real-world conversion signal - user intends to physically visit.
@@ -284,10 +256,6 @@ export const trackDirectionsClicked = (props: {
     distance_km: props.distanceKm,
   });
 };
-
-// ============================================================================
-// SOCIAL EVENTS (High Priority)
-// ============================================================================
 
 type FollowSource =
   | 'user_profile_modal'
@@ -338,10 +306,6 @@ export const trackUserProfileViewed = (props: {
   });
 };
 
-// ============================================================================
-// REVIEW HELPFUL EVENTS (High Priority)
-// ============================================================================
-
 /**
  * Track when a user marks a review as helpful/unhelpful.
  */
@@ -372,10 +336,6 @@ export const trackReviewFlagged = (props: {
   });
 };
 
-// ============================================================================
-// UX EVENTS (Medium Priority)
-// ============================================================================
-
 export type ViewMode = 'map' | 'list';
 
 /**
@@ -401,10 +361,6 @@ export const trackListSorted = (props: {
     sort_by: props.sortBy,
   });
 };
-
-// ============================================================================
-// PANEL EVENTS (Medium Priority)
-// ============================================================================
 
 type PanelType = 'activity' | 'profile' | 'user_profile';
 
@@ -432,10 +388,6 @@ export const trackProfileTabViewed = (props: {
   });
 };
 
-// ============================================================================
-// ACTIVITY FEED EVENTS (Medium Priority)
-// ============================================================================
-
 type AnalyticsActivityCategory = 'review' | 'visit' | 'follow';
 type ActivityAction = 'view_cafe' | 'view_profile';
 
@@ -448,10 +400,6 @@ export const trackActivityItemClicked = (props: {
     action_taken: props.actionTaken,
   });
 };
-
-// ============================================================================
-// CAFE FLAGGING EVENTS (Medium Priority)
-// ============================================================================
 
 type CafeFlagReason =
   | 'not_cafe'
@@ -472,10 +420,6 @@ export const trackCafeFlagged = (props: {
   });
 };
 
-// ============================================================================
-// LOCATION PERMISSION EVENTS (Medium Priority)
-// ============================================================================
-
 /**
  * Track when a user responds to browser geolocation prompt.
  */
@@ -489,10 +433,6 @@ export const trackLocationPermissionResponded = (props: {
   });
 };
 
-// ============================================================================
-// USERNAME SETUP EVENTS (Low Priority)
-// ============================================================================
-
 type UsernameSetupAction = 'set_username' | 'skipped';
 
 /**
@@ -505,10 +445,6 @@ export const trackUsernameSetupCompleted = (props: {
     action: props.action,
   });
 };
-
-// ============================================================================
-// SETTINGS EVENTS (Low Priority)
-// ============================================================================
 
 type PrivacySetting = 'profile_visibility' | 'anonymous_display' | 'activity_visibility';
 
@@ -531,10 +467,6 @@ export const trackPrivacySettingsChanged = (props: {
 export const trackPasswordChanged = () => {
   posthog.capture('password_changed');
 };
-
-// ============================================================================
-// GOOGLE RATING EVENTS (Low Priority)
-// ============================================================================
 
 /**
  * Track when a user clicks "Refresh" on stale Google rating.

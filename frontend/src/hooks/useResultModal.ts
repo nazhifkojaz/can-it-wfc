@@ -42,30 +42,6 @@ export interface UseResultModalReturn {
   showError: (title: string, error: unknown, options?: Partial<Pick<ShowResultModalOptions, 'details'>>) => void;
 }
 
-/**
- * Hook for managing ResultModal state
- *
- * @example
- * const resultModal = useResultModal();
- *
- * // Show success
- * resultModal.showResultModal({
- *   type: 'success',
- *   title: 'Success!',
- *   message: 'Operation completed successfully.',
- * });
- *
- * // Show error with retry
- * resultModal.showResultModal({
- *   type: 'error',
- *   title: 'Failed',
- *   message: error.message,
- *   primaryButton: {
- *     label: 'Try Again',
- *     onClick: () => { retry(); resultModal.closeResultModal(); }
- *   }
- * });
- */
 export const useResultModal = (): UseResultModalReturn => {
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState<ResultType>('info');

@@ -1,7 +1,3 @@
-// ===========================
-// User Types
-// ===========================
-
 export interface UserBase {
   id: number;
   username: string;
@@ -30,20 +26,12 @@ export interface UserUpdate {
   is_anonymous_display?: boolean;
 }
 
-// ===========================
-// API Response Types
-// ===========================
-
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
   previous: string | null;
   results: T[];
 }
-
-// ===========================
-// User Settings & Profile Types (Phase 1: Social Features)
-// ===========================
 
 export interface UserSettings {
   profile_visibility: 'public' | 'private';
@@ -139,10 +127,6 @@ export interface FollowUser extends UserBase {
   total_reviews: number;
   is_following?: boolean;
 }
-
-// ===========================
-// Cafe Types
-// ===========================
 
 export interface AverageRatings {
   wifi_quality: number;
@@ -244,10 +228,6 @@ export interface NearbyCafesResponse {
   results: Cafe[];
 }
 
-// ===========================
-// Visit Types
-// ===========================
-
 export interface Visit {
   id: number;  // Backend uses integer ID, not UUID
   cafe: Cafe;
@@ -316,10 +296,6 @@ export interface CombinedVisitReviewCreate {
   comment?: string;
 }
 
-// ===========================
-// Review Types
-// ===========================
-
 export interface ReviewContent {
   wifi_quality: number;
   power_outlets_rating?: number;
@@ -357,10 +333,6 @@ export interface ReviewCreate extends ReviewContent {
 
 export interface ReviewUpdate extends Partial<ReviewContent> {}
 
-// ===========================
-// Lists / Collections Types
-// ===========================
-
 export type {
   CafeList,
   CafeListItem,
@@ -369,10 +341,6 @@ export type {
   CafeListCreate,
   CafeListUpdate,
 } from './lists';
-
-// ===========================
-// Search Types
-// ===========================
 
 export interface SearchResult {
   google_place_id: string;
@@ -390,7 +358,4 @@ export interface SearchResult {
   source: 'google';
   result_type: 'cafe' | 'location';
 }
-
-
-
 

@@ -1,21 +1,7 @@
 /**
- * Centralized logging utility for the frontend.
- *
- * Features:
- * - Environment-aware: Full output in dev, errors/warnings only in prod
- * - Sensitive data redaction: Automatically hides passwords, tokens, etc.
- * - Scoped loggers: Create component-specific loggers for better tracing
- *
- * Usage:
- *   import { logger, createLogger } from '@/utils/logger';
- *
- *   // Global logger
- *   logger.info('Something happened');
- *   logger.error('Failed to load', error);
- *
- *   // Scoped logger for a component/module
- *   const log = createLogger('AuthContext');
- *   log.info('User logged in', { userId: 123 });
+ * Centralized logging utility.
+ * Environment-aware: full output in dev, errors/warnings only in prod.
+ * Automatically redacts sensitive data (passwords, tokens, etc.).
  */
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';

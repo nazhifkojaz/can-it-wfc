@@ -44,18 +44,7 @@ const api: AxiosInstance = axios.create({
   withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
 });
 
-// ===========================
-// HTTP Helper Functions (MP-04)
-// Reduces boilerplate by wrapping common axios patterns
-// ===========================
-
-/**
- * Generic GET request helper
- * @param url - The endpoint URL
- * @param params - Query parameters
- * @param config - Additional axios config
- * @returns The response data
- */
+/** Generic GET request helper */
 const get = async <T>(
   url: string,
   params?: Record<string, any>,
@@ -65,13 +54,7 @@ const get = async <T>(
   return response.data;
 };
 
-/**
- * Generic POST request helper
- * @param url - The endpoint URL
- * @param data - Request body data
- * @param config - Additional axios config
- * @returns The response data
- */
+/** Generic POST request helper */
 const post = async <T>(
   url: string,
   data?: any,
@@ -81,13 +64,7 @@ const post = async <T>(
   return response.data;
 };
 
-/**
- * Generic PATCH request helper
- * @param url - The endpoint URL
- * @param data - Request body data
- * @param config - Additional axios config
- * @returns The response data
- */
+/** Generic PATCH request helper */
 const patch = async <T>(
   url: string,
   data?: any,
@@ -97,22 +74,12 @@ const patch = async <T>(
   return response.data;
 };
 
-/**
- * Generic DELETE request helper
- * @param url - The endpoint URL
- * @param config - Additional axios config
- */
+/** Generic DELETE request helper */
 const del = async (url: string, config?: AxiosRequestConfig): Promise<void> => {
   await api.delete(url, config);
 };
 
-/**
- * Paginated GET request helper
- * Automatically unwraps the `results` array from paginated responses
- * @param url - The endpoint URL
- * @param params - Query parameters
- * @returns The unwrapped results array
- */
+/** Paginated GET request helper — unwraps the results array */
 const getPaginated = async <T>(
   url: string,
   params?: Record<string, any>
@@ -121,10 +88,7 @@ const getPaginated = async <T>(
   return response.data.results;
 };
 
-/**
- * GET request with AbortSignal support
- * Useful for cancellable requests (e.g., search-as-you-type)
- */
+/** GET request with AbortSignal support for cancellable requests */
 const getWithSignal = async <T>(
   url: string,
   params?: Record<string, any>,
@@ -158,10 +122,6 @@ api.interceptors.response.use(
   }
 );
 
-// ===========================
-// Authentication API
-// ===========================
-
 export const authApi = {
   // Generic OAuth login (replaces googleLogin + password login)
   oauthLogin: async (
@@ -192,10 +152,6 @@ export const authApi = {
   updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
 
 };
-
-// ===========================
-// User API
-// ===========================
 
 export const userApi = {
   // Get user by ID
@@ -233,10 +189,6 @@ export const userApi = {
   // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
   getActivityFeed: (limit: number = 50) => get<ActivityFeedResponse>('/activity/feed/', { limit }),
 };
-
-// ===========================
-// Cafe API
-// ===========================
 
 export const cafeApi = {
   // Get nearby cafes (database only)
@@ -290,10 +242,6 @@ export const cafeApi = {
   //   return response.data;
   // },
 };
-
-// ===========================
-// Lists API
-// ===========================
 
 export const listApi = {
   // Lists CRUD
@@ -354,10 +302,6 @@ export const listApi = {
     get<CafeListMembership[]>(`/cafes/${cafeId}/my-lists/`),
 };
 
-// ===========================
-// Visit API
-// ===========================
-
 export const visitApi = {
   // Create new visit
   create: (data: VisitCreate) => post<Visit>('/visits/', data),
@@ -404,10 +348,6 @@ export const visitApi = {
   // Delete visit
   delete: (id: number) => del(`/visits/${id}/`),
 };
-
-// ===========================
-// Review API
-// ===========================
 
 export const reviewApi = {
   // Create new review
@@ -475,20 +415,9 @@ export const reviewApi = {
     }),
 };
 
-// ===========================
-// Export the axios instance for custom requests
-// ===========================
-
 export default api;
 
-// ===========================
-// Error Handler Utility
-// ===========================
-
-/**
- * Handle API error and return user-friendly message.
- * Uses centralized error extraction utility.
- */
+/** Handle API error and return user-friendly message */
 export const handleApiError = (error: any): string => {
   const apiError = extractApiError(error);
 
@@ -504,10 +433,7 @@ export const handleApiError = (error: any): string => {
   return apiError.message;
 };
 
-/**
- * Get full API error info (code, message, details).
- * Useful for programmatic error handling.
- */
+/** Get full API error info (code, message, details) */
 export const getApiError = (error: any): ApiError => {
   return extractApiError(error);
 };
