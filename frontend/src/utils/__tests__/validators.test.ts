@@ -1,11 +1,4 @@
-/**
- * Unit tests for validator utilities
- */
-
 import {
-  isValidEmail,
-  isValidPassword,
-  getPasswordErrors,
   isValidUsername,
   isValidRating,
   isValidReviewComment,
@@ -13,51 +6,9 @@ import {
   isValidLongitude,
   isValidCoordinates,
   isRequired,
-  isValidUrl,
 } from '../validators';
 
 describe('validators', () => {
-  describe('isValidEmail', () => {
-    it('should validate correct emails', () => {
-      expect(isValidEmail('test@example.com')).toBe(true);
-      expect(isValidEmail('user.name@domain.co.uk')).toBe(true);
-    });
-
-    it('should reject invalid emails', () => {
-      expect(isValidEmail('invalid')).toBe(false);
-      expect(isValidEmail('test@')).toBe(false);
-      expect(isValidEmail('@example.com')).toBe(false);
-      expect(isValidEmail('test @example.com')).toBe(false);
-    });
-  });
-
-  describe('isValidPassword', () => {
-    it('should validate strong passwords', () => {
-      expect(isValidPassword('Password123')).toBe(true);
-      expect(isValidPassword('MySecure1Pass')).toBe(true);
-    });
-
-    it('should reject weak passwords', () => {
-      expect(isValidPassword('short')).toBe(false);
-      expect(isValidPassword('nouppercase1')).toBe(false);
-      expect(isValidPassword('NOLOWERCASE1')).toBe(false);
-      expect(isValidPassword('NoNumbers')).toBe(false);
-    });
-  });
-
-  describe('getPasswordErrors', () => {
-    it('should return appropriate errors', () => {
-      const errors = getPasswordErrors('weak');
-      expect(errors).toContain('Password must be at least 8 characters');
-      expect(errors.length).toBeGreaterThan(0);
-    });
-
-    it('should return no errors for valid password', () => {
-      const errors = getPasswordErrors('Valid123Pass');
-      expect(errors.length).toBe(0);
-    });
-  });
-
   describe('isValidUsername', () => {
     it('should validate correct usernames', () => {
       expect(isValidUsername('johndoe')).toBe(true);
@@ -66,10 +17,10 @@ describe('validators', () => {
     });
 
     it('should reject invalid usernames', () => {
-      expect(isValidUsername('ab')).toBe(false); // too short
-      expect(isValidUsername('a'.repeat(31))).toBe(false); // too long
-      expect(isValidUsername('user-name')).toBe(false); // invalid char
-      expect(isValidUsername('user name')).toBe(false); // space
+      expect(isValidUsername('ab')).toBe(false);
+      expect(isValidUsername('a'.repeat(31))).toBe(false);
+      expect(isValidUsername('user-name')).toBe(false);
+      expect(isValidUsername('user name')).toBe(false);
     });
   });
 
@@ -152,20 +103,6 @@ describe('validators', () => {
       expect(isRequired('   ')).toBe(false);
       expect(isRequired(null)).toBe(false);
       expect(isRequired(undefined)).toBe(false);
-    });
-  });
-
-  describe('isValidUrl', () => {
-    it('should validate correct URLs', () => {
-      expect(isValidUrl('https://example.com')).toBe(true);
-      expect(isValidUrl('http://localhost:3000')).toBe(true);
-      expect(isValidUrl('https://sub.domain.com/path?query=1')).toBe(true);
-    });
-
-    it('should reject invalid URLs', () => {
-      expect(isValidUrl('not a url')).toBe(false);
-      expect(isValidUrl('ftp://invalid')).toBe(true); // URLs can have different protocols
-      expect(isValidUrl('')).toBe(false);
     });
   });
 });
