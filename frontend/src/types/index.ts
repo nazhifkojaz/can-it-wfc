@@ -183,6 +183,7 @@ export interface Cafe {
   updated_at?: string;  // Optional - null for unregistered cafes
   distance?: number | string;  // Numeric from API, string for backward compat
   my_lists_count?: number;     // How many of the user's lists contain this cafe
+  saved_by_count?: number;     // How many distinct users saved this cafe to any list
 
   // NEW: Registration status
   is_registered: boolean;  // true = in database, false = from Google Places only

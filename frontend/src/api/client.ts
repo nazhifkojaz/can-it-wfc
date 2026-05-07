@@ -311,11 +311,43 @@ export const listApi = {
   updateNote: (listId: number, cafeId: number, note: string) =>
     patch<CafeListItem>(`/lists/${listId}/items/${cafeId}/`, { note }),
 
-  // Default-list convenience (heart-button flow)
-  addToDefault: (cafeId: number) =>
-    post<CafeListItem>('/lists/default/items/', { cafe_id: cafeId }),
-  removeFromDefault: (cafeId: number) =>
-    del(`/lists/default/items/${cafeId}/`),
+  // Special-list convenience (bookmark-button flow)
+  addToToGo: (cafeId: number) =>
+    post<CafeListItem>('/lists/to-go/items/', { cafe_id: cafeId }),
+  removeFromToGo: (cafeId: number) =>
+    del(`/lists/to-go/items/${cafeId}/`),
+  addToFavorites: (cafeId: number) =>
+    post<CafeListItem>('/lists/favorites/items/', { cafe_id: cafeId }),
+  removeFromFavorites: (cafeId: number) =>
+    del(`/lists/favorites/items/${cafeId}/`),
+
+  // Auto-register an unregistered cafe and add it to a list
+  addItemWithRegistration: (
+    listId: number,
+    data: {
+      google_place_id: string;
+      cafe_name: string;
+      cafe_address: string;
+      cafe_latitude: string;
+      cafe_longitude: string;
+      note?: string;
+    }
+  ) => post<CafeListItem>(`/lists/${listId}/items/`, data),
+
+  addToToGoWithRegistration: (data: {
+    google_place_id: string;
+    cafe_name: string;
+    cafe_address: string;
+    cafe_latitude: string;
+    cafe_longitude: string;
+  }) => post<CafeListItem>('/lists/to-go/items/', data),
+  addToFavoritesWithRegistration: (data: {
+    google_place_id: string;
+    cafe_name: string;
+    cafe_address: string;
+    cafe_latitude: string;
+    cafe_longitude: string;
+  }) => post<CafeListItem>('/lists/favorites/items/', data),
 
   // Membership — powers the save-to-list popover state
   getCafeMemberships: (cafeId: number) =>
