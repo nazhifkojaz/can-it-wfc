@@ -7,9 +7,24 @@ from apps.core.constants import (
     GOOGLE_PLACE_DETAILS_TIMEOUT_SECONDS,
     MAX_AUTOCOMPLETE_PREDICTIONS
 )
+from apps.core.geo_utils import bounding_box_deltas
 from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)
+
+
+def get_cafes_in_bounding_box(latitude, longitude, radius_km, filter_data=None):
+    lat_delta, lon_delta = bounding_box_deltas(float(radius_km), latitude)
+    candidates = Cafe.objects.filter(
+        latitude__gte=latitude - lat_delta,
+        latitude__lte=latitude + lat_delta,
+        longitude__gte=longitude - lon_delta,
+        longitude__lte=longitude + lon_delta,
+    )
+    if filter_data:
+        from .views import apply_cafe_filters
+        candidates = apply_cafe_filters(candidates, filter_data)
+    return candidates
 
 
 class GooglePlacesService:

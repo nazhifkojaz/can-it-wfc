@@ -22,6 +22,12 @@ def is_own_profile(request, user) -> bool:
     )
 
 
+def check_is_following(request, user) -> bool:
+    if request and hasattr(request, 'user') and request.user.is_authenticated:
+        return Follow.objects.filter(follower=request.user, followed=user).exists()
+    return False
+
+
 def can_view_user_activity(viewer: User, target_user: User) -> bool:
     """
     Check if viewer can see target_user's activity based on privacy settings.
