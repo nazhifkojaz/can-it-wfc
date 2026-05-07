@@ -167,6 +167,19 @@
   box-shadow: 2px 2px 0 var(--neo-black);
 }
 
+.listCardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--neo-gray-100);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  color: var(--neo-black);
+  flex-shrink: 0;
+}
+
 .listCardInfo {
   flex: 1;
   min-width: 0;

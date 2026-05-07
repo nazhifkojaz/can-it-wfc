@@ -15,7 +15,8 @@ export const useCafeLists = (cafeId: number | undefined) => {
     staleTime: 30 * 1000,
   });
 
-  const isInDefaultList = memberships.find((m) => m.is_default)?.in_list ?? false;
+  const isInToGoList = memberships.find((m) => m.list_type === 'to_go')?.in_list ?? false;
+  const isInFavoritesList = memberships.find((m) => m.list_type === 'favorites')?.in_list ?? false;
 
   const invalidateAfterToggle = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.cafeMemberships(cafeId!) });
@@ -53,20 +54,45 @@ export const useCafeLists = (cafeId: number | undefined) => {
     onSuccess: invalidateAfterToggle,
   });
 
-  // Toggle a cafe in/out of the default list (heart-button flow)
-  const toggleDefaultMutation = useMutation<unknown, Error, boolean, ToggleListCtx>({
-    mutationFn: (inDefault) =>
-      inDefault
-        ? listApi.removeFromDefault(cafeId!)
-        : listApi.addToDefault(cafeId!),
-    onMutate: async (inDefault) => {
+  // Toggle a cafe in/out of the to-go list (bookmark-button flow)
+  const toggleToGoMutation = useMutation<unknown, Error, boolean, ToggleListCtx>({
+    mutationFn: (inToGo) =>
+      inToGo
+        ? listApi.removeFromToGo(cafeId!)
+        : listApi.addToToGo(cafeId!),
+    onMutate: async (inToGo) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.cafeMemberships(cafeId!) });
       const prev = queryClient.getQueryData<CafeListMembership[]>(
         queryKeys.cafeMemberships(cafeId!)
       );
       queryClient.setQueryData<CafeListMembership[]>(
         queryKeys.cafeMemberships(cafeId!),
-        (old) => old?.map((m) => (m.is_default ? { ...m, in_list: !inDefault } : m))
+        (old) => old?.map((m) => (m.list_type === 'to_go' ? { ...m, in_list: !inToGo } : m))
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev !== undefined) {
+        queryClient.setQueryData(queryKeys.cafeMemberships(cafeId!), ctx.prev);
+      }
+    },
+    onSuccess: invalidateAfterToggle,
+  });
+
+  // Toggle a cafe in/out of the favorites list
+  const toggleFavoritesMutation = useMutation<unknown, Error, boolean, ToggleListCtx>({
+    mutationFn: (inFavorites) =>
+      inFavorites
+        ? listApi.removeFromFavorites(cafeId!)
+        : listApi.addToFavorites(cafeId!),
+    onMutate: async (inFavorites) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.cafeMemberships(cafeId!) });
+      const prev = queryClient.getQueryData<CafeListMembership[]>(
+        queryKeys.cafeMemberships(cafeId!)
+      );
+      queryClient.setQueryData<CafeListMembership[]>(
+        queryKeys.cafeMemberships(cafeId!),
+        (old) => old?.map((m) => (m.list_type === 'favorites' ? { ...m, in_list: !inFavorites } : m))
       );
       return { prev };
     },
@@ -80,11 +106,16 @@ export const useCafeLists = (cafeId: number | undefined) => {
 
   return {
     memberships,
-    isInDefaultList,
+    isInToGoList,
+    isInFavoritesList,
     isLoading,
     toggleInList: (listId: number, inList: boolean) =>
       toggleInListMutation.mutateAsync({ listId, inList }),
-    toggleDefault: () => toggleDefaultMutation.mutateAsync(isInDefaultList),
-    isToggling: toggleInListMutation.isPending || toggleDefaultMutation.isPending,
+    toggleToGo: () => toggleToGoMutation.mutateAsync(isInToGoList),
+    toggleFavorites: () => toggleFavoritesMutation.mutateAsync(isInFavoritesList),
+    isToggling:
+      toggleInListMutation.isPending ||
+      toggleToGoMutation.isPending ||
+      toggleFavoritesMutation.isPending,
   };
 };

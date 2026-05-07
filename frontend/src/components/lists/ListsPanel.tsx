@@ -66,7 +66,7 @@ const ListsPanel: React.FC<ListsPanelProps> = ({ onCafeClick }) => {
         <EmptyState
           icon={<BookMarked size={48} />}
           title="No lists yet"
-          description='Save cafes to lists using the heart button on any cafe, or create a list above.'
+          description='Save cafes to lists using the bookmark button on any cafe, or create a list above.'
         />
       ) : (
         <div className={styles.container}>
