@@ -40,7 +40,7 @@ class CafeVisitValidationMixin:
         if cafe and visit_date:
             if Visit.objects.filter(user=user, cafe=cafe, visit_date=visit_date).exists():
                 raise serializers.ValidationError({
-                    'non_field_errors': [
+                    'visit_date': [
                         'You already logged a visit to this cafe on this date.'
                     ]
                 })
