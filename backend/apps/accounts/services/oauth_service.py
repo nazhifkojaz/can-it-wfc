@@ -78,7 +78,7 @@ def get_provider(name: str) -> OAuthProviderBase:
     return PROVIDERS[name]
 
 
-def authenticate_via_oauth(provider_name: str, token: str) -> tuple:
+def authenticate_via_oauth(provider_name: str, token: str) -> tuple[User, bool]:
     """
     Authenticate a user via OAuth. Returns (user, created) tuple.
 

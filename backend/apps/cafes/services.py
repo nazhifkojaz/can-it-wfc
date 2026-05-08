@@ -1,6 +1,6 @@
 import requests
 from django.conf import settings
-from typing import List, Dict, Optional
+from typing import Any
 from core.logging import get_logger
 from apps.core.constants import (
     GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS,
@@ -38,7 +38,7 @@ class GooglePlacesService:
         longitude: float,
         radius_meters: int = 1000,
         keyword: str = ""
-    ) -> List[Dict]:
+    ) -> list[dict[str, Any]]:
         """
         Search for coffee shops near a location using Google Places API.
         Uses distance-based ranking and pagination to get all nearby cafes.
@@ -127,8 +127,8 @@ class GooglePlacesService:
         latitude: float,
         longitude: float,
         radius_meters: int = 10000,
-        types: str = None
-    ) -> List[Dict]:
+        types: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Search using Autocomplete API for real-time search suggestions.
         Much cheaper than Text Search: $2.83/1k vs $32/1k.
@@ -212,7 +212,7 @@ class GooglePlacesService:
             return []
 
     @staticmethod
-    def get_place_details(place_id: str, fields: str = None) -> Optional[Dict]:
+    def get_place_details(place_id: str, fields: str | None = None) -> dict[str, Any] | None:
         """
         Get detailed information about a specific place.
 
@@ -259,9 +259,9 @@ class CafeService:
     @staticmethod
     def get_or_create_from_google(
         google_place_id: str,
-        cafe_data: dict,
+        cafe_data: dict[str, str],
         created_by
-    ) -> tuple:
+    ) -> tuple[Cafe, bool]:
         """
         Get existing cafe or create new one with complete Google Places data.
 
