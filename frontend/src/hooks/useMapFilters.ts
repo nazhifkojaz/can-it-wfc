@@ -46,11 +46,12 @@ export function useMapFilters() {
   // Clear a single filter immediately (from chip × button — applies right away)
   const clearOne = useCallback((key: keyof CafeFilters) => {
     setAppliedFilters(prev => {
+      type FilterRecord = Record<keyof CafeFilters, CafeFilters[keyof CafeFilters]>;
       const next = { ...prev };
       if (key in DEFAULT_FILTERS) {
-        (next as any)[key] = (DEFAULT_FILTERS as any)[key];
+        (next as FilterRecord)[key] = (DEFAULT_FILTERS as FilterRecord)[key];
       } else {
-        delete (next as any)[key];
+        delete (next as FilterRecord)[key];
       }
       setFiltersState(next);
       pushURL(next);

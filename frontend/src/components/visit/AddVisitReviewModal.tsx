@@ -417,9 +417,10 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       const apiError = extractApiError(error);
       logger.error('Error logging visit', apiError, 'AddVisitReviewModal');
 
-      // Log full error details for debugging
-      if ('response' in apiError && (apiError as any).response?.data) {
-        console.log('Full error response:', (apiError as any).response.data);
+      // Log full error details for debugging (use raw error, not extracted ApiError)
+      const rawError = error as { response?: { data?: unknown } };
+      if (rawError.response?.data) {
+        console.log('Full error response:', rawError.response.data);
       }
 
       let errorTitle = 'Failed to Log Visit';

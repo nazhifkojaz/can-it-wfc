@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listApi } from '../api/client';
 import { queryKeys } from '../config/queryKeys';
-import type { CafeListMembership } from '../types';
+import type { CafeListMembership, CafeListItem } from '../types';
 
 type ToggleListCtx = { prev: CafeListMembership[] | undefined };
 
@@ -26,7 +26,7 @@ export const useCafeLists = (cafeId: number | undefined) => {
 
   // Toggle a cafe in/out of a specific named list
   const toggleInListMutation = useMutation<
-    unknown,
+    void | CafeListItem,
     Error,
     { listId: number; inList: boolean },
     ToggleListCtx
@@ -55,7 +55,7 @@ export const useCafeLists = (cafeId: number | undefined) => {
   });
 
   // Toggle a cafe in/out of the to-go list (bookmark-button flow)
-  const toggleToGoMutation = useMutation<unknown, Error, boolean, ToggleListCtx>({
+  const toggleToGoMutation = useMutation<void | CafeListItem, Error, boolean, ToggleListCtx>({
     mutationFn: (inToGo) =>
       inToGo
         ? listApi.removeFromToGo(cafeId!)
@@ -80,7 +80,7 @@ export const useCafeLists = (cafeId: number | undefined) => {
   });
 
   // Toggle a cafe in/out of the favorites list
-  const toggleFavoritesMutation = useMutation<unknown, Error, boolean, ToggleListCtx>({
+  const toggleFavoritesMutation = useMutation<void | CafeListItem, Error, boolean, ToggleListCtx>({
     mutationFn: (inFavorites) =>
       inFavorites
         ? listApi.removeFromFavorites(cafeId!)

@@ -1,8 +1,10 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { visitApi } from '../api/client';
-import { VisitCreate, CombinedVisitReviewCreate } from '../types';
+import { Visit, VisitCreate, CombinedVisitReviewCreate, PaginatedResponse } from '../types';
 import { queryKeys } from '../config/queryKeys';
 import { extractApiError } from '../utils/errorUtils';
+
+type VisitsPageData = InfiniteData<PaginatedResponse<Visit>>;
 
 export const useVisits = () => {
   const queryClient = useQueryClient();
@@ -40,18 +42,18 @@ export const useVisits = () => {
 
       const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
 
-      queryClient.setQueryData(queryKeys.visitsList(), (old: any) => {
+      queryClient.setQueryData(queryKeys.visitsList(), (old: VisitsPageData | undefined) => {
         if (!old) return old;
 
         const optimisticVisit = {
           id: Date.now(),
           ...newVisit,
           created_at: new Date().toISOString(),
-        };
+        } as unknown as Visit;
 
         return {
           ...old,
-          pages: old.pages.map((page: any, index: number) => {
+          pages: old.pages.map((page, index) => {
             if (index === 0) {
               return {
                 ...page,
@@ -84,7 +86,7 @@ export const useVisits = () => {
 
       const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
 
-      queryClient.setQueryData(queryKeys.visitsList(), (old: any) => {
+      queryClient.setQueryData(queryKeys.visitsList(), (old: VisitsPageData | undefined) => {
         if (!old) return old;
 
         const optimisticVisit = {
@@ -94,11 +96,11 @@ export const useVisits = () => {
           amount_spent: newData.amount_spent,
           visit_time: newData.visit_time,
           created_at: new Date().toISOString(),
-        };
+        } as unknown as Visit;
 
         return {
           ...old,
-          pages: old.pages.map((page: any, index: number) => {
+          pages: old.pages.map((page, index) => {
             if (index === 0) {
               return {
                 ...page,
@@ -131,14 +133,14 @@ export const useVisits = () => {
 
       const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
 
-      queryClient.setQueryData(queryKeys.visitsList(), (old: any) => {
+      queryClient.setQueryData(queryKeys.visitsList(), (old: VisitsPageData | undefined) => {
         if (!old) return old;
 
         return {
           ...old,
-          pages: old.pages.map((page: any) => ({
+          pages: old.pages.map(page => ({
             ...page,
-            results: page.results.filter((visit: any) => visit.id !== visitId),
+            results: page.results.filter(visit => visit.id !== visitId),
           })),
         };
       });
