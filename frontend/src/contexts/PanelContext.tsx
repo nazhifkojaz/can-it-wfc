@@ -2,19 +2,20 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { trackPanelOpened } from '../lib/analytics';
 
 type Panel = 'activity' | 'profile' | 'userProfile';
+type PanelData = { username: string } | null;
 
 interface PanelContextType {
   activePanel: Panel | null;
-  showPanel: (panel: Panel, data?: any) => void;
+  showPanel: (panel: Panel, data?: PanelData) => void;
   hidePanel: () => void;
-  panelData: any; // For passing data to panels (e.g., username for userProfile)
+  panelData: PanelData;
 }
 
 const PanelContext = createContext<PanelContextType | undefined>(undefined);
 
 export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [activePanel, setActivePanel] = useState<Panel | null>(null);
-  const [panelData, setPanelData] = useState<any>(null);
+  const [panelData, setPanelData] = useState<PanelData>(null);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -59,7 +60,7 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
   }, [activePanel]);
 
-  const showPanel = (panel: Panel, data?: any) => {
+  const showPanel = (panel: Panel, data?: PanelData) => {
     // Only track if opening a different panel
     if (activePanel !== panel) {
       // Map panel types to analytics panel types

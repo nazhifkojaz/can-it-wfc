@@ -58,7 +58,7 @@ export function SearchOverlay({
     searchTimeoutRef.current = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const params: any = { q: query };
+        const params: { q: string; lat?: number; lon?: number } = { q: query };
         if (userLocation) {
           params.lat = userLocation.lat;
           params.lon = userLocation.lon;
