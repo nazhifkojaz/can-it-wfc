@@ -47,7 +47,7 @@ const api: AxiosInstance = axios.create({
 /** Generic GET request helper */
 const get = async <T>(
   url: string,
-  params?: Record<string, any>,
+  params?: object,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   const response = await api.get<T>(url, { ...config, params });
@@ -57,7 +57,7 @@ const get = async <T>(
 /** Generic POST request helper */
 const post = async <T>(
   url: string,
-  data?: any,
+  data?: object,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   const response = await api.post<T>(url, data, config);
@@ -67,7 +67,7 @@ const post = async <T>(
 /** Generic PATCH request helper */
 const patch = async <T>(
   url: string,
-  data?: any,
+  data?: object,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   const response = await api.patch<T>(url, data, config);
@@ -82,7 +82,7 @@ const del = async (url: string, config?: AxiosRequestConfig): Promise<void> => {
 /** Paginated GET request helper — unwraps the results array */
 const getPaginated = async <T>(
   url: string,
-  params?: Record<string, any>
+  params?: object
 ): Promise<T[]> => {
   const response = await api.get<PaginatedResponse<T>>(url, { params });
   return response.data.results;
@@ -91,7 +91,7 @@ const getPaginated = async <T>(
 /** GET request with AbortSignal support for cancellable requests */
 const getWithSignal = async <T>(
   url: string,
-  params?: Record<string, any>,
+  params?: object,
   signal?: AbortSignal
 ): Promise<T> => {
   const response = await api.get<T>(url, { params, signal });
@@ -418,7 +418,7 @@ export const reviewApi = {
 export default api;
 
 /** Handle API error and return user-friendly message */
-export const handleApiError = (error: any): string => {
+export const handleApiError = (error: unknown): string => {
   const apiError = extractApiError(error);
 
   // Log error details (logger handles dev/prod filtering)
@@ -434,6 +434,6 @@ export const handleApiError = (error: any): string => {
 };
 
 /** Get full API error info (code, message, details) */
-export const getApiError = (error: any): ApiError => {
+export const getApiError = (error: unknown): ApiError => {
   return extractApiError(error);
 };

@@ -102,7 +102,7 @@ const UserProfilePanel: React.FC = () => {
           const mergedActivity = mergeActivities(activityData.activity);
           setActivity(mergedActivity);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         const apiError = extractApiError(err);
         logger.error('Failed to load profile', err, 'UserProfilePanel');
         setError(apiError.message);

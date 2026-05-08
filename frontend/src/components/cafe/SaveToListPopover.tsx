@@ -143,7 +143,7 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
                     queryClient.invalidateQueries({ queryKey: ['cafes'] });
                     queryClient.invalidateQueries({ queryKey: ['lists'] });
                   } catch (err) {
-                    console.error('Failed to add to to-go:', extractApiError(err as any).message);
+                    console.error('Failed to add to to-go:', extractApiError(err).message);
                   }
                 } else {
                   await toggleToGo();

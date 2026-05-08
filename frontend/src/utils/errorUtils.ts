@@ -14,8 +14,14 @@ export interface ApiError {
  * Extract error information from API response.
  * Supports the standardized custom format and DRF's default error formats.
  */
-export function extractApiError(error: any): ApiError {
-  const response = error?.response;
+type ErrorLike = {
+  response?: { data?: Record<string, any>; status?: number };
+  message?: string;
+} | null | undefined;
+
+export function extractApiError(error: unknown): ApiError {
+  const err = error as ErrorLike;
+  const response = err?.response;
   const data = response?.data;
   const status = response?.status || null;
 
@@ -73,10 +79,10 @@ export function extractApiError(error: any): ApiError {
   }
 
   // Network errors
-  if (!response && error?.message) {
-    message = error.message === 'Network Error'
+  if (!response && err?.message) {
+    message = err.message === 'Network Error'
       ? 'Network error. Please check your connection.'
-      : error.message;
+      : err.message;
   }
 
   return {
@@ -90,17 +96,16 @@ export function extractApiError(error: any): ApiError {
 /**
  * Get field-specific error message.
  */
-export function getFieldError(error: any, fieldName: string): string | null {
+export function getFieldError(error: unknown, fieldName: string): string | null {
   const apiError = extractApiError(error);
 
-  // Standardized format: check details
   if (apiError.details?.[fieldName]) {
     const fieldErrors = apiError.details[fieldName];
     return Array.isArray(fieldErrors) ? fieldErrors[0] : fieldErrors;
   }
 
-  // Legacy format: check direct field access
-  const data = error?.response?.data;
+  const err = error as ErrorLike;
+  const data = err?.response?.data;
   if (data?.[fieldName]) {
     const fieldError = data[fieldName];
     return Array.isArray(fieldError) ? fieldError[0] : fieldError;

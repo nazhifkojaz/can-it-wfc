@@ -142,7 +142,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           }
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error submitting review', err, 'ReviewForm');
 
       // Check for field-specific errors first (e.g., duplicate review)
