@@ -4,11 +4,11 @@ Script to safely delete a test user and all related data.
 This handles foreign key constraints by deleting in the correct order.
 
 Usage:
-    python delete_test_user.py <email_or_username>
+    python scripts/delete_test_user.py <email_or_username>
 
 Example:
-    python delete_test_user.py test@gmail.com
-    python delete_test_user.py testuser123
+    python scripts/delete_test_user.py test@gmail.com
+    python scripts/delete_test_user.py testuser123
 """
 
 import sys
@@ -114,8 +114,8 @@ def delete_user(identifier):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python delete_test_user.py <email_or_username>")
-        print("Example: python delete_test_user.py test@gmail.com")
+        print("Usage: python scripts/delete_test_user.py <email_or_username>")
+        print("Example: python scripts/delete_test_user.py test@gmail.com")
         sys.exit(1)
 
     identifier = sys.argv[1]
