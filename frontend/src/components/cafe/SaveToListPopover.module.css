@@ -31,6 +31,17 @@
   background: var(--neo-gray-50);
 }
 
+.errorBanner {
+  padding: 8px 16px;
+  background: var(--neo-error-light, #fef2f2);
+  border-bottom: var(--neo-border-width-thin) solid var(--neo-error, #ef4444);
+  color: var(--neo-error, #ef4444);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: normal;
+  line-height: 1.4;
+}
+
 .listRows {
   max-height: 220px;
   overflow-y: auto;
@@ -216,4 +227,28 @@
   background: var(--neo-gray-100);
   transform: translate(-1px, -1px);
   box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.divider {
+  border-top: 1px solid var(--neo-gray-200);
+  margin: 4px 0;
+}
+
+.iconPicker {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.iconButton {
+  padding: 4px;
+  border: 2px solid var(--neo-black);
+  border-radius: 4px;
+  background: var(--neo-white);
+  cursor: pointer;
+}
+
+.iconButtonActive {
+  border-color: var(--neo-primary);
+  background: var(--neo-primary-light);
 }

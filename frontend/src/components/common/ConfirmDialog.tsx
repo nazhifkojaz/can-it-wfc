@@ -29,18 +29,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onCancel} title="">
       <div className={styles.container}>
-        {/* Icon */}
         <div className={`${styles.iconContainer} ${styles[variant]}`}>
           <AlertTriangle size={48} />
         </div>
 
-        {/* Title */}
         <h2 className={styles.title}>{title}</h2>
 
-        {/* Message */}
         <p className={styles.message}>{message}</p>
 
-        {/* Action buttons */}
         <div className={styles.actions}>
           <button
             className={styles.cancelButton}

@@ -5,7 +5,7 @@ from .views import (
     CafeListRetrieveUpdateDestroyView,
     CafeListItemCreateView,
     CafeListItemDetailView,
-    DefaultListItemView,
+    SpecialListItemView,
 )
 
 urlpatterns = [
@@ -17,7 +17,9 @@ urlpatterns = [
     path('<int:pk>/items/', CafeListItemCreateView.as_view(), name='list-item-create'),
     path('<int:pk>/items/<int:cafe_id>/', CafeListItemDetailView.as_view(), name='list-item-detail'),
 
-    # Default-list convenience endpoints (heart-button flow)
-    path('default/items/', DefaultListItemView.as_view(), name='default-list-item-create'),
-    path('default/items/<int:cafe_id>/', DefaultListItemView.as_view(), name='default-list-item-delete'),
+    # Special-list convenience endpoints (bookmark-button flow)
+    path('to-go/items/', SpecialListItemView.as_view(list_type='to-go'), name='to-go-list-item-create'),
+    path('to-go/items/<int:cafe_id>/', SpecialListItemView.as_view(list_type='to-go'), name='to-go-list-item-delete'),
+    path('favorites/items/', SpecialListItemView.as_view(list_type='favorites'), name='favorites-list-item-create'),
+    path('favorites/items/<int:cafe_id>/', SpecialListItemView.as_view(list_type='favorites'), name='favorites-list-item-delete'),
 ]

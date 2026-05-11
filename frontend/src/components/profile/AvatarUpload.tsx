@@ -92,13 +92,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       await authApi.updateProfile({ avatar_url: avatarUrl });
       onUploadSuccess(avatarUrl);
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Avatar Updated',
-        message: 'Your profile picture has been updated!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Avatar Updated', 'Your profile picture has been updated!');
 
       setPreview(null);
     } catch (error) {
@@ -138,19 +132,9 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
             await authApi.updateProfile({ avatar_url: '' });
             onUploadSuccess('');
 
-            resultModal.showResultModal({
-              type: 'success',
-              title: 'Avatar Removed',
-              message: 'Your profile picture has been removed.',
-              autoClose: true,
-              autoCloseDelay: 2000,
-            });
+            resultModal.showSuccess('Avatar Removed', 'Your profile picture has been removed.');
           } catch (error) {
-            resultModal.showResultModal({
-              type: 'error',
-              title: 'Remove Failed',
-              message: extractApiError(error).message,
-            });
+            resultModal.showError('Remove Failed', error);
           }
         },
       },

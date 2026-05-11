@@ -28,7 +28,7 @@ export const useCafes = (options?: UseCafesOptions) => {
         ordering: options?.ordering,
       });
       setCafes(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(extractApiError(err).message);
     } finally {
       setLoading(false);
@@ -52,7 +52,7 @@ export const useCafes = (options?: UseCafesOptions) => {
     try {
       const data = await cafeApi.search(query);
       setCafes(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(extractApiError(err).message);
     } finally {
       setLoading(false);

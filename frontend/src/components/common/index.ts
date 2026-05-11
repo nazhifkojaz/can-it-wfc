@@ -12,4 +12,5 @@ export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as ResultModal } from './ResultModal';
 export { default as SharedResultModal } from './SharedResultModal';
 export { default as StarRating } from './StarRating';
-export { default as FacilityToggle } from './FacilityToggle';
+export { default as FacilityCheckbox } from './FacilityCheckbox';
+export { default as Tooltip } from './Tooltip';

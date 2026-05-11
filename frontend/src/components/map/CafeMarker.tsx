@@ -231,7 +231,8 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
     prevProps.cafe.id === nextProps.cafe.id &&
     prevProps.cafe.updated_at === nextProps.cafe.updated_at &&
     prevProps.cafe.total_reviews === nextProps.cafe.total_reviews &&
-    prevProps.cafe.average_wfc_rating === nextProps.cafe.average_wfc_rating
+    prevProps.cafe.average_wfc_rating === nextProps.cafe.average_wfc_rating &&
+    prevProps.cafe.is_registered === nextProps.cafe.is_registered
   );
 });
 

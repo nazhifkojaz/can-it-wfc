@@ -27,7 +27,7 @@ const ActivityPanel: React.FC = () => {
       setError(null);
       const data = await userApi.getActivityFeed(50);
       setActivities(data.activities);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to load feed', err, 'ActivityPanel');
       setError('Failed to load your activity');
     } finally {

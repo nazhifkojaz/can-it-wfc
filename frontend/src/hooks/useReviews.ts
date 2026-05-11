@@ -1,8 +1,10 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { reviewApi } from '../api/client';
-import { ReviewUpdate } from '../types';
+import { Review, ReviewUpdate, PaginatedResponse } from '../types';
 import { queryKeys } from '../config/queryKeys';
 import { extractApiError } from '../utils/errorUtils';
+
+type ReviewsPageData = InfiniteData<PaginatedResponse<Review>>;
 
 export const useReviews = (cafeId?: number) => {
   const queryClient = useQueryClient();
@@ -44,7 +46,7 @@ export const useReviews = (cafeId?: number) => {
 
       const previousReviews = queryClient.getQueryData(queryKeys.reviewsList(cafeId));
 
-      queryClient.setQueryData(queryKeys.reviewsList(cafeId), (old: any) => {
+      queryClient.setQueryData(queryKeys.reviewsList(cafeId), (old: ReviewsPageData | undefined) => {
         if (!old) return old;
 
         const optimisticReview = {
@@ -58,11 +60,11 @@ export const useReviews = (cafeId?: number) => {
             username: 'You',
             display_name: 'You',
           },
-        };
+        } as unknown as Review;
 
         return {
           ...old,
-          pages: old.pages.map((page: any, index: number) => {
+          pages: old.pages.map((page, index) => {
             if (index === 0) {
               return {
                 ...page,
@@ -104,14 +106,14 @@ export const useReviews = (cafeId?: number) => {
 
       const previousReviews = queryClient.getQueryData(queryKeys.reviewsList(cafeId));
 
-      queryClient.setQueryData(queryKeys.reviewsList(cafeId), (old: any) => {
+      queryClient.setQueryData(queryKeys.reviewsList(cafeId), (old: ReviewsPageData | undefined) => {
         if (!old) return old;
 
         return {
           ...old,
-          pages: old.pages.map((page: any) => ({
+          pages: old.pages.map(page => ({
             ...page,
-            results: page.results.filter((review: any) => review.id !== reviewId),
+            results: page.results.filter(review => review.id !== reviewId),
           })),
         };
       });

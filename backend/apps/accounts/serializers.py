@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import UserSettings, Follow
-from .utils import is_own_profile
+from .utils import is_own_profile, check_is_following
 
 User = get_user_model()
 
@@ -244,14 +244,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return is_own_profile(request, obj)
 
     def get_is_following(self, obj):
-        """Check if current user is following this user."""
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return Follow.objects.filter(follower=request.user, followed=obj).exists()
-        return False
+        return check_is_following(self.context.get('request'), obj)
 
     def get_is_followed_by(self, obj):
-        """Check if this user is following current user."""
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return Follow.objects.filter(follower=obj, followed=request.user).exists()
@@ -330,8 +325,4 @@ class FollowUserSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_following(self, obj):
-        """Check if current user is following this user."""
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return Follow.objects.filter(follower=request.user, followed=obj).exists()
-        return False
+        return check_is_following(self.context.get('request'), obj)

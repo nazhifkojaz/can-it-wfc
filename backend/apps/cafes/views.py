@@ -9,7 +9,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
-from apps.core.constants import DEFAULT_LIST_NAME, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_USER, MAX_NEARBY_CAFES
+from apps.core.constants import DEFAULT_LIST_NAME, DEFAULT_TO_GO_NAME, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_USER, MAX_NEARBY_CAFES
+from .services import get_cafes_in_bounding_box
 from core.exceptions import (
     CafeNotFound,
     DefaultListCannotBeDeleted,
@@ -23,6 +24,8 @@ from core.permissions import IsOwnerOrReadOnly
 from .models import Cafe, CafeFlag, CafeList, CafeListItem
 from .serializers import (
     CafeDetailSerializer,
+    CafeFilterSerializer,
+    CafeInsightsSerializer,
     CafeListCreateSerializer,
     CafeListDetailSerializer,
     CafeListItemCreateSerializer,
@@ -42,6 +45,31 @@ from .services import GooglePlacesService
 from django.conf import settings
 
 logger = get_logger(__name__)
+
+
+def apply_cafe_filters(qs, filter_data):
+    """Apply WFC filter conditions to a Cafe queryset."""
+    if filter_data.get('hide_closed', True):
+        qs = qs.filter(is_closed=False)
+    if filter_data.get('min_wifi') is not None:
+        qs = qs.filter(avg_wifi_rating__gte=filter_data['min_wifi'])
+    if filter_data.get('max_noise') is not None:
+        qs = qs.filter(avg_noise_level__lte=filter_data['max_noise'])
+    if filter_data.get('min_power') is not None:
+        qs = qs.filter(avg_power_rating__gte=filter_data['min_power'])
+    if filter_data.get('min_seating') is not None:
+        qs = qs.filter(avg_seating_comfort__gte=filter_data['min_seating'])
+    if filter_data.get('min_wfc') is not None:
+        qs = qs.filter(average_wfc_rating__gte=filter_data['min_wfc'])
+    price = filter_data.get('price') or []
+    if price:
+        qs = qs.filter(price_range__in=price)
+    if filter_data.get('verified'):
+        qs = qs.filter(is_verified=True)
+    min_reviews = filter_data.get('min_reviews', 0)
+    if min_reviews and min_reviews > 0:
+        qs = qs.filter(total_reviews__gte=min_reviews)
+    return qs
 
 
 # Custom throttle classes for expensive Google Places API endpoints
@@ -86,7 +114,12 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsOwnerOrReadOnly]
 
     def get_queryset(self):
-        queryset = Cafe.objects.all()
+        queryset = Cafe.objects.all().annotate(
+            saved_by_count=Count(
+                'list_entries__cafe_list__owner',
+                distinct=True,
+            )
+        )
         if self.request.user.is_authenticated:
             queryset = queryset.annotate(
                 my_lists_count=Count(
@@ -108,6 +141,39 @@ class CafeDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.save()
 
 
+class CafeInsightsView(APIView):
+    """
+    Retrieve computed insights for a cafe.
+
+    GET /api/cafes/{id}/insights/
+
+    Returns aggregated visit + review data (ratings, spend, time-of-day patterns,
+    stickiness, google delta, etc.). Separate endpoint for snappy first paint
+    on the cafe detail sheet.
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
+
+    def get(self, request, pk):
+        try:
+            cafe = Cafe.objects.get(pk=pk)
+        except Cafe.DoesNotExist:
+            raise CafeNotFound()
+
+        from apps.core.constants import INSIGHTS_CACHE_VERSION
+        from apps.core.stats_utils import recompute_cafe_insights
+
+        if (
+            not cafe.insights_cache
+            or cafe.insights_cache_version != INSIGHTS_CACHE_VERSION
+        ):
+            recompute_cafe_insights(cafe)
+            cafe.refresh_from_db()
+
+        serializer = CafeInsightsSerializer(cafe)
+        return Response(serializer.data)
+
+
 class NearbyCafesView(APIView):
     """
     Find cafes near a location.
@@ -121,32 +187,25 @@ class NearbyCafesView(APIView):
         # Validate query parameters
         serializer = NearbyQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-        
+
+        filter_serializer = CafeFilterSerializer(data=request.query_params)
+        filter_serializer.is_valid(raise_exception=True)
+        filter_data = filter_serializer.validated_data
+
         # Get parameters
         latitude = serializer.validated_data['latitude']
         longitude = serializer.validated_data['longitude']
         radius_km = serializer.validated_data.get('radius_km', 1)
         limit = serializer.validated_data.get('limit', 100)
-        
-        # Pre-filter with bounding box before Haversine calculation
-        # ~111km per degree of latitude; longitude shrinks with cos(lat)
-        radius_float = float(radius_km)
-        lat_delta = Decimal(str(radius_float / 111.0))
-        lon_delta = Decimal(str(radius_float / (111.0 * math.cos(math.radians(float(latitude))))))
 
-        candidates = Cafe.objects.filter(
-            is_closed=False,
-            latitude__gte=latitude - lat_delta,
-            latitude__lte=latitude + lat_delta,
-            longitude__gte=longitude - lon_delta,
-            longitude__lte=longitude + lon_delta,
-        )
+        # Pre-filter with bounding box before Haversine calculation
+        candidates = get_cafes_in_bounding_box(latitude, longitude, radius_km, filter_data)
 
         # Calculate exact Haversine distances on the pre-filtered set
         nearby_cafes = []
         for cafe in candidates:
             distance = cafe.distance_to(latitude, longitude)
-            if distance <= radius_float:
+            if distance <= float(radius_km):
                 cafe.distance = distance
                 nearby_cafes.append(cafe)
 
@@ -238,10 +297,71 @@ class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         cafe_list = self.get_object()
-        if cafe_list.is_default:
+        if cafe_list.list_type != 'custom':
             raise DefaultListCannotBeDeleted()
         cafe_list.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _get_or_create_cafe_from_request(serializer, user):
+    """
+    Resolve a cafe from the request data.
+
+    If `cafe_id` is provided, returns the existing cafe.
+    If Google Places data is provided, auto-registers the cafe first.
+    Raises ValidationError if insufficient data is provided.
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+
+    cafe_id = serializer.validated_data.get('cafe_id')
+    if cafe_id:
+        try:
+            return Cafe.objects.get(pk=cafe_id)
+        except Cafe.DoesNotExist:
+            raise CafeNotFound()
+
+    # Auto-registration path
+    google_place_id = serializer.validated_data.get('google_place_id')
+    if not google_place_id:
+        raise ValidationError({'cafe_id': 'Either cafe_id or google_place_id is required.'})
+
+    cafe_name = serializer.validated_data.get('cafe_name')
+    cafe_address = serializer.validated_data.get('cafe_address')
+    cafe_latitude = serializer.validated_data.get('cafe_latitude')
+    cafe_longitude = serializer.validated_data.get('cafe_longitude')
+
+    if not all([cafe_name, cafe_address, cafe_latitude, cafe_longitude]):
+        raise ValidationError({
+            'cafe_name': 'Required when auto-registering.',
+            'cafe_address': 'Required when auto-registering.',
+            'cafe_latitude': 'Required when auto-registering.',
+            'cafe_longitude': 'Required when auto-registering.',
+        })
+
+    # Round to model precision (8 decimal places) to avoid DecimalField
+    # validation errors on high-precision Google Places coordinates.
+    try:
+        lat = Decimal(cafe_latitude).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
+        lng = Decimal(cafe_longitude).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
+    except Exception:
+        raise ValidationError({
+            'cafe_latitude': 'Invalid coordinate format.',
+            'cafe_longitude': 'Invalid coordinate format.',
+        })
+
+    from .services import CafeService
+    cafe_data = {
+        'name': cafe_name,
+        'address': cafe_address,
+        'latitude': lat,
+        'longitude': lng,
+    }
+    cafe, _ = CafeService.get_or_create_from_google(
+        google_place_id=google_place_id,
+        cafe_data=cafe_data,
+        created_by=user,
+    )
+    return cafe
 
 
 class CafeListItemCreateView(APIView):
@@ -258,13 +378,8 @@ class CafeListItemCreateView(APIView):
         serializer = CafeListItemCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cafe_id = serializer.validated_data['cafe_id']
+        cafe = _get_or_create_cafe_from_request(serializer, request.user)
         note = serializer.validated_data.get('note', '')
-
-        try:
-            cafe = Cafe.objects.get(pk=cafe_id)
-        except Cafe.DoesNotExist:
-            raise CafeNotFound()
 
         # Idempotent: if already in list, return the existing item
         item, created = CafeListItem.objects.get_or_create(
@@ -317,34 +432,46 @@ class CafeListItemDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class DefaultListItemView(APIView):
+class SpecialListItemView(APIView):
     """
-    POST   /api/lists/default/items/           — add cafe to default list
-    DELETE /api/lists/default/items/<cafe_id>/ — remove cafe from default list
+    POST   /api/lists/<list_type>/items/           — add cafe to special list
+    DELETE /api/lists/<list_type>/items/<cafe_id>/ — remove cafe from special list
+
+    Supports 'to-go' and 'favorites' list types.
+    list_type is passed via as_view(list_type='...') in URL conf.
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    list_type: str = ''  # Set via as_view(list_type='...')
 
-    def _get_default_list(self, user):
-        # get_or_create guards against users who slipped through the signup signal
+    def _get_special_list(self, user):
+        """Get or create a special list (to-go or favorites) for a user."""
+        list_type = self._db_list_type
+        defaults = {'name': DEFAULT_TO_GO_NAME if list_type == 'to_go' else DEFAULT_LIST_NAME}
+        defaults['icon'] = 'bookmark' if list_type == 'to_go' else 'heart'
         cafe_list, _ = CafeList.objects.get_or_create(
             owner=user,
-            is_default=True,
-            defaults={'name': DEFAULT_LIST_NAME},
+            list_type=list_type,
+            defaults=defaults,
         )
         return cafe_list
 
+    @property
+    def _db_list_type(self):
+        """Return the DB list_type (to_go or favorites) from initkwargs."""
+        raw = getattr(self, 'list_type', '')
+        if raw == 'to-go':
+            return 'to_go'
+        if raw == 'favorites':
+            return 'favorites'
+        raise ValidationError({'list_type': 'Must be "to-go" or "favorites".'})
+
     def post(self, request):
-        cafe_id = request.data.get('cafe_id')
-        if not cafe_id:
-            raise ValidationError({'cafe_id': 'This field is required.'})
+        serializer = CafeListItemCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            cafe = Cafe.objects.get(pk=cafe_id)
-        except Cafe.DoesNotExist:
-            raise CafeNotFound()
-
-        cafe_list = self._get_default_list(request.user)
+        cafe = _get_or_create_cafe_from_request(serializer, request.user)
+        cafe_list = self._get_special_list(request.user)
 
         item, created = CafeListItem.objects.get_or_create(
             cafe_list=cafe_list,
@@ -362,11 +489,12 @@ class DefaultListItemView(APIView):
         )
 
     def delete(self, request, cafe_id):
-        cafe_list = self._get_default_list(request.user)
+        cafe_list = self._get_special_list(request.user)
         try:
             item = CafeListItem.objects.get(cafe_list=cafe_list, cafe_id=cafe_id)
         except CafeListItem.DoesNotExist:
-            raise NotFound(detail='Cafe not found in default list.')
+            list_label = 'to-go' if self._db_list_type == 'to_go' else 'favorites'
+            raise NotFound(detail=f'Cafe not found in {list_label} list.')
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -389,6 +517,8 @@ class CafeMembershipView(APIView):
             {
                 'id': lst.id,
                 'name': lst.name,
+                'list_type': lst.list_type,
+                'icon': lst.icon,
                 'is_default': lst.is_default,
                 'in_list': lst.in_list > 0,
             }
@@ -414,11 +544,17 @@ class MergedNearbyCafesView(APIView):
     def get(self, request):
         """Main endpoint handler - orchestrates the nearby cafes search."""
         params = self._validate_and_extract_params(request)
+        filter_data = self._parse_filters(request)
         google_places = self._fetch_google_places(params)
-        registered_map = self._get_registered_cafes_map(google_places)
-        enriched = self._enrich_and_filter_results(google_places, registered_map, params)
+        registered_map, all_registered_ids = self._get_registered_cafes_map(google_places, filter_data)
+        enriched = self._enrich_and_filter_results(google_places, registered_map, all_registered_ids, params, filter_data)
         sorted_results = self._sort_and_limit(enriched, params['limit'])
         return self._build_response(sorted_results)
+
+    def _parse_filters(self, request):
+        serializer = CafeFilterSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
 
     def _validate_and_extract_params(self, request):
         """Validate query parameters and extract search configuration."""
@@ -452,11 +588,15 @@ class MergedNearbyCafesView(APIView):
             logger.warning(f"Google Places API error: {e}")
             return []
 
-    def _get_registered_cafes_map(self, google_places):
+    def _get_registered_cafes_map(self, google_places, filter_data):
         """
         Look up which Google Places are registered in our database.
 
-        Returns a dict mapping google_place_id -> cafe data for O(1) enrichment.
+        Returns:
+          registered_map: google_place_id -> cafe data for cafes that PASS filters
+          all_registered_ids: set of all registered google_place_ids (regardless of filters)
+                              used to prevent filtered-out registered cafes from appearing
+                              as unregistered markers
         """
         google_place_ids = [
             p['google_place_id']
@@ -465,18 +605,19 @@ class MergedNearbyCafesView(APIView):
         ]
 
         if not google_place_ids:
-            return {}
+            return {}, set()
 
-        db_cafes = Cafe.objects.filter(
-            google_place_id__in=google_place_ids,
-            is_closed=False
-        ).select_related('created_by').values(
+        base_qs = Cafe.objects.filter(google_place_id__in=google_place_ids)
+        all_registered_ids = set(base_qs.values_list('google_place_id', flat=True))
+
+        filtered_qs = apply_cafe_filters(base_qs, filter_data)
+        filtered_qs = filtered_qs.values(
             'id', 'google_place_id', 'name', 'latitude', 'longitude',
             'average_wfc_rating', 'total_reviews', 'total_visits', 'unique_visitors',
             'average_ratings_cache', 'facility_stats_cache', 'is_verified'
         )
 
-        return {cafe['google_place_id']: cafe for cafe in db_cafes}
+        return {cafe['google_place_id']: cafe for cafe in filtered_qs}, all_registered_ids
 
     def _get_filter_config(self):
         """Get keyword and type filters for unregistered cafes."""
@@ -532,19 +673,25 @@ class MergedNearbyCafesView(APIView):
         })
         return place
 
-    def _enrich_and_filter_results(self, google_places, registered_map, params):
+    def _enrich_and_filter_results(self, google_places, registered_map, all_registered_ids, params, filter_data):
         """Filter unregistered cafes and enrich all results with WFC/distance data."""
         allowed_keywords, allowed_types = self._get_filter_config()
+        include_unregistered = filter_data.get('include_unregistered', True)
         enriched_results = []
 
         for place in google_places:
             place_id = place.get('google_place_id')
 
             if place_id and place_id in registered_map:
-                # Registered cafe - enrich with WFC data
+                # Registered cafe that passed filters - enrich with WFC data
                 place = self._enrich_registered_place(place, registered_map[place_id])
+            elif place_id and place_id in all_registered_ids:
+                # Registered cafe that failed WFC filters - exclude entirely
+                continue
             else:
-                # Unregistered cafe - apply filters
+                # Truly unregistered (Google Places only)
+                if not include_unregistered:
+                    continue
                 if not self._should_include_unregistered(place, allowed_keywords, allowed_types):
                     continue
                 place = self._enrich_unregistered_place(place)
@@ -577,6 +724,34 @@ class MergedNearbyCafesView(APIView):
             'unregistered_count': len(results) - registered_count,
             'results': results
         })
+
+
+class CafeNearbyCountView(APIView):
+    """
+    Return the count of registered cafes matching WFC filters within a bounding box.
+    Used by the filter panel live match-count indicator.
+
+    GET /api/cafes/nearby/count/?latitude=...&longitude=...&radius_km=...&min_wifi=4&...
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
+
+    def get(self, request):
+        location_serializer = NearbyQuerySerializer(data=request.query_params)
+        location_serializer.is_valid(raise_exception=True)
+
+        filter_serializer = CafeFilterSerializer(data=request.query_params)
+        filter_serializer.is_valid(raise_exception=True)
+
+        latitude = location_serializer.validated_data['latitude']
+        longitude = location_serializer.validated_data['longitude']
+        radius_km = float(location_serializer.validated_data.get('radius_km', 1))
+
+        candidates = get_cafes_in_bounding_box(
+            latitude, longitude, radius_km, filter_serializer.validated_data
+        )
+
+        return Response({'count': candidates.count()})
 
 
 class CafeSearchView(APIView):

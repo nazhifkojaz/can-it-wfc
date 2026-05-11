@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.core.validators import MaxLengthValidator
 from core.logging import get_logger
-from .models import Cafe, CafeList, CafeListItem, CafeFlag
+from .models import Cafe, CafeFlag, CafeList, CafeListItem
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
 
@@ -109,6 +109,8 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
     facility_stats = serializers.SerializerMethodField()
     # Annotated by CafeDetailView.get_queryset for authenticated users; 0 for anon.
     my_lists_count = serializers.IntegerField(read_only=True, default=0)
+    # Annotated by CafeDetailView.get_queryset; count of distinct users who saved this cafe.
+    saved_by_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Cafe
@@ -131,6 +133,7 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'updated_at',
             'distance',
             'my_lists_count',
+            'saved_by_count',
             'is_registered',
             'source',
             'average_ratings',
@@ -251,8 +254,8 @@ class CafeListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['id', 'name', 'description', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'list_type', 'icon', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'list_type', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
 
 
 class CafeListItemSerializer(serializers.ModelSerializer):
@@ -280,7 +283,7 @@ class CafeListCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'icon']
 
 
 class CafeListUpdateSerializer(serializers.ModelSerializer):
@@ -288,15 +291,24 @@ class CafeListUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'icon']
         extra_kwargs = {'name': {'required': False}}
 
 
 class CafeListItemCreateSerializer(serializers.Serializer):
     """Write serializer for POST /api/lists/<id>/items/."""
 
-    cafe_id = serializers.IntegerField()
+    cafe_id = serializers.IntegerField(required=False)
     note = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+
+    # Fields for auto-registering an unregistered cafe from Google Places.
+    # Latitude/longitude are CharField to accept high-precision strings from
+    # Google Places; rounding to model precision happens in the view.
+    google_place_id = serializers.CharField(required=False, allow_blank=True)
+    cafe_name = serializers.CharField(required=False, allow_blank=True)
+    cafe_address = serializers.CharField(required=False, allow_blank=True)
+    cafe_latitude = serializers.CharField(required=False, allow_blank=True)
+    cafe_longitude = serializers.CharField(required=False, allow_blank=True)
 
 
 class CafeListItemNoteSerializer(serializers.ModelSerializer):
@@ -314,7 +326,7 @@ class CafeListMembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['id', 'name', 'is_default', 'in_list']
+        fields = ['id', 'name', 'list_type', 'icon', 'is_default', 'in_list']
 
 
 class CafeFlagCreateSerializer(serializers.ModelSerializer):
@@ -382,6 +394,32 @@ class CafeFlagSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CafeFilterSerializer(serializers.Serializer):
+    """Validates WFC filter query params for nearby/count endpoints."""
+
+    min_wifi = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    max_noise = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_power = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_seating = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_wfc = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    price = serializers.CharField(required=False, allow_blank=True)
+    hide_closed = serializers.BooleanField(required=False, default=True)
+    verified = serializers.BooleanField(required=False, default=False)
+    min_reviews = serializers.IntegerField(required=False, default=0, min_value=0)
+    include_unregistered = serializers.BooleanField(required=False, default=True)
+
+    def validate_price(self, value):
+        if not value:
+            return []
+        try:
+            prices = [int(p.strip()) for p in value.split(',') if p.strip()]
+            if not all(1 <= p <= 4 for p in prices):
+                raise serializers.ValidationError('Price values must be between 1 and 4.')
+            return prices
+        except ValueError:
+            raise serializers.ValidationError('Invalid price format. Expected comma-separated integers (e.g. "1,2").')
+
+
 class CafeSearchQuerySerializer(serializers.Serializer):
     """Serializer for validating query parameters in cafe search."""
     q = serializers.CharField(
@@ -418,3 +456,19 @@ class CafeSearchQuerySerializer(serializers.Serializer):
             'max_value': 'Limit cannot exceed 50'
         }
     )
+
+
+class CafeInsightsSerializer(serializers.Serializer):
+    """Serializer for cafe insights endpoint."""
+
+    cafe_id = serializers.IntegerField(source='id', read_only=True)
+    insights = serializers.SerializerMethodField()
+    computed_at = serializers.DateTimeField(source='insights_cache_computed_at', read_only=True)
+    exchange_rates = serializers.SerializerMethodField()
+
+    def get_insights(self, obj):
+        return obj.insights_cache
+
+    def get_exchange_rates(self, obj):
+        from apps.core.models import ExchangeRate
+        return ExchangeRate.get_all_rates()

@@ -167,6 +167,18 @@ class Review(models.Model):
         help_text="Does the cafe have a prayer room/musala? (null=don't know)"
     )
 
+    has_indoor_seating = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Does the cafe have indoor seating? (null=not observed)"
+    )
+
+    has_outdoor_seating = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Does the cafe have outdoor seating? (null=not observed)"
+    )
+
     # Overall WFC suitability (required)
     wfc_rating = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],

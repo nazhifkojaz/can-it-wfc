@@ -10,19 +10,14 @@ from .serializers import ActivitySerializer
 
 class ActivityFeedView(APIView):
     """
-    Get user's activity feed - NEW OPTIMIZED VERSION!
+    Get user's activity feed.
 
     GET /api/activity/feed/?limit=50
 
     Returns unified feed of:
-    - User's own activities (visits, reviews)
-    - Followed users' activities (visits, reviews)
+    - User's own activities (reviews)
+    - Followed users' activities (reviews)
     - Social activities (new followers, follows)
-
-    Performance: Single database query instead of 7 queries.
-    Query time: ~5-20ms (vs 200-500ms with old approach)
-
-    Response format matches old endpoint for backward compatibility.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -43,7 +38,6 @@ class ActivityFeedView(APIView):
         user = request.user
         limit = min(int(request.query_params.get('limit', 50)), 100)
 
-        # THE MAGIC - Single query instead of 7!
         activities = ActivityService.get_user_feed(user, limit=limit)
 
         # Serialize

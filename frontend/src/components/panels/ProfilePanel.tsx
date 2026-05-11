@@ -18,7 +18,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useResultModal, useVisits } from '../../hooks';
+import { useResultModal, useVisits, useFollowersModal, useProfileSettings } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -27,21 +27,20 @@ import CafeDetailSheet from '../cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
 import ListsPanel from '../lists/ListsPanel';
-import { authApi, reviewApi } from '../../api/client';
+import { reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { formatDate, formatRating } from '../../utils';
 import { CURRENCIES } from '../../utils/currency';
 import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
-import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
 import { logger } from '../../utils/logger';
-import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, trackProfileTabViewed, trackUserProfileViewed } from '../../lib/analytics';
+import { trackVisitDeleted, trackProfileTabViewed } from '../../lib/analytics';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
-  const { hidePanel, showPanel } = usePanel();
+  const { hidePanel } = usePanel();
   const { user, logout, updateUser } = useAuth();
   const resultModal = useResultModal();
 
@@ -49,20 +48,32 @@ const ProfilePanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'lists'>('visits');
 
   // Followers/Following modal state
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [followModalType, setFollowModalType] = useState<'followers' | 'following'>('followers');
+  const { openFollowersModal, followersModalProps } = useFollowersModal();
 
-  // Settings tab state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingDisplayName, setEditingDisplayName] = useState(false);
-  const [bio, setBio] = useState(user?.bio || '');
-  const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [isAnonymous, setIsAnonymous] = useState(user?.is_anonymous_display || false);
-  const [loading, setLoading] = useState(false);
-  const [savingDisplayName, setSavingDisplayName] = useState(false);
-  const [editingUsername, setEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState(user?.username || '');
-  const [savingUsername, setSavingUsername] = useState(false);
+  // Settings state and handlers
+  const {
+    bio,
+    setBio,
+    displayName,
+    setDisplayName,
+    isEditing,
+    setIsEditing,
+    editingDisplayName,
+    setEditingDisplayName,
+    isAnonymous,
+    loading,
+    savingDisplayName,
+    editingUsername,
+    setEditingUsername,
+    newUsername,
+    setNewUsername,
+    savingUsername,
+    handleSaveProfile,
+    handleSaveDisplayName,
+    handleUsernameUpdate,
+    handleAnonymousToggle,
+    handleLogout,
+  } = useProfileSettings({ user, updateUser, logout, resultModal });
 
   // Visits tab state and hooks
   const {
@@ -89,6 +100,7 @@ const ProfilePanel: React.FC = () => {
   const [editVisitTime, setEditVisitTime] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
+  const [hasReviewForDelete, setHasReviewForDelete] = useState<boolean | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
@@ -167,161 +179,6 @@ const ProfilePanel: React.FC = () => {
     );
   }
 
-  const handleSaveProfile = async () => {
-    try {
-      setLoading(true);
-      const updatedUser = await authApi.updateProfile({ bio, display_name: displayName });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-      setIsEditing(false);
-
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Profile Updated',
-        message: 'Your profile has been updated successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
-    } catch (error) {
-      const apiError = extractApiError(error);
-      const bioError = getFieldError(apiError, 'bio');
-      const displayNameError = getFieldError(apiError, 'display_name');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: displayNameError || bioError || apiError.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveDisplayName = async () => {
-    try {
-      setSavingDisplayName(true);
-      const updatedUser = await authApi.updateProfile({ display_name: displayName });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-      setEditingDisplayName(false);
-
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Display Name Updated',
-        message: 'Your display name has been updated successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
-    } catch (error) {
-      const apiError = extractApiError(error);
-      const displayNameError = getFieldError(apiError, 'display_name');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: displayNameError || apiError.message,
-      });
-    } finally {
-      setSavingDisplayName(false);
-    }
-  };
-
-  const handleUsernameUpdate = async () => {
-    // Validation
-    if (newUsername.length < 3) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Invalid Username',
-        message: 'Username must be at least 3 characters',
-      });
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Invalid Username',
-        message: 'Username can only contain letters, numbers, and underscores',
-      });
-      return;
-    }
-
-    if (newUsername === user?.username) {
-      setEditingUsername(false);
-      return;
-    }
-
-    try {
-      setSavingUsername(true);
-      const updatedUser = await authApi.updateProfile({ username: newUsername });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-      setEditingUsername(false);
-
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Username Updated',
-        message: 'Your username has been updated successfully!',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
-    } catch (error) {
-      const apiError = extractApiError(error);
-      const usernameError = getFieldError(apiError, 'username');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: usernameError || apiError.message,
-      });
-    } finally {
-      setSavingUsername(false);
-    }
-  };
-
-  const handleAnonymousToggle = async (checked: boolean) => {
-    // Optimistic update
-    setIsAnonymous(checked);
-
-    try {
-      const updatedUser = await authApi.updateProfile({
-        is_anonymous_display: checked
-      });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-
-      // Track analytics after successful update
-      trackPrivacySettingsChanged({
-        setting: 'anonymous_display',
-        newValue: checked,
-      });
-    } catch (error) {
-      // Revert on error
-      setIsAnonymous(!checked);
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: 'Failed to update privacy settings. Please try again.',
-      });
-    }
-  };
-
-  const handleLogout = () => {
-    resultModal.showResultModal({
-      type: 'warning',
-      title: 'Log Out',
-      message: 'Are you sure you want to log out?',
-      primaryButton: {
-        label: 'Log Out',
-        onClick: async () => {
-          trackUserLoggedOut();
-          await logout();  // Wait for logout to complete
-          resultModal.closeResultModal();
-        },
-      },
-      secondaryButton: {
-        label: 'Cancel',
-        onClick: () => resultModal.closeResultModal(),
-      },
-    });
-  };
 
   // Cafe-level review handlers
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {
@@ -362,26 +219,24 @@ const ProfilePanel: React.FC = () => {
       setEditingVisit(null);
       refetchVisits();
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Visit Updated!',
-        message: 'Your visit has been updated successfully.',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Visit Updated!', 'Your visit has been updated successfully.');
     } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Update Visit',
-        message: extractApiError(error).message,
-      });
+      resultModal.showError('Failed to Update Visit', error);
     }
   };
 
-  const handleDeleteClick = (visit: Visit, e: React.MouseEvent) => {
+  const handleDeleteClick = async (visit: Visit, e: React.MouseEvent) => {
     e.stopPropagation();
     setVisitToDelete(visit);
     setShowDeleteConfirm(true);
+
+    // Check if user has a review for this cafe
+    try {
+      const review = await reviewApi.getUserCafeReview(visit.cafe.id);
+      setHasReviewForDelete(!!review);
+    } catch {
+      setHasReviewForDelete(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -402,19 +257,9 @@ const ProfilePanel: React.FC = () => {
       setVisitToDelete(null);
       refetchVisits();
 
-      resultModal.showResultModal({
-        type: 'success',
-        title: 'Visit Deleted',
-        message: 'Your visit has been deleted successfully.',
-        autoClose: true,
-        autoCloseDelay: 2000,
-      });
+      resultModal.showSuccess('Visit Deleted', 'Your visit has been deleted successfully.');
     } catch (error) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Failed to Delete Visit',
-        message: extractApiError(error).message,
-      });
+      resultModal.showError('Failed to Delete Visit', error);
     } finally {
       setIsDeleting(false);
     }
@@ -460,13 +305,7 @@ const ProfilePanel: React.FC = () => {
 
     refetchVisits();
 
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Review Submitted!',
-      message: 'Your review has been submitted successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
+    resultModal.showSuccess('Review Submitted!', 'Your review has been submitted successfully.');
   };
 
   return (
@@ -601,10 +440,7 @@ const ProfilePanel: React.FC = () => {
       <div className="stats-section">
         <div
           className="stat-card clickable"
-          onClick={() => {
-            setFollowModalType('followers');
-            setShowFollowersModal(true);
-          }}
+          onClick={() => openFollowersModal('followers')}
         >
           <UserIcon size={24} />
           <div className="stat-info">
@@ -615,10 +451,7 @@ const ProfilePanel: React.FC = () => {
 
         <div
           className="stat-card clickable"
-          onClick={() => {
-            setFollowModalType('following');
-            setShowFollowersModal(true);
-          }}
+          onClick={() => openFollowersModal('following')}
         >
           <UserIcon size={24} />
           <div className="stat-info">
@@ -1026,7 +859,11 @@ const ProfilePanel: React.FC = () => {
           isOpen={showDeleteConfirm}
           title="Delete Visit?"
           message={
-            <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? Your review for this cafe will remain unchanged. This action cannot be undone.</>
+            hasReviewForDelete !== false ? (
+              <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? Your review for this cafe will remain unchanged and will stay public. This action cannot be undone.</>
+            ) : (
+              <>Are you sure you want to delete your visit to <span className="neo-highlight">{visitToDelete.cafe.name}</span>? This action cannot be undone.</>
+            )
           }
           confirmText="Delete"
           cancelText="Cancel"
@@ -1082,15 +919,8 @@ const ProfilePanel: React.FC = () => {
 
       {/* Followers/Following Modal */}
       <FollowersModal
-        isOpen={showFollowersModal}
-        onClose={() => setShowFollowersModal(false)}
+        {...followersModalProps}
         username={user?.username || ''}
-        type={followModalType}
-        onUserClick={(clickedUsername) => {
-          setShowFollowersModal(false);
-          trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
-          showPanel('userProfile', { username: clickedUsername });
-        }}
       />
     </div>
   );

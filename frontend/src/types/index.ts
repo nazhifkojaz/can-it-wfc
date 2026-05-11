@@ -1,7 +1,3 @@
-// ===========================
-// User Types
-// ===========================
-
 export interface UserBase {
   id: number;
   username: string;
@@ -30,20 +26,12 @@ export interface UserUpdate {
   is_anonymous_display?: boolean;
 }
 
-// ===========================
-// API Response Types
-// ===========================
-
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
   previous: string | null;
   results: T[];
 }
-
-// ===========================
-// User Settings & Profile Types (Phase 1: Social Features)
-// ===========================
 
 export interface UserSettings {
   profile_visibility: 'public' | 'private';
@@ -140,10 +128,6 @@ export interface FollowUser extends UserBase {
   is_following?: boolean;
 }
 
-// ===========================
-// Cafe Types
-// ===========================
-
 export interface AverageRatings {
   wifi_quality: number;
   power_outlets_rating: number;
@@ -153,17 +137,15 @@ export interface AverageRatings {
 }
 
 export interface FacilityOption {
-  yes: number;
-  no: number;
-  unknown: number;
-  yes_percentage: number;
-  no_percentage: number;
-  unknown_percentage: number;
+  mentions: number;
+  total_reviewers: number;
 }
 
 export interface FacilityStats {
   smoking_area: FacilityOption;
   prayer_room: FacilityOption;
+  indoor_seating: FacilityOption;
+  outdoor_seating: FacilityOption;
 }
 
 export interface Cafe {
@@ -185,6 +167,7 @@ export interface Cafe {
   updated_at?: string;  // Optional - null for unregistered cafes
   distance?: number | string;  // Numeric from API, string for backward compat
   my_lists_count?: number;     // How many of the user's lists contain this cafe
+  saved_by_count?: number;     // How many distinct users saved this cafe to any list
 
   // NEW: Registration status
   is_registered: boolean;  // true = in database, false = from Google Places only
@@ -226,6 +209,16 @@ export interface NearbyCafesParams {
   limit?: number;
   user_latitude?: number;
   user_longitude?: number;
+  // WFC filter params (see CafeFilters)
+  min_wifi?: number;
+  max_noise?: number;
+  min_power?: number;
+  min_seating?: number;
+  min_wfc?: number;
+  price?: string;        // comma-separated: "1,2"
+  hide_closed?: boolean;
+  verified?: boolean;
+  min_reviews?: number;
 }
 
 export interface NearbyCafesResponse {
@@ -234,10 +227,6 @@ export interface NearbyCafesResponse {
   unregistered_count: number;
   results: Cafe[];
 }
-
-// ===========================
-// Visit Types
-// ===========================
 
 export interface Visit {
   id: number;  // Backend uses integer ID, not UUID
@@ -302,12 +291,10 @@ export interface CombinedVisitReviewCreate {
   noise_level?: number;
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
+  has_indoor_seating?: boolean | null;
+  has_outdoor_seating?: boolean | null;
   comment?: string;
 }
-
-// ===========================
-// Review Types
-// ===========================
 
 export interface ReviewContent {
   wifi_quality: number;
@@ -316,6 +303,8 @@ export interface ReviewContent {
   seating_comfort: number;
   has_smoking_area?: boolean | null;
   has_prayer_room?: boolean | null;
+  has_indoor_seating?: boolean | null;
+  has_outdoor_seating?: boolean | null;
   wfc_rating?: number;
   visit_time: number;
   comment?: string;
@@ -344,10 +333,6 @@ export interface ReviewCreate extends ReviewContent {
 
 export interface ReviewUpdate extends Partial<ReviewContent> {}
 
-// ===========================
-// Lists / Collections Types
-// ===========================
-
 export type {
   CafeList,
   CafeListItem,
@@ -356,10 +341,6 @@ export type {
   CafeListCreate,
   CafeListUpdate,
 } from './lists';
-
-// ===========================
-// Search Types
-// ===========================
 
 export interface SearchResult {
   google_place_id: string;
@@ -377,7 +358,4 @@ export interface SearchResult {
   source: 'google';
   result_type: 'cafe' | 'location';
 }
-
-
-
 

@@ -1,0 +1,50 @@
+.strip {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  z-index: 430;
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--neo-white);
+  border-bottom: var(--neo-border-width-thin) solid var(--neo-black);
+  box-shadow: 0 2px 0 var(--neo-black);
+  scrollbar-width: none;
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 12px;
+  font-weight: var(--neo-font-bold, 700);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  transition: transform 0.1s, box-shadow 0.1s;
+  flex-shrink: 0;
+}
+
+.chip:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.chip:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}

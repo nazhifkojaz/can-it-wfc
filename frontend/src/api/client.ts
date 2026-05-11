@@ -26,6 +26,7 @@ import {
   CafeListCreate,
   CafeListUpdate,
 } from '../types';
+import { CafeInsightsResponse } from '../types/insights';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
@@ -43,90 +44,54 @@ const api: AxiosInstance = axios.create({
   withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
 });
 
-// ===========================
-// HTTP Helper Functions (MP-04)
-// Reduces boilerplate by wrapping common axios patterns
-// ===========================
-
-/**
- * Generic GET request helper
- * @param url - The endpoint URL
- * @param params - Query parameters
- * @param config - Additional axios config
- * @returns The response data
- */
+/** Generic GET request helper */
 const get = async <T>(
   url: string,
-  params?: Record<string, any>,
+  params?: object,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   const response = await api.get<T>(url, { ...config, params });
   return response.data;
 };
 
-/**
- * Generic POST request helper
- * @param url - The endpoint URL
- * @param data - Request body data
- * @param config - Additional axios config
- * @returns The response data
- */
+/** Generic POST request helper */
 const post = async <T>(
   url: string,
-  data?: any,
+  data?: object,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   const response = await api.post<T>(url, data, config);
   return response.data;
 };
 
-/**
- * Generic PATCH request helper
- * @param url - The endpoint URL
- * @param data - Request body data
- * @param config - Additional axios config
- * @returns The response data
- */
+/** Generic PATCH request helper */
 const patch = async <T>(
   url: string,
-  data?: any,
+  data?: object,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   const response = await api.patch<T>(url, data, config);
   return response.data;
 };
 
-/**
- * Generic DELETE request helper
- * @param url - The endpoint URL
- * @param config - Additional axios config
- */
+/** Generic DELETE request helper */
 const del = async (url: string, config?: AxiosRequestConfig): Promise<void> => {
   await api.delete(url, config);
 };
 
-/**
- * Paginated GET request helper
- * Automatically unwraps the `results` array from paginated responses
- * @param url - The endpoint URL
- * @param params - Query parameters
- * @returns The unwrapped results array
- */
+/** Paginated GET request helper — unwraps the results array */
 const getPaginated = async <T>(
   url: string,
-  params?: Record<string, any>
+  params?: object
 ): Promise<T[]> => {
   const response = await api.get<PaginatedResponse<T>>(url, { params });
   return response.data.results;
 };
 
-/**
- * GET request with AbortSignal support
- * Useful for cancellable requests (e.g., search-as-you-type)
- */
+/** GET request with AbortSignal support for cancellable requests */
 const getWithSignal = async <T>(
   url: string,
-  params?: Record<string, any>,
+  params?: object,
   signal?: AbortSignal
 ): Promise<T> => {
   const response = await api.get<T>(url, { params, signal });
@@ -156,10 +121,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// ===========================
-// Authentication API
-// ===========================
 
 export const authApi = {
   // Generic OAuth login (replaces googleLogin + password login)
@@ -191,10 +152,6 @@ export const authApi = {
   updateProfile: (data: UserUpdate) => patch<User>('/auth/me/', data),
 
 };
-
-// ===========================
-// User API
-// ===========================
 
 export const userApi = {
   // Get user by ID
@@ -233,10 +190,6 @@ export const userApi = {
   getActivityFeed: (limit: number = 50) => get<ActivityFeedResponse>('/activity/feed/', { limit }),
 };
 
-// ===========================
-// Cafe API
-// ===========================
-
 export const cafeApi = {
   // Get nearby cafes (database only)
   getNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
@@ -245,6 +198,10 @@ export const cafeApi = {
   // NEW: Get all nearby cafes (database + Google Places)
   getAllNearby: (params: NearbyCafesParams, signal?: AbortSignal) =>
     getWithSignal<NearbyCafesResponse>('/cafes/nearby/all/', params, signal),
+
+  // Count of registered cafes matching filters in area (for live match indicator)
+  getNearbyCount: (params: NearbyCafesParams, signal?: AbortSignal) =>
+    getWithSignal<{ count: number }>('/cafes/nearby/count/', params, signal),
 
   // Search cafes
   search: (query: string) => getPaginated<Cafe>('/cafes/', { search: query }),
@@ -274,6 +231,9 @@ export const cafeApi = {
       google_rating_updated_at: string | null;
     }>(`/cafes/${cafeId}/refresh-google-rating/`),
 
+  getInsights: (cafeId: number) =>
+    get<CafeInsightsResponse>(`/cafes/${cafeId}/insights/`),
+
   // Find potential duplicates (not implemented in backend API yet)
   // findDuplicates: async (name: string, latitude: number, longitude: number) => {
   //   const response = await api.get<Cafe[]>('/cafes/find_duplicates/', {
@@ -282,10 +242,6 @@ export const cafeApi = {
   //   return response.data;
   // },
 };
-
-// ===========================
-// Lists API
-// ===========================
 
 export const listApi = {
   // Lists CRUD
@@ -303,20 +259,48 @@ export const listApi = {
   updateNote: (listId: number, cafeId: number, note: string) =>
     patch<CafeListItem>(`/lists/${listId}/items/${cafeId}/`, { note }),
 
-  // Default-list convenience (heart-button flow)
-  addToDefault: (cafeId: number) =>
-    post<CafeListItem>('/lists/default/items/', { cafe_id: cafeId }),
-  removeFromDefault: (cafeId: number) =>
-    del(`/lists/default/items/${cafeId}/`),
+  // Special-list convenience (bookmark-button flow)
+  addToToGo: (cafeId: number) =>
+    post<CafeListItem>('/lists/to-go/items/', { cafe_id: cafeId }),
+  removeFromToGo: (cafeId: number) =>
+    del(`/lists/to-go/items/${cafeId}/`),
+  addToFavorites: (cafeId: number) =>
+    post<CafeListItem>('/lists/favorites/items/', { cafe_id: cafeId }),
+  removeFromFavorites: (cafeId: number) =>
+    del(`/lists/favorites/items/${cafeId}/`),
+
+  // Auto-register an unregistered cafe and add it to a list
+  addItemWithRegistration: (
+    listId: number,
+    data: {
+      google_place_id: string;
+      cafe_name: string;
+      cafe_address: string;
+      cafe_latitude: string;
+      cafe_longitude: string;
+      note?: string;
+    }
+  ) => post<CafeListItem>(`/lists/${listId}/items/`, data),
+
+  addToToGoWithRegistration: (data: {
+    google_place_id: string;
+    cafe_name: string;
+    cafe_address: string;
+    cafe_latitude: string;
+    cafe_longitude: string;
+  }) => post<CafeListItem>('/lists/to-go/items/', data),
+  addToFavoritesWithRegistration: (data: {
+    google_place_id: string;
+    cafe_name: string;
+    cafe_address: string;
+    cafe_latitude: string;
+    cafe_longitude: string;
+  }) => post<CafeListItem>('/lists/favorites/items/', data),
 
   // Membership — powers the save-to-list popover state
   getCafeMemberships: (cafeId: number) =>
     get<CafeListMembership[]>(`/cafes/${cafeId}/my-lists/`),
 };
-
-// ===========================
-// Visit API
-// ===========================
 
 export const visitApi = {
   // Create new visit
@@ -364,10 +348,6 @@ export const visitApi = {
   // Delete visit
   delete: (id: number) => del(`/visits/${id}/`),
 };
-
-// ===========================
-// Review API
-// ===========================
 
 export const reviewApi = {
   // Create new review
@@ -435,21 +415,10 @@ export const reviewApi = {
     }),
 };
 
-// ===========================
-// Export the axios instance for custom requests
-// ===========================
-
 export default api;
 
-// ===========================
-// Error Handler Utility
-// ===========================
-
-/**
- * Handle API error and return user-friendly message.
- * Uses centralized error extraction utility.
- */
-export const handleApiError = (error: any): string => {
+/** Handle API error and return user-friendly message */
+export const handleApiError = (error: unknown): string => {
   const apiError = extractApiError(error);
 
   // Log error details (logger handles dev/prod filtering)
@@ -464,10 +433,7 @@ export const handleApiError = (error: any): string => {
   return apiError.message;
 };
 
-/**
- * Get full API error info (code, message, details).
- * Useful for programmatic error handling.
- */
-export const getApiError = (error: any): ApiError => {
+/** Get full API error info (code, message, details) */
+export const getApiError = (error: unknown): ApiError => {
   return extractApiError(error);
 };

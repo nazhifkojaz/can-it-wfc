@@ -67,3 +67,63 @@ VISIT_TIME_CHOICES = [
 MAX_LISTS_PER_USER = 50
 MAX_ITEMS_PER_LIST = 500
 DEFAULT_LIST_NAME = "Favorites"
+DEFAULT_TO_GO_NAME = "to-go"
+
+# Icon choices for custom cafe lists (kept in sync with frontend Lucide icon names)
+LIST_ICON_CHOICES = [
+    ('bookmark', 'Bookmark'),
+    ('heart', 'Heart'),
+    ('coffee', 'Coffee'),
+    ('wifi', 'WiFi'),
+    ('star', 'Star'),
+    ('map-pin', 'Map Pin'),
+    ('briefcase', 'Briefcase'),
+    ('users', 'Users'),
+    ('moon', 'Moon'),
+    ('sun', 'Sun'),
+    ('music', 'Music'),
+    ('book-open', 'Book Open'),
+    ('camera', 'Camera'),
+    ('gift', 'Gift'),
+    ('home', 'Home'),
+    ('plane', 'Plane'),
+    ('zap', 'Zap'),
+]
+
+
+# ============================================================
+# CAFE INSIGHTS
+# ============================================================
+
+INSIGHTS_CACHE_VERSION = 5
+
+INSIGHTS_SAMPLE_THRESHOLDS = {
+    'COST_VISITS': 3,
+    'TIME_OF_DAY_RECORDS': 5,
+    'RATING_BY_TIME_PER_BUCKET': 3,
+    'RATING_BY_TIME_MIN_BUCKETS': 2,
+    'GOOGLE_DELTA_MIN': 0.5,
+    'RATING_DISTRIBUTION_MIN_REVIEWS': 10,
+    'DAY_OF_WEEK_MIN_VISITS': 10,
+    'DAY_OF_WEEK_DETAILED_MIN_VISITS': 20,
+    'DAY_OF_WEEK_DETAILED_MIN_ACTIVE_DAYS': 4,
+    'PRICE_CLUSTER_MIN_CAFES': 5,
+}
+
+INSIGHTS_STICKINESS_THRESHOLDS = {
+    'MIN_UNIQUE_VISITORS': 10,
+    'MIN_TOTAL_VISITS': 15,
+    'ACTIVE_REGULARS_MIN_VISITS': 3,
+    'ACTIVE_REGULARS_RECENCY_DAYS': 60,
+    'NEWCOMER_RECENT_DAYS': 30,
+    'CADENCE_MIN_INTERVALS': 5,
+    'CADENCE_RECENT_DAYS': 90,
+    'CADENCE_MAX_FOR_DISPLAY': 21,
+    'BELOVED_MIN_REGULARS': 3,
+    'BELOVED_MIN_RATIO': 2.5,
+    'HAS_REGULARS_MIN_REGULARS': 1,
+    'HAS_REGULARS_MIN_RATIO': 2.0,
+    'DISCOVERY_NEWCOMER_SHARE': 0.7,
+    'DISCOVERY_MIN_TOTAL_VISITS': 10,
+    'STEADY_MIX_MIN_RATIO': 1.3,
+}

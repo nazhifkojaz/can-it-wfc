@@ -11,7 +11,6 @@ class VisitAdmin(admin.ModelAdmin):
         'user',
         'cafe',
         'visit_date',
-        'has_review',
         'is_location_verified',
         'created_at'
     ]
@@ -39,14 +38,6 @@ class VisitAdmin(admin.ModelAdmin):
             'fields': ('created_at',)
         }),
     )
-    
-    def has_review(self, obj):
-        """Check if visit has a review."""
-        has_review = hasattr(obj, 'review') and obj.review is not None
-        if has_review:
-            return format_html('<span style="color: green;">✓ Yes</span>')
-        return format_html('<span style="color: gray;">✗ No</span>')
-    has_review.short_description = 'Has Review'
     
     def is_location_verified(self, obj):
         """Show location verification status."""
@@ -116,7 +107,7 @@ class ReviewAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Review Information', {
-            'fields': ('user', 'cafe', 'visit', 'comment')
+            'fields': ('user', 'cafe', 'comment')
         }),
         ('WiFi & Power', {
             'fields': (

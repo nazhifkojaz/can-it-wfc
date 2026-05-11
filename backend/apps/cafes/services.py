@@ -1,15 +1,30 @@
 import requests
 from django.conf import settings
-from typing import List, Dict, Optional
+from typing import Any
 from core.logging import get_logger
 from apps.core.constants import (
     GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS,
     GOOGLE_PLACE_DETAILS_TIMEOUT_SECONDS,
     MAX_AUTOCOMPLETE_PREDICTIONS
 )
+from apps.core.geo_utils import bounding_box_deltas
 from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)
+
+
+def get_cafes_in_bounding_box(latitude, longitude, radius_km, filter_data=None):
+    lat_delta, lon_delta = bounding_box_deltas(float(radius_km), latitude)
+    candidates = Cafe.objects.filter(
+        latitude__gte=latitude - lat_delta,
+        latitude__lte=latitude + lat_delta,
+        longitude__gte=longitude - lon_delta,
+        longitude__lte=longitude + lon_delta,
+    )
+    if filter_data:
+        from .views import apply_cafe_filters
+        candidates = apply_cafe_filters(candidates, filter_data)
+    return candidates
 
 
 class GooglePlacesService:
@@ -23,7 +38,7 @@ class GooglePlacesService:
         longitude: float,
         radius_meters: int = 1000,
         keyword: str = ""
-    ) -> List[Dict]:
+    ) -> list[dict[str, Any]]:
         """
         Search for coffee shops near a location using Google Places API.
         Uses distance-based ranking and pagination to get all nearby cafes.
@@ -112,8 +127,8 @@ class GooglePlacesService:
         latitude: float,
         longitude: float,
         radius_meters: int = 10000,
-        types: str = None
-    ) -> List[Dict]:
+        types: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Search using Autocomplete API for real-time search suggestions.
         Much cheaper than Text Search: $2.83/1k vs $32/1k.
@@ -197,7 +212,7 @@ class GooglePlacesService:
             return []
 
     @staticmethod
-    def get_place_details(place_id: str, fields: str = None) -> Optional[Dict]:
+    def get_place_details(place_id: str, fields: str | None = None) -> dict[str, Any] | None:
         """
         Get detailed information about a specific place.
 
@@ -244,9 +259,9 @@ class CafeService:
     @staticmethod
     def get_or_create_from_google(
         google_place_id: str,
-        cafe_data: dict,
+        cafe_data: dict[str, Any],
         created_by
-    ) -> tuple:
+    ) -> tuple[Cafe, bool]:
         """
         Get existing cafe or create new one with complete Google Places data.
 

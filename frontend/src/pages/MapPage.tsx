@@ -8,13 +8,17 @@ import CafeDetailSheet from '../components/cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../components/visit/AddVisitReviewModal';
 import { SharedResultModal } from '../components/common';
 import { SearchOverlay } from '../components/map/SearchOverlay';
-import { useGeolocation, useNearbyCafes, useResultModal } from '../hooks';
+import { FilterPanelTrigger } from '../components/map/FilterPanelTrigger';
+import { FilterPanel } from '../components/map/FilterPanel';
+import { ActiveFilterChips } from '../components/map/ActiveFilterChips';
+import { useGeolocation, useNearbyCafes, useResultModal, useMapFilters } from '../hooks';
 import { Cafe, SearchResult } from '../types';
 import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
 import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
+import { getActiveChips } from '../lib/filterEncoding';
 import './MapPage.css';
 
 const MapPage: React.FC = () => {
@@ -28,8 +32,10 @@ const MapPage: React.FC = () => {
   const [jumpToLocation, setJumpToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const resultModal = useResultModal();
   const { activePanel } = usePanel();
+  const { filters, appliedFilters, setFilter, applyFilters, resetAll, clearOne, syncPending } = useMapFilters();
 
   const { location, error: locationError, loading: locationLoading } = useGeolocation();
 
@@ -73,8 +79,8 @@ const MapPage: React.FC = () => {
             result_type: 'cafe',
           });
 
-          // Clear query param
-          setSearchParams({});
+          // Clear only the cafe param, preserve filter params
+          setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('cafe'); return n; }, { replace: true });
         } catch (error) {
           logger.error('Failed to jump to cafe from activity', error, 'MapPage');
           resultModal.showResultModal({
@@ -82,7 +88,7 @@ const MapPage: React.FC = () => {
             title: 'Cafe Not Found',
             message: 'Failed to open the selected cafe. It may have been removed.',
           });
-          setSearchParams({});
+          setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('cafe'); return n; }, { replace: true });
         }
       };
       fetchAndJumpToCafe();
@@ -100,10 +106,40 @@ const MapPage: React.FC = () => {
     latitude: searchCenter?.lat || 0,
     longitude: searchCenter?.lng || 0,
     enabled: !!searchCenter,
-    // Pass user's actual location for distance calculation
     userLatitude: location?.lat,
     userLongitude: location?.lng,
+    filters: appliedFilters,
   });
+
+  // Sync selectedCafe with cafes array when data refreshes (e.g. after registration)
+  React.useEffect(() => {
+    if (!selectedCafe || !cafes.length) return;
+
+    // Try matching by id first (most common case)
+    const idMatch = cafes.find(c => c.id === selectedCafe.id);
+    if (idMatch) {
+      // Only update if the cafe data actually changed
+      if (idMatch !== selectedCafe) {
+        setSelectedCafe(idMatch);
+      }
+      return;
+    }
+
+    // If not found by id, try matching by google_place_id
+    // This handles the case where an unregistered cafe gets registered (id changes)
+    if (selectedCafe.google_place_id) {
+      const placeMatch = cafes.find(c => c.google_place_id === selectedCafe.google_place_id);
+      if (placeMatch) {
+        setSelectedCafe(placeMatch);
+
+        // Clear tempSearchMarker since the cafe is now in the nearby list
+        setTempSearchMarker(prev => {
+          if (prev?.google_place_id === selectedCafe.google_place_id) return null;
+          return prev;
+        });
+      }
+    }
+  }, [cafes, selectedCafe]);
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
     // Track analytics
@@ -139,14 +175,7 @@ const MapPage: React.FC = () => {
     // Refetch cafes to update markers with new visit count and review/rating
     // React Query will automatically update related queries
     refetchCafes();
-
-    resultModal.showResultModal({
-      type: 'success',
-      title: 'Visit Logged!',
-      message: 'Your visit has been recorded successfully.',
-      autoClose: true,
-      autoCloseDelay: 2000,
-    });
+    // Note: success feedback is handled by AddVisitReviewModal's own result modal
   };
 
   const toggleViewMode = () => {
@@ -194,24 +223,33 @@ const MapPage: React.FC = () => {
         {/* Header with view toggle */}
         <div className="map-header">
           <h1 className="page-title">Can-It-WFC</h1>
-          <button
-            className="view-toggle"
-            onClick={toggleViewMode}
-            aria-label={`Switch to ${viewMode === 'map' ? 'list' : 'map'} view`}
-          >
-            {viewMode === 'map' ? (
-              <>
-                <List size={20} />
-                <span>List</span>
-              </>
-            ) : (
-              <>
-                <MapIcon size={20} />
-                <span>Map</span>
-              </>
-            )}
-          </button>
+          <div className="header-actions">
+            <FilterPanelTrigger
+              activeCount={getActiveChips(appliedFilters).length}
+              onClick={() => { syncPending(); setShowFilterPanel(true); }}
+            />
+            <button
+              className="view-toggle"
+              onClick={toggleViewMode}
+              aria-label={`Switch to ${viewMode === 'map' ? 'list' : 'map'} view`}
+            >
+              {viewMode === 'map' ? (
+                <>
+                  <List size={20} />
+                  <span>List</span>
+                </>
+              ) : (
+                <>
+                  <MapIcon size={20} />
+                  <span>Map</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Active filter chips strip */}
+        <ActiveFilterChips filters={appliedFilters} onClear={clearOne} />
 
         {/* Location error - show non-intrusive banner */}
         {locationError && (
@@ -297,6 +335,16 @@ const MapPage: React.FC = () => {
         />
       </div>
       {activePanel && <PanelManager />}
+
+      {showFilterPanel && (
+        <FilterPanel
+          filters={filters}
+          setFilter={setFilter}
+          resetAll={resetAll}
+          onApply={applyFilters}
+          onClose={() => setShowFilterPanel(false)}
+        />
+      )}
     </MobileLayout>
   );
 };

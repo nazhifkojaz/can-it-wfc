@@ -6,10 +6,6 @@ from rest_framework.exceptions import APIException
 from rest_framework import status
 
 
-# =============================================================================
-# CAFE EXCEPTIONS
-# =============================================================================
-
 class CafeNotFound(APIException):
     """Raised when a cafe doesn't exist."""
     status_code = status.HTTP_404_NOT_FOUND
@@ -51,10 +47,6 @@ class ListItemLimitReached(APIException):
     default_detail = 'This list has reached the maximum number of items'
     default_code = 'list_item_limit_reached'
 
-
-# =============================================================================
-# USER/ACCOUNT EXCEPTIONS
-# =============================================================================
 
 class UserNotFound(APIException):
     """Raised when a user doesn't exist."""
@@ -108,10 +100,6 @@ class OAuthEmailNotProvided(APIException):
         detail = f'Email not provided by {provider}. Please ensure email sharing is enabled.'
         super().__init__(detail=detail, **kwargs)
 
-
-# =============================================================================
-# REVIEW EXCEPTIONS
-# =============================================================================
 
 class ReviewNotFound(APIException):
     """Raised when a review doesn't exist."""

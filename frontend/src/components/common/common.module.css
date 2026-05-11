@@ -303,7 +303,8 @@
   z-index: var(--z-sheet, 90);
   animation: slideUpSheet var(--transition-base, 0.2s) ease-out;
   transition: transform var(--transition-base, 0.2s) ease-out;
-  height: 100vh; /* Ensure full height */
+  height: 100vh; /* fallback */
+  height: 100dvh;
 }
 
 .sheetHandleContainer {

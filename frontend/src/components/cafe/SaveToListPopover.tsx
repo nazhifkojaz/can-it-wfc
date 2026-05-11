@@ -1,21 +1,35 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, Plus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCafeLists, useLists } from '../../hooks';
+import type { Cafe } from '../../types';
+import { listApi } from '../../api/client';
+import { extractApiError } from '../../utils/errorUtils';
+import { ListIcon, AVAILABLE_LIST_ICONS as AVAILABLE_ICONS } from '../../utils/listIcons';
 import styles from './SaveToListPopover.module.css';
 
 interface SaveToListPopoverProps {
-  cafeId: number;
+  cafe: Cafe;
   onClose: () => void;
 }
 
-const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafeId, onClose }) => {
-  const { memberships, toggleInList, isToggling } = useCafeLists(cafeId);
-  const { createList, isCreating } = useLists();
+const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) => {
+  const queryClient = useQueryClient();
+  const cafeId = cafe.is_registered && cafe.id > 0 ? cafe.id : undefined;
+  const { memberships, toggleInList, toggleToGo, toggleFavorites, isToggling } = useCafeLists(cafeId);
+  const { lists, createList, isCreating } = useLists();
 
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newIcon, setNewIcon] = useState('bookmark');
   const [pendingListId, setPendingListId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setTimeout(() => setErrorMessage(null), 4000);
+  };
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -30,26 +44,87 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafeId, onClose }
   const handleToggle = async (listId: number, inList: boolean) => {
     setPendingListId(listId);
     try {
-      await toggleInList(listId, inList);
+        if (!cafe.is_registered) {
+          // Auto-register and add to list
+          await listApi.addItemWithRegistration(listId, {
+            google_place_id: cafe.google_place_id || '',
+            cafe_name: cafe.name,
+            cafe_address: cafe.address,
+            cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
+            cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
+          });
+          // After registration, invalidate queries so nearby cafes/markers update
+          queryClient.invalidateQueries({ queryKey: ['cafes'] });
+          queryClient.invalidateQueries({ queryKey: ['lists'] });
+          onClose();
+      } else {
+        await toggleInList(listId, inList);
+      }
+    } catch (error) {
+      const apiError = extractApiError(error);
+      showError(apiError.message || 'Failed to update list');
+      console.error('Failed to toggle list:', apiError.message);
     } finally {
       setPendingListId(null);
     }
+  };
+
+  const handleToggleFavorites = async () => {
+      if (!cafe.is_registered) {
+        try {
+          await listApi.addToFavoritesWithRegistration({
+            google_place_id: cafe.google_place_id || '',
+            cafe_name: cafe.name,
+            cafe_address: cafe.address,
+            cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
+            cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
+          });
+          queryClient.invalidateQueries({ queryKey: ['cafes'] });
+          queryClient.invalidateQueries({ queryKey: ['lists'] });
+          onClose();
+        } catch (error) {
+          const apiError = extractApiError(error);
+          showError(apiError.message || 'Failed to add to favorites');
+          console.error('Failed to add to favorites:', apiError.message);
+        }
+        return;
+      }
+    await toggleFavorites();
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newName.trim();
     if (!trimmed) return;
-    await createList({ name: trimmed });
+    await createList({ name: trimmed, icon: newIcon });
     setNewName('');
+    setNewIcon('bookmark');
     setShowCreate(false);
   };
 
-  const sortedMemberships = [...memberships].sort((a, b) => {
-    if (a.is_default) return -1;
-    if (b.is_default) return 1;
+  // For unregistered cafes, derive memberships from lists with in_list: false
+  const effectiveMemberships: typeof memberships = cafeId
+    ? memberships
+    : lists.map((l) => ({
+        id: l.id,
+        name: l.name,
+        list_type: l.list_type,
+        icon: l.icon,
+        is_default: l.is_default,
+        in_list: false,
+      }));
+
+  // Sort: to_go first, favorites second, then custom lists
+  const sortedMemberships = [...effectiveMemberships].sort((a, b) => {
+    if (a.list_type === 'to_go') return -1;
+    if (b.list_type === 'to_go') return 1;
+    if (a.list_type === 'favorites') return -1;
+    if (b.list_type === 'favorites') return 1;
     return 0;
   });
+
+  const toGoMembership = effectiveMemberships.find((m) => m.list_type === 'to_go');
+  const favoritesMembership = effectiveMemberships.find((m) => m.list_type === 'favorites');
 
   return (
     <>
@@ -57,25 +132,92 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafeId, onClose }
       <div className={styles.popover} ref={popoverRef}>
         <p className={styles.popoverHeader}>Save to List</p>
 
+        {errorMessage && (
+          <div className={styles.errorBanner}>
+            {errorMessage}
+          </div>
+        )}
+
         <div className={styles.listRows}>
-          {sortedMemberships.map((m) => {
-            const isPending = pendingListId === m.id;
-            return (
-              <div
-                key={m.id}
-                className={`${styles.listRow} ${isPending ? styles.saving : ''}`}
-                onClick={() => !isToggling && handleToggle(m.id, m.in_list)}
-              >
-                <div className={`${styles.checkbox} ${m.in_list ? styles.checked : ''}`}>
-                  {m.in_list && <Check size={12} color="white" strokeWidth={3} />}
-                </div>
-                <div className={styles.listRowInfo}>
-                  <p className={styles.listRowName}>{m.name}</p>
-                </div>
-                {m.is_default && <span className={styles.defaultDot} />}
+          {/* To-go */}
+          {toGoMembership && (
+            <div
+              className={`${styles.listRow} ${pendingListId === toGoMembership.id ? styles.saving : ''}`}
+              onClick={async () => {
+                if (isToggling) return;
+                if (!cafe.is_registered) {
+                  try {
+                    await listApi.addToToGoWithRegistration({
+                      google_place_id: cafe.google_place_id || '',
+                      cafe_name: cafe.name,
+                      cafe_address: cafe.address,
+                      cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
+                      cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
+                    });
+                    queryClient.invalidateQueries({ queryKey: ['cafes'] });
+                    queryClient.invalidateQueries({ queryKey: ['lists'] });
+                  } catch (err) {
+                    showError(extractApiError(err).message || 'Failed to add to to-go');
+                    console.error('Failed to add to to-go:', extractApiError(err).message);
+                  }
+                } else {
+                  await toggleToGo();
+                }
+                onClose();
+              }}
+            >
+              <div className={`${styles.checkbox} ${toGoMembership.in_list ? styles.checked : ''}`}>
+                {toGoMembership.in_list && <Check size={12} color="white" strokeWidth={3} />}
               </div>
-            );
-          })}
+              <ListIcon icon={toGoMembership.icon} size={14} />
+              <div className={styles.listRowInfo}>
+                <p className={styles.listRowName}>{toGoMembership.name}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Favorites */}
+          {favoritesMembership && (
+            <div
+              className={`${styles.listRow} ${pendingListId === favoritesMembership.id ? styles.saving : ''}`}
+              onClick={() => !isToggling && handleToggleFavorites()}
+            >
+              <div className={`${styles.checkbox} ${favoritesMembership.in_list ? styles.checked : ''}`}>
+                {favoritesMembership.in_list && <Check size={12} color="white" strokeWidth={3} />}
+              </div>
+              <ListIcon icon={favoritesMembership.icon} size={14} />
+              <div className={styles.listRowInfo}>
+                <p className={styles.listRowName}>{favoritesMembership.name}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Divider */}
+          {sortedMemberships.some((m) => m.list_type === 'custom') && (
+            <div className={styles.divider} />
+          )}
+
+          {/* Custom lists */}
+          {sortedMemberships
+            .filter((m) => m.list_type === 'custom')
+            .map((m) => {
+              const isPending = pendingListId === m.id;
+              return (
+                <div
+                  key={m.id}
+                  className={`${styles.listRow} ${isPending ? styles.saving : ''}`}
+                  onClick={() => !isToggling && handleToggle(m.id, m.in_list)}
+                >
+                  <div className={`${styles.checkbox} ${m.in_list ? styles.checked : ''}`}>
+                    {m.in_list && <Check size={12} color="white" strokeWidth={3} />}
+                  </div>
+                  <ListIcon icon={m.icon} size={14} />
+                  <div className={styles.listRowInfo}>
+                    <p className={styles.listRowName}>{m.name}</p>
+                  </div>
+                </div>
+              );
+            })}
         </div>
 
         <div className={styles.popoverFooter}>
@@ -90,6 +232,18 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafeId, onClose }
                 maxLength={100}
                 disabled={isCreating}
               />
+              <div className={styles.iconPicker}>
+                {AVAILABLE_ICONS.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setNewIcon(icon)}
+                    className={`${styles.iconButton} ${newIcon === icon ? styles.iconButtonActive : ''}`}
+                  >
+                    <ListIcon icon={icon} size={14} />
+                  </button>
+                ))}
+              </div>
               <div className={styles.createActions}>
                 <button type="button" className={styles.btnSecondary} onClick={() => setShowCreate(false)}>
                   Cancel

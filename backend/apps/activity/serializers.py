@@ -8,12 +8,8 @@ from .models import Activity
 class ActivitySerializer(serializers.ModelSerializer):
     """
     Serializer for activity feed items.
-
-    Maps Activity model to API response format that matches
-    the old activity feed endpoint for backward compatibility.
     """
 
-    # Map to old format
     id = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
 
@@ -28,20 +24,17 @@ class ActivitySerializer(serializers.ModelSerializer):
 
     def get_id(self, obj):
         """
-        Generate ID in old format for backward compatibility.
-
-        Old format: "own_visit_123" or "following_review_456"
+        Generate composite ID from type and primary key.
+        Format: "own_review_123" or "following_followed_456"
         """
         activity_type = self.get_type(obj)
         return f"{activity_type}_{obj.pk}"
 
     def get_type(self, obj):
         """
-        Map activity types to old format.
+        Map activity types to feed display types.
 
-        Old format:
-        - own_visit, own_review (user's own activities)
-        - following_visit, following_review (followed users' activities)
+        - own_review, following_review (review activities)
         - new_follower (notification: someone followed you)
         - following_followed (feed: someone you follow followed someone)
         """
@@ -66,19 +59,16 @@ class ActivitySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """
-        Flatten data field into top level for backward compatibility.
+        Flatten data field into top level.
 
-        Old API response:
+        Response:
         {
-            "id": "own_visit_123",
-            "type": "own_visit",
+            "id": "own_review_123",
+            "type": "own_review",
             "created_at": "2025-12-23T...",
             "cafe_name": "Coffee Lab",
-            "cafe_id": 123,
             ...
         }
-
-        New structure has data nested, so we flatten it.
         """
         ret = super().to_representation(instance)
 

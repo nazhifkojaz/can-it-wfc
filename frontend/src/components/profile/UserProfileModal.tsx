@@ -40,9 +40,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
         } else {
           setUser(userData);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         logger.error('Failed to fetch user profile', err, 'UserProfileModal');
-        if (err.response?.status === 404) {
+        const axiosErr = err as { response?: { status?: number } };
+        if (axiosErr.response?.status === 404) {
           setError('User not found');
         } else {
           setError('Failed to load user profile');

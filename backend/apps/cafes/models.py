@@ -1,9 +1,13 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
-from apps.core.constants import EARTH_RADIUS_KM
+from apps.core.constants import EARTH_RADIUS_KM, LIST_ICON_CHOICES
+from apps.core.geo_utils import bounding_box_deltas
+from core.logging import get_logger
 from decimal import Decimal
 import math
+
+logger = get_logger(__name__)
 
 
 class Cafe(models.Model):
@@ -85,6 +89,20 @@ class Cafe(models.Model):
         help_text="Average WFC rating (1-5)"
     )
 
+    # Per-dimension average ratings (promoted columns for fast filtering)
+    avg_wifi_rating = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    avg_power_rating = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    avg_noise_level = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    avg_seating_comfort = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True, db_index=True
+    )
+
     # Cached stats (precomputed from latest 100 reviews for performance)
     average_ratings_cache = models.JSONField(
         null=True,
@@ -94,9 +112,32 @@ class Cafe(models.Model):
     facility_stats_cache = models.JSONField(
         null=True,
         blank=True,
-        help_text="Cached facility statistics (smoking area, prayer room) from latest 100 reviews"
+        help_text="Cached facility mention counts (smoking area, prayer room, indoor/outdoor seating) from latest 100 reviews"
     )
-    
+
+    # H3 geospatial indexing for local cluster aggregates (price percentile, etc.)
+    h3_cell_r7 = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="H3 cell index at resolution 7 (~5 km) for local cluster aggregates"
+    )
+
+    # Cafe insights cache (aggregated visit + review data for insights card)
+    insights_cache = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Computed cafe insights (median spend, time-of-day distribution, "
+                  "best-for labels, recency). Recomputed on visit/review writes "
+                  "and nightly for time-decaying fields."
+    )
+    insights_cache_version = models.IntegerField(
+        default=1,
+        help_text="Schema version of insights_cache. Bump to invalidate on logic changes."
+    )
+    insights_cache_computed_at = models.DateTimeField(null=True, blank=True)
+
     # Status
     is_closed = models.BooleanField(
         default=False,
@@ -127,13 +168,34 @@ class Cafe(models.Model):
             models.Index(fields=['google_place_id']),
             models.Index(fields=['-average_wfc_rating']),
             models.Index(fields=['is_closed', '-created_at'], name='cafe_closed_created_idx'),
+            models.Index(fields=['avg_wifi_rating', 'avg_noise_level'], name='cafe_wifi_noise_idx'),
         ]
     
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Save cafe instance."""
+        """Save cafe instance. Auto-compute H3 cell if coordinates are present."""
+        if self.latitude is not None and self.longitude is not None:
+            try:
+                import h3
+                self.h3_cell_r7 = h3.latlng_to_cell(
+                    float(self.latitude), float(self.longitude), 7
+                )
+            except ImportError:
+                logger.warning(
+                    'h3 library not installed — H3 cell will not be computed for cafe %s',
+                    getattr(self, 'pk', 'new'),
+                )
+                self.h3_cell_r7 = None
+            except Exception as e:
+                logger.error(
+                    'Failed to compute H3 cell for cafe %s: %s',
+                    getattr(self, 'pk', 'new'),
+                    e,
+                    exc_info=True,
+                )
+                self.h3_cell_r7 = None
         super().save(*args, **kwargs)
 
     @staticmethod
@@ -171,18 +233,9 @@ class Cafe(models.Model):
         """
         Find potential duplicate cafes by name similarity and proximity.
         """
-        # Convert to float for calculations
-        lat_float = float(latitude)
-        
         threshold_km = threshold_meters / 1000.0
         
-        # Calculate bounding box
-        lat_delta = threshold_km / 111.0
-        lon_delta = threshold_km / (111.0 * math.cos(math.radians(lat_float)))
-        
-        # Convert deltas to Decimal for database query
-        lat_delta_decimal = Decimal(str(lat_delta))
-        lon_delta_decimal = Decimal(str(lon_delta))
+        lat_delta_decimal, lon_delta_decimal = bounding_box_deltas(threshold_km, latitude)
         
         nearby_cafes = cls.objects.filter(
             name__icontains=name.split()[0],
@@ -210,6 +263,12 @@ class Cafe(models.Model):
 class CafeList(models.Model):
     """A named collection of cafes owned by a user."""
 
+    LIST_TYPE_CHOICES = [
+        ('to_go', 'to-go'),
+        ('favorites', 'favorites'),
+        ('custom', 'Custom'),
+    ]
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -217,9 +276,21 @@ class CafeList(models.Model):
     )
     name = models.CharField(max_length=80)
     description = models.TextField(blank=True, max_length=300)
+    list_type = models.CharField(
+        max_length=20,
+        choices=LIST_TYPE_CHOICES,
+        default='custom',
+        help_text="Special lists (to-go, favorites) are protected and auto-created.",
+    )
+    icon = models.CharField(
+        max_length=30,
+        choices=LIST_ICON_CHOICES,
+        default='bookmark',
+        help_text="Lucide icon name for this list.",
+    )
     is_default = models.BooleanField(
         default=False,
-        help_text="The auto-created 'Favorites' list. One per user.",
+        help_text="True for to-go and favorites (protected special lists).",
     )
     is_public = models.BooleanField(
         default=False,
@@ -238,18 +309,28 @@ class CafeList(models.Model):
         ordering = ['-updated_at']
         indexes = [
             models.Index(fields=['owner', '-updated_at']),
-            models.Index(fields=['owner', 'is_default']),
+            models.Index(fields=['owner', 'list_type']),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['owner'],
-                condition=models.Q(is_default=True),
-                name='unique_default_list_per_user',
+                fields=['owner', 'list_type'],
+                condition=~models.Q(list_type='custom'),
+                name='unique_special_list_per_user',
             )
         ]
 
+    def save(self, *args, **kwargs):
+        """Auto-set is_default based on list_type."""
+        self.is_default = self.list_type in ('to_go', 'favorites')
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.owner.username} / {self.name}"
+
+    @property
+    def is_special(self):
+        """Whether this is a protected special list (to-go or favorites)."""
+        return self.list_type in ('to_go', 'favorites')
 
 
 class CafeListItem(models.Model):
@@ -279,6 +360,32 @@ class CafeListItem(models.Model):
 
     def __str__(self):
         return f"{self.cafe_list} → {self.cafe.name}"
+
+
+class PriceCluster(models.Model):
+    """
+    Precomputed price cluster aggregates per H3 cell + currency.
+    Recomputed nightly by `recompute_price_clusters` management command.
+    """
+    h3_cell = models.CharField(max_length=15, db_index=True)
+    currency = models.CharField(max_length=3)
+    median_of_medians = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    cafe_medians = models.JSONField(
+        help_text="Sorted list of cafe-level spend medians in this cluster"
+    )
+    cafe_count = models.IntegerField()
+    computed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cafes_price_clusters'
+        unique_together = [('h3_cell', 'currency')]
+        verbose_name = 'Price Cluster'
+        verbose_name_plural = 'Price Clusters'
+
+    def __str__(self):
+        return f"{self.h3_cell} / {self.currency} ({self.cafe_count} cafes)"
 
 
 class CafeFlag(models.Model):

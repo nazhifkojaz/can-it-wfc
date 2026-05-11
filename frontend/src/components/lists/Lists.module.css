@@ -167,6 +167,19 @@
   box-shadow: 2px 2px 0 var(--neo-black);
 }
 
+.listCardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--neo-gray-100);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  color: var(--neo-black);
+  flex-shrink: 0;
+}
+
 .listCardInfo {
   flex: 1;
   min-width: 0;
@@ -446,6 +459,48 @@
 .itemNoteInput:focus {
   outline: none;
   box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.itemNoteSaveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  cursor: pointer;
+  box-shadow: 1px 1px 0 var(--neo-black);
+  transition: all 0.1s;
+}
+
+.itemNoteSaveBtn:hover {
+  background: var(--neo-primary-dark);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.itemNoteEditBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--neo-primary);
+  border: var(--neo-border-width-thin) solid transparent;
+  border-radius: var(--neo-border-radius);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.itemNoteEditBtn:hover {
+  background: var(--neo-primary-light, #ede9fe);
+  border-color: var(--neo-primary);
 }
 
 .addNotePlaceholder {

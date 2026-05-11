@@ -40,27 +40,6 @@ export const toRadians = (degrees: number): number => {
   return degrees * (Math.PI / 180);
 };
 
-/**
- * Convert radians to degrees
- */
-export const toDegrees = (radians: number): number => {
-  return radians * (180 / Math.PI);
-};
-
-/**
- * Calculate average of an array of numbers
- */
-export const calculateAverage = (numbers: number[]): number => {
-  if (numbers.length === 0) {
-    return 0;
-  }
-  const sum = numbers.reduce((acc, num) => acc + num, 0);
-  return sum / numbers.length;
-};
-
-/**
- * Get rating color based on rating value
- */
 export const getRatingColor = (rating: number | null | undefined): string => {
   if (rating === null || rating === undefined) {
     return colors.gray[400];
@@ -83,24 +62,6 @@ export const getRatingColor = (rating: number | null | undefined): string => {
  */
 export const clamp = (value: number, min: number, max: number): number => {
   return Math.min(Math.max(value, min), max);
-};
-
-/**
- * Calculate percentage
- */
-export const calculatePercentage = (value: number, total: number): number => {
-  if (total === 0) {
-    return 0;
-  }
-  return (value / total) * 100;
-};
-
-/**
- * Round to specified decimal places
- */
-export const roundToDecimal = (value: number, decimals: number = 2): number => {
-  const multiplier = Math.pow(10, decimals);
-  return Math.round(value * multiplier) / multiplier;
 };
 
 export const computeWfcRating = (

@@ -23,6 +23,32 @@ from .serializers import (
 from core.permissions import IsOwnerOrReadOnly
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
+from django.db.models import Prefetch
+
+
+def _build_review_queryset(request, base_qs=None):
+    from .models import ReviewHelpful, ReviewFlag
+
+    if base_qs is None:
+        base_qs = Review.objects.filter(is_hidden=False)
+
+    queryset = base_qs.select_related('user', 'cafe')
+
+    if request and request.user.is_authenticated:
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                'helpful_marks',
+                queryset=ReviewHelpful.objects.filter(user=request.user),
+                to_attr='user_helpful'
+            ),
+            Prefetch(
+                'flags',
+                queryset=ReviewFlag.objects.filter(flagged_by=request.user),
+                to_attr='user_flags'
+            )
+        )
+
+    return queryset
 
 
 class VisitListCreateView(generics.ListCreateAPIView):
@@ -38,13 +64,11 @@ class VisitListCreateView(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['cafe', 'visit_date']  # Added visit_date for duplicate checking
     ordering_fields = ['visit_date', 'created_at']
-    ordering = ['-visit_date']
+    ordering = ['-visit_date', '-created_at']
 
     def get_queryset(self):
         """
         Get user's visits.
-
-        UPDATED: Removed select_related('review') - reviews are now independent of visits.
         """
         return Visit.objects.filter(user=self.request.user).select_related('cafe')
 
@@ -124,36 +148,7 @@ class ReviewListView(generics.ListAPIView):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        """
-        Optimize query with select_related and prefetch_related to avoid N+1 queries.
-
-        UPDATED: Removed select_related('visit') - reviews are now independent of visits.
-        """
-        from django.db.models import Prefetch
-        from .models import ReviewHelpful, ReviewFlag
-
-        queryset = Review.objects.filter(is_hidden=False).select_related(
-            'user',
-            'cafe'
-        )
-
-        # Prefetch user-specific helpful/flag data if user is authenticated
-        request = self.request
-        if request and request.user.is_authenticated:
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    'helpful_marks',
-                    queryset=ReviewHelpful.objects.filter(user=request.user),
-                    to_attr='user_helpful'
-                ),
-                Prefetch(
-                    'flags',
-                    queryset=ReviewFlag.objects.filter(flagged_by=request.user),
-                    to_attr='user_flags'
-                )
-            )
-
-        return queryset
+        return _build_review_queryset(self.request)
 
 
 @method_decorator(ratelimit(key='user', rate='10/h', method='POST'), name='post')
@@ -244,40 +239,9 @@ class CafeReviewsView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        """
-        Optimize query with select_related and prefetch_related to avoid N+1 queries.
-
-        UPDATED: Removed select_related('visit') - reviews are now independent of visits.
-        """
-        from django.db.models import Prefetch
-        from .models import ReviewHelpful, ReviewFlag
-
         cafe_id = self.kwargs.get('cafe_id')
-        queryset = Review.objects.filter(
-            cafe_id=cafe_id,
-            is_hidden=False
-        ).select_related(
-            'user',
-            'cafe'
-        )
-
-        # Prefetch user-specific helpful/flag data if user is authenticated
-        request = self.request
-        if request and request.user.is_authenticated:
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    'helpful_marks',
-                    queryset=ReviewHelpful.objects.filter(user=request.user),
-                    to_attr='user_helpful'
-                ),
-                Prefetch(
-                    'flags',
-                    queryset=ReviewFlag.objects.filter(flagged_by=request.user),
-                    to_attr='user_flags'
-                )
-            )
-
-        return queryset
+        base_qs = Review.objects.filter(cafe_id=cafe_id, is_hidden=False)
+        return _build_review_queryset(self.request, base_qs)
 
 
 class ReviewFlagCreateView(generics.CreateAPIView):

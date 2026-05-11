@@ -1,9 +1,13 @@
 import type { Cafe } from './index';
 
+export type CafeListType = 'to_go' | 'favorites' | 'custom';
+
 export interface CafeList {
   id: number;
   name: string;
   description: string;
+  list_type: CafeListType;
+  icon: string;
   is_default: boolean;
   is_public: boolean;
   item_count: number;
@@ -24,6 +28,8 @@ export interface CafeListDetail extends CafeList {
 export interface CafeListMembership {
   id: number;
   name: string;
+  list_type: CafeListType;
+  icon: string;
   is_default: boolean;
   in_list: boolean;
 }
@@ -31,9 +37,11 @@ export interface CafeListMembership {
 export interface CafeListCreate {
   name: string;
   description?: string;
+  icon?: string;
 }
 
 export interface CafeListUpdate {
   name?: string;
   description?: string;
+  icon?: string;
 }

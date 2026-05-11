@@ -43,31 +43,7 @@ class StructuredFormatter(logging.Formatter):
 
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    Get a configured logger instance.
-
-    Args:
-        name: Logger name, typically __name__ of the calling module.
-
-    Returns:
-        Configured logging.Logger instance.
-
-    Usage:
-        from core.logging import get_logger
-        logger = get_logger(__name__)
-
-        # Basic logging
-        logger.info('Something happened')
-
-        # With extra data
-        logger.info('User action', extra={'extra_data': {'user_id': 123, 'action': 'login'}})
-
-        # Error with exception
-        try:
-            risky_operation()
-        except Exception as e:
-            logger.error('Operation failed', exc_info=True)
-    """
+    """Get a configured logger instance."""
     return logging.getLogger(name)
 
 

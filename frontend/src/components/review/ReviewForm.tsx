@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Wifi, Zap, Volume2, Armchair, Cigarette, Home } from 'lucide-react';
+import React, { useState } from 'react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
-import { Modal, SharedResultModal, StarRating, FacilityToggle } from '../common';
-import { useReviews, useResultModal } from '../../hooks';
+import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
+import { useReviews, useResultModal, useReviewForm } from '../../hooks';
 import { reviewApi } from '../../api/client';
-import { isValidReviewComment, computeWfcRating } from '../../utils';
+import { isValidReviewComment } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
+import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { logger } from '../../utils/logger';
 import { trackReviewCreated, trackReviewEdited } from '../../lib/analytics';
 import styles from './ReviewForm.module.css';
@@ -41,54 +41,30 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   const isEditMode = !!existingReview && !isViewMode;
   const resultModal = useResultModal();
 
-  const [formData, setFormData] = useState<ReviewCreate>({
-    cafe_id: cafeId,
-    wifi_quality: existingReview?.wifi_quality || 3,
-    power_outlets_rating: existingReview?.power_outlets_rating || 3,
-    noise_level: existingReview?.noise_level || 3,
-    seating_comfort: existingReview?.seating_comfort || 3,
-    wfc_rating: existingReview?.wfc_rating || 3,
-    visit_time: existingReview?.visit_time || 2,
-    comment: existingReview?.comment || '',
-  });
+  const visitTime = existingReview?.visit_time || 2;
 
-  const [hasSmokingArea, setHasSmokingArea] = useState<boolean | null>(
-    existingReview?.has_smoking_area ?? null
-  );
-  const [hasPrayerRoom, setHasPrayerRoom] = useState<boolean | null>(
-    existingReview?.has_prayer_room ?? null
-  );
+  const form = useReviewForm({
+    initial: {
+      wifi_quality: existingReview?.wifi_quality || 3,
+      power_outlets_rating: existingReview?.power_outlets_rating || 3,
+      noise_level: existingReview?.noise_level || 3,
+      seating_comfort: existingReview?.seating_comfort || 3,
+      hasSmokingArea: existingReview?.has_smoking_area === true,
+      hasPrayerRoom: existingReview?.has_prayer_room === true,
+      hasIndoorSeating: existingReview?.has_indoor_seating === true,
+      hasOutdoorSeating: existingReview?.has_outdoor_seating === true,
+      comment: existingReview?.comment || '',
+    },
+  });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Auto-compute overall WFC rating from sub-criteria
-  useEffect(() => {
-    const computed = computeWfcRating(
-      formData.wifi_quality,
-      formData.noise_level,
-      formData.seating_comfort,
-      formData.power_outlets_rating,
-    );
-    setFormData(prev => ({ ...prev, wfc_rating: computed }));
-  }, [formData.wifi_quality, formData.power_outlets_rating, formData.seating_comfort, formData.noise_level]);
-
-  const handleRatingChange = (field: keyof ReviewCreate, value: number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleTextChange = (value: string) => {
-    if (value.length <= REVIEW_CONFIG.MAX_COMMENT_LENGTH) {
-      setFormData(prev => ({ ...prev, comment: value }));
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validation
-    if (formData.comment && !isValidReviewComment(formData.comment)) {
+    if (form.comment && !isValidReviewComment(form.comment)) {
       setError(`Comment must be ${REVIEW_CONFIG.MAX_COMMENT_LENGTH} characters or less`);
       return;
     }
@@ -97,17 +73,11 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
     try {
       if (isEditMode && existingReview) {
-        // Update existing review
         const updateData: ReviewUpdate = {
-          wifi_quality: formData.wifi_quality,
-          power_outlets_rating: formData.power_outlets_rating,
-          noise_level: formData.noise_level,
-          seating_comfort: formData.seating_comfort,
-          has_smoking_area: hasSmokingArea,
-          has_prayer_room: hasPrayerRoom,
-          wfc_rating: formData.wfc_rating,
-          visit_time: formData.visit_time,
-          comment: formData.comment,
+          ...form.ratingPayload(),
+          ...form.facilityPayload(),
+          visit_time: visitTime,
+          comment: form.comment,
         };
         await reviewApi.update(existingReview.id, updateData);
 
@@ -135,25 +105,27 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           }
         });
       } else {
-        // Create new review
         const reviewData: ReviewCreate = {
-          ...formData,
-          has_smoking_area: hasSmokingArea,
-          has_prayer_room: hasPrayerRoom,
+          cafe_id: cafeId,
+          ...form.ratingPayload(),
+          ...form.facilityPayload(),
+          visit_time: visitTime,
+          comment: form.comment,
         };
         await createReview(reviewData);
 
-        // Track analytics for review creation
         trackReviewCreated({
           cafeId,
           cafeName,
-          wfcRating: formData.wfc_rating || 3,
-          wifiQuality: formData.wifi_quality,
-          hasComment: !!formData.comment?.trim(),
-          commentLength: formData.comment?.length || 0,
+          wfcRating: form.wfcRating || 3,
+          wifiQuality: form.wifi_quality,
+          hasComment: !!form.comment?.trim(),
+          commentLength: form.comment?.length || 0,
           source: 'standalone',
-          hasSmokingArea: hasSmokingArea === true ? 'yes' : hasSmokingArea === false ? 'no' : 'unknown',
-          hasPrayerRoom: hasPrayerRoom === true ? 'yes' : hasPrayerRoom === false ? 'no' : 'unknown',
+          hasSmokingArea: form.hasSmokingArea ? true : null,
+          hasPrayerRoom: form.hasPrayerRoom ? true : null,
+          hasIndoorSeating: form.hasIndoorSeating ? true : null,
+          hasOutdoorSeating: form.hasOutdoorSeating ? true : null,
         });
 
         resultModal.showResultModal({
@@ -170,7 +142,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           }
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error submitting review', err, 'ReviewForm');
 
       // Check for field-specific errors first (e.g., duplicate review)
@@ -182,33 +154,14 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     }
   };
 
-  // Simplified 5-criteria review (matching AddVisitReviewModal)
-  const ratingCategories = [
-    {
-      field: 'wifi_quality' as keyof ReviewCreate,
-      label: 'WiFi Quality',
-      icon: <Wifi size={20} />,
-      description: 'Speed and reliability',
-    },
-    {
-      field: 'power_outlets_rating' as keyof ReviewCreate,
-      label: 'Power Outlets',
-      icon: <Zap size={20} />,
-      description: 'Availability and access',
-    },
-    {
-      field: 'seating_comfort' as keyof ReviewCreate,
-      label: 'Seat/Desk Comfort',
-      icon: <Armchair size={20} />,
-      description: 'Comfort for long work sessions',
-    },
-    {
-      field: 'noise_level' as keyof ReviewCreate,
-      label: 'Audio Comfort',
-      icon: <Volume2 size={20} />,
-      description: 'How comfortable is the audio environment for work',
-    },
-  ];
+  const ratingCategories = RATING_DIMENSIONS
+    .filter(d => d.key !== 'wfc_rating')
+    .map(d => ({
+      field: d.key as keyof ReviewCreate,
+      label: d.label,
+      icon: d.icon,
+      description: d.description,
+    }));
 
   const getModalTitle = () => {
     if (isViewMode) return "Your Review";
@@ -247,8 +200,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
                   </div>
                 </div>
                 <StarRating
-                  value={formData[category.field] as number}
-                  onChange={(val) => handleRatingChange(category.field, val)}
+                  value={form[category.field as keyof typeof form] as number}
+                  onChange={(val) => {
+                    const map: Record<string, (v: number) => void> = {
+                      wifi_quality: form.setWifiQuality,
+                      power_outlets_rating: form.setPowerOutlets,
+                      seating_comfort: form.setSeatingComfort,
+                      noise_level: form.setNoiseLevel,
+                    };
+                    map[category.field]?.(val);
+                  }}
                   disabled={isViewMode}
                 />
               </div>
@@ -263,7 +224,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             Auto-calculated from your ratings above
           </p>
           <div className={styles.ratingCategory}>
-            <StarRating value={formData.wfc_rating || 3} disabled />
+            <StarRating value={form.wfcRating || 3} disabled />
           </div>
         </div>
 
@@ -274,22 +235,22 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             Does the cafe have these amenities?
           </p>
 
-          <div className={styles.toggleGroup}>
-            <FacilityToggle
-              label="Has Smoking Area?"
-              icon={<Cigarette size={18} />}
-              value={hasSmokingArea}
-              onChange={setHasSmokingArea}
-              disabled={isViewMode}
-            />
-
-            <FacilityToggle
-              label="Has Prayer Room?"
-              icon={<Home size={18} />}
-              value={hasPrayerRoom}
-              onChange={setHasPrayerRoom}
-              disabled={isViewMode}
-            />
+          <div className={styles.checkboxGrid}>
+            {FACILITY_CONFIG.map((f) => {
+              const setter = form.facilitySetters[f.key];
+              const checked = form.facilityValues[f.key] ?? false;
+              if (!setter) return null;
+              return (
+                <FacilityCheckbox
+                  key={f.key}
+                  label={f.label}
+                  icon={f.icon}
+                  checked={checked}
+                  onChange={setter}
+                  disabled={isViewMode}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -303,8 +264,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
               id="review-text"
               className={styles.reviewTextarea}
               placeholder={isViewMode ? '' : "Share your experience working from this cafe..."}
-              value={formData.comment}
-              onChange={(e) => handleTextChange(e.target.value)}
+              value={form.comment}
+              onChange={(e) => form.setComment(e.target.value)}
               rows={4}
               maxLength={REVIEW_CONFIG.MAX_COMMENT_LENGTH}
               disabled={isViewMode}
@@ -312,7 +273,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             />
             {!isViewMode && (
               <p className={styles.characterCount}>
-                {formData.comment?.length || 0} / {REVIEW_CONFIG.MAX_COMMENT_LENGTH}
+                {form.comment?.length || 0} / {REVIEW_CONFIG.MAX_COMMENT_LENGTH}
               </p>
             )}
           </div>

@@ -1,0 +1,636 @@
+.section {
+  padding: 12px 0;
+  border-bottom: var(--neo-border-width-thin) solid var(--neo-gray-200);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.subTitle {
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--neo-gray-500);
+}
+
+/* Rating Breakdown */
+.ratingsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ratingLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.ratingIcon {
+  display: flex;
+  align-items: center;
+  color: var(--neo-black);
+}
+
+.labelText {
+  font-size: 13px;
+  color: var(--neo-black);
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ratingBar {
+  flex: 1;
+  height: 10px;
+  background: var(--neo-gray-200);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ratingFill {
+  height: 100%;
+  transition: width 0.6s ease;
+  border-right: var(--neo-border-width-thin) solid var(--neo-black);
+}
+
+.ratingValue {
+  width: 36px;
+  text-align: right;
+  font-weight: var(--neo-font-black);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ratingCount {
+  font-size: 11px;
+  color: var(--neo-gray-500);
+  flex-shrink: 0;
+  min-width: 30px;
+}
+
+/* Best-for Chips */
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--neo-primary-light);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: default;
+}
+
+/* Cost Summary */
+.costRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  overflow-wrap: break-word;
+}
+
+.secondaryCosts {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* Currency Toggle */
+.currencySelect {
+  padding: 4px 10px;
+  background: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 90px;
+  appearance: auto;
+}
+
+.currencyDisclaimer {
+  font-size: 11px;
+  color: var(--neo-gray-500);
+  margin: 6px 0 0 0;
+  font-style: italic;
+  overflow-wrap: break-word;
+}
+
+.percentileLine {
+  font-size: 12px;
+  color: var(--neo-black);
+  margin: 6px 0 0 0;
+  font-weight: var(--neo-font-bold);
+  overflow-wrap: break-word;
+}
+
+/* Time of Day Chart */
+.timeBars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeBarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeBarLabel {
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  width: 75px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.timeBarTrack {
+  flex: 1;
+  height: 8px;
+  background: var(--neo-gray-200);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.timeBarFill {
+  height: 100%;
+  background: var(--neo-primary);
+  transition: width 0.6s ease;
+}
+
+.timeBarPct {
+  font-size: 12px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.timeBarWfc {
+  font-size: 12px;
+  color: var(--neo-gray-500);
+  font-weight: var(--neo-font-bold);
+  width: 58px;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 12px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badgeGreen {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badgeYellow {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badgeGray {
+  background: var(--neo-gray-100);
+  color: var(--neo-gray-600);
+}
+
+/* Rating Distribution */
+.distributionText {
+  font-size: 13px;
+  color: var(--neo-black);
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+/* Day of Week — detailed (7-bar) view */
+.dowDetailed {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 60px;
+}
+
+.dowDayCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.dowDayBarTrack {
+  flex: 1;
+  width: 100%;
+  background: var(--neo-gray-200);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.dowDayBarFill {
+  width: 100%;
+  background: var(--neo-primary);
+  transition: height 0.6s ease;
+  min-height: 2px;
+}
+
+.dowDayBarWeekend {
+  background: var(--neo-primary-light, var(--neo-gray-400));
+}
+
+.dowDayLabel {
+  font-size: 10px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-600);
+  text-transform: uppercase;
+}
+
+/* Stickiness */
+.stickinessRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stickinessIcon {
+  color: var(--neo-black);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.stickinessContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stickinessHeadline {
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.stickinessSubline {
+  font-size: 12px;
+  color: var(--neo-gray-600);
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+
+/* Google Delta */
+.deltaText {
+  font-size: 13px;
+  color: var(--neo-black);
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Confidence Footer */
+.confidenceFooter {
+  font-size: 12px;
+  color: var(--neo-gray-500);
+  font-weight: var(--neo-font-bold);
+  padding-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+
+/* Slide-in sub-view */
+.slideContainer {
+  position: relative;
+  overflow: hidden;
+  padding-right: 4px;
+  padding-bottom: 4px;
+}
+
+.slideWrapper {
+  display: flex;
+  align-items: flex-start;
+  transition: transform 0.3s ease;
+}
+
+.slideWrapper.showInsights {
+  transform: translateX(-100%);
+}
+
+.mainView,
+.insightsView {
+  min-width: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+/* Default state: mainView expanded, insightsView collapsed */
+.mainView {
+  opacity: 1;
+  max-height: 2000px;
+}
+
+.insightsView {
+  opacity: 0;
+  max-height: 0;
+  pointer-events: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Show insights state: swap visibility and collapse mainView */
+.slideWrapper.showInsights .mainView {
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+}
+
+.slideWrapper.showInsights .insightsView {
+  opacity: 1;
+  max-height: 2000px;
+  pointer-events: auto;
+}
+
+.insightsHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: inherit;
+}
+
+.backButton:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--neo-black);
+}
+
+.insightsTitle {
+  font-size: 16px;
+  font-weight: var(--neo-font-black);
+  color: var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* CTA button */
+.insightsButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  margin: 16px 0;
+  background: var(--neo-white);
+  border: var(--neo-border-width) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black);
+  cursor: pointer;
+  transition: transform var(--neo-transition-fast), box-shadow var(--neo-transition-fast);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: inherit;
+}
+
+.insightsButton:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--neo-black);
+}
+
+.insightsButton:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.insightsButtonDisabled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  margin: 16px 0;
+  background: var(--neo-gray-100);
+  border: var(--neo-border-width) solid var(--neo-gray-400);
+  border-radius: var(--neo-border-radius);
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-500);
+  cursor: not-allowed;
+  box-shadow: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: inherit;
+}
+
+/* Card container */
+.card {
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--neo-white);
+  border-radius: var(--neo-border-radius);
+  border: var(--neo-border-width) solid var(--neo-black);
+  box-shadow: 4px 4px 0 var(--neo-black);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: var(--neo-gray-200);
+  border-radius: 2px;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+.skeletonLine {
+  height: 14px;
+  margin-bottom: 12px;
+}
+
+.skeletonLine:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Empty state */
+.emptyState {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--neo-gray-600);
+}
+
+.emptyText {
+  font-size: 14px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-gray-500);
+  margin: 0;
+}
+
+/* Mobile optimization */
+@media (max-width: 480px) {
+  .card {
+    padding: 12px;
+  }
+
+  .insightsHeader {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .backButton {
+    padding: 6px 10px;
+    font-size: 12px;
+    box-shadow: 2px 2px 0 var(--neo-black);
+  }
+
+  .insightsTitle {
+    font-size: 14px;
+  }
+
+  .costRow {
+    font-size: 13px;
+  }
+
+  .currencySelect {
+    font-size: 11px;
+    min-width: 80px;
+  }
+
+  .currencyDisclaimer {
+    font-size: 10px;
+  }
+
+  .deltaText {
+    font-size: 12px;
+  }
+
+  .confidenceFooter {
+    font-size: 11px;
+  }
+
+  .timeBarLabel {
+    width: 58px;
+    font-size: 10px;
+  }
+
+  .timeBarPct {
+    font-size: 11px;
+    width: 32px;
+  }
+
+  .timeBarWfc {
+    display: none;
+  }
+
+  .ratingLabel {
+    width: 90px;
+  }
+
+  .labelText {
+    font-size: 12px;
+  }
+
+  .ratingValue {
+    font-size: 13px;
+    width: 32px;
+  }
+
+  .section {
+    padding: 10px 0;
+  }
+
+  .subTitle {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .muted {
+    font-size: 11px;
+  }
+}

@@ -7,15 +7,15 @@ import { UserProfile, UserActivityItem } from '../../types';
 import { Loading } from '../common';
 import FollowButton from '../social/FollowButton';
 import FollowersModal from '../social/FollowersModal';
+import { useFollowersModal } from '../../hooks';
 import { formatVisitTime } from '../../utils/visit';
 import { formatRelativeDate } from '../../utils/date';
 import { logger } from '../../utils/logger';
 import { extractApiError } from '../../utils/errorUtils';
-import { trackUserProfileViewed } from '../../lib/analytics';
 import './UserProfilePanel.css';
 
 const UserProfilePanel: React.FC = () => {
-  const { hidePanel, showPanel, panelData, activePanel } = usePanel();
+  const { hidePanel, panelData, activePanel } = usePanel();
   const navigate = useNavigate();
   const username = panelData?.username;
 
@@ -24,8 +24,7 @@ const UserProfilePanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'activity' | 'stats'>('activity');
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [followModalType, setFollowModalType] = useState<'followers' | 'following'>('followers');
+  const { openFollowersModal, followersModalProps } = useFollowersModal();
 
   // Reset state when panel changes away
   React.useEffect(() => {
@@ -103,7 +102,7 @@ const UserProfilePanel: React.FC = () => {
           const mergedActivity = mergeActivities(activityData.activity);
           setActivity(mergedActivity);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         const apiError = extractApiError(err);
         logger.error('Failed to load profile', err, 'UserProfilePanel');
         setError(apiError.message);
@@ -214,10 +213,7 @@ const UserProfilePanel: React.FC = () => {
             <div className="profile-stats">
               <div
                 className="stat-item clickable"
-                onClick={() => {
-                  setFollowModalType('followers');
-                  setShowFollowersModal(true);
-                }}
+                onClick={() => openFollowersModal('followers')}
               >
                 <UserIcon size={20} />
                 <div>
@@ -228,10 +224,7 @@ const UserProfilePanel: React.FC = () => {
               <div className="stat-divider" />
               <div
                 className="stat-item clickable"
-                onClick={() => {
-                  setFollowModalType('following');
-                  setShowFollowersModal(true);
-                }}
+                onClick={() => openFollowersModal('following')}
               >
                 <UserIcon size={20} />
                 <div>
@@ -338,15 +331,8 @@ const UserProfilePanel: React.FC = () => {
 
       {/* Followers/Following Modal */}
       <FollowersModal
-        isOpen={showFollowersModal}
-        onClose={() => setShowFollowersModal(false)}
+        {...followersModalProps}
         username={username || ''}
-        type={followModalType}
-        onUserClick={(clickedUsername) => {
-          setShowFollowersModal(false);
-          trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
-          showPanel('userProfile', { username: clickedUsername });
-        }}
       />
     </div>
   );

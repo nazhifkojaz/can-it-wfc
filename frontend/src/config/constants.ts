@@ -39,18 +39,11 @@ export const VISIT_TIME_OPTIONS = [
   { value: VISIT_TIME.EVENING, label: VISIT_TIME_LABELS[VISIT_TIME.EVENING] },
 ] as const;
 
-const PRICE_RANGE = {
-  BUDGET: 1,
-  MODERATE: 2,
-  UPSCALE: 3,
-  LUXURY: 4,
-} as const;
-
 export const PRICE_RANGE_LABELS = {
-  [PRICE_RANGE.BUDGET]: '$',
-  [PRICE_RANGE.MODERATE]: '$$',
-  [PRICE_RANGE.UPSCALE]: '$$$',
-  [PRICE_RANGE.LUXURY]: '$$$$',
+  1: '$',
+  2: '$$',
+  3: '$$$',
+  4: '$$$$',
 } as const;
 
 export const FLAG_REASONS = {

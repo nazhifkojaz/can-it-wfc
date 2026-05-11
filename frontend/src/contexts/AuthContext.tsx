@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setStoredAuthMethod(provider);
       identifyUserInPostHog(userData, provider);
       return { user: userData, created };
-    } catch (err: any) {
+    } catch (err: unknown) {
       const apiError = extractApiError(err);
       setError(apiError.message);
       throw new Error(apiError.message);

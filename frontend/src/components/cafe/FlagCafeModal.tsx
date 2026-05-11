@@ -84,7 +84,7 @@ const FlagCafeModal: React.FC<FlagCafeModalProps> = ({
         onSuccess();
       }
       handleClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(extractApiError(err).message);
     } finally {
       setIsSubmitting(false);
