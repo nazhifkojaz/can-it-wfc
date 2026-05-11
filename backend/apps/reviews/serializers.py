@@ -4,14 +4,14 @@ from apps.core.constants import MAX_CHECKIN_DISTANCE_KM, VISIT_TIME_CHOICES
 from core.logging import get_logger
 from .models import Visit, Review, ReviewFlag, ReviewHelpful
 from apps.accounts.serializers import UserSerializer
-from apps.cafes.serializers import CafeSummarySerializer as CafeListSerializer
+from apps.cafes.serializers import CafeSummarySerializer
 from apps.cafes.models import Cafe
 
 logger = get_logger(__name__)
 
 
 class CafeVisitValidationMixin:
-    def _resolve_cafe(self, data, request):
+    def _resolve_cafe(self, data):
         if 'cafe_id' in data:
             try:
                 return Cafe.objects.get(id=data['cafe_id'], is_closed=False)
@@ -72,7 +72,7 @@ class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
     Serializer for Visit model with auto-cafe-registration support.
     """
 
-    cafe = CafeListSerializer(read_only=True)
+    cafe = CafeSummarySerializer(read_only=True)
     cafe_id = serializers.IntegerField(write_only=True, required=False)
     user = UserSerializer(read_only=True)
 
@@ -123,7 +123,7 @@ class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
         if self.instance is not None:
             return attrs
 
-        cafe = self._resolve_cafe(attrs, request)
+        cafe = self._resolve_cafe(attrs)
 
         if cafe is None and 'google_place_id' in attrs:
             from apps.cafes.services import CafeService
@@ -203,7 +203,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
     """Serializer for review list view."""
 
     user = UserSerializer(read_only=True)
-    cafe = CafeListSerializer(read_only=True)
+    cafe = CafeSummarySerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
     is_helpful = serializers.SerializerMethodField()
     user_has_flagged = serializers.SerializerMethodField()
@@ -267,7 +267,7 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
     """
 
     user = UserSerializer(read_only=True)
-    cafe = CafeListSerializer(read_only=True)
+    cafe = CafeSummarySerializer(read_only=True)
     visit_time_display = serializers.ReadOnlyField()
     average_rating = serializers.ReadOnlyField()
     is_helpful = serializers.SerializerMethodField()
@@ -593,7 +593,7 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
         request = self.context['request']
         user = request.user
 
-        cafe = self._resolve_cafe(data, request)
+        cafe = self._resolve_cafe(data)
 
         if cafe is None and 'google_place_id' in data:
             cafe = Cafe.objects.filter(google_place_id=data['google_place_id']).first()

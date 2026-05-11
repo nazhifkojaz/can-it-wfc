@@ -3,8 +3,11 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from apps.core.constants import EARTH_RADIUS_KM, LIST_ICON_CHOICES
 from apps.core.geo_utils import bounding_box_deltas
+from core.logging import get_logger
 from decimal import Decimal
 import math
+
+logger = get_logger(__name__)
 
 
 class Cafe(models.Model):
@@ -179,7 +182,19 @@ class Cafe(models.Model):
                 self.h3_cell_r7 = h3.latlng_to_cell(
                     float(self.latitude), float(self.longitude), 7
                 )
-            except Exception:
+            except ImportError:
+                logger.warning(
+                    'h3 library not installed — H3 cell will not be computed for cafe %s',
+                    getattr(self, 'pk', 'new'),
+                )
+                self.h3_cell_r7 = None
+            except Exception as e:
+                logger.error(
+                    'Failed to compute H3 cell for cafe %s: %s',
+                    getattr(self, 'pk', 'new'),
+                    e,
+                    exc_info=True,
+                )
                 self.h3_cell_r7 = None
         super().save(*args, **kwargs)
 

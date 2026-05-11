@@ -259,7 +259,7 @@ class CafeService:
     @staticmethod
     def get_or_create_from_google(
         google_place_id: str,
-        cafe_data: dict[str, str],
+        cafe_data: dict[str, Any],
         created_by
     ) -> tuple[Cafe, bool]:
         """

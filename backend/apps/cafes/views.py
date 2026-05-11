@@ -152,6 +152,7 @@ class CafeInsightsView(APIView):
     on the cafe detail sheet.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [NearbyAnonThrottle, NearbyAuthThrottle]
 
     def get(self, request, pk):
         try:

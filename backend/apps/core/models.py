@@ -1,4 +1,11 @@
 from django.db import models
+from django.core.cache import cache
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
+EXCHANGE_RATES_CACHE_KEY = 'core:exchange_rates'
+EXCHANGE_RATES_CACHE_TTL = 3600 * 6  # 6 hours
 
 
 class ExchangeRate(models.Model):
@@ -29,17 +36,26 @@ class ExchangeRate(models.Model):
     @classmethod
     def get_rate(cls, currency_code: str) -> float | None:
         """Return cached rate for a currency, or None if not found."""
-        try:
-            return float(cls.objects.get(currency_code=currency_code).rate_to_usd)
-        except cls.DoesNotExist:
-            return None
+        all_rates = cls.get_all_rates()
+        return all_rates.get(currency_code)
 
     @classmethod
     def get_all_rates(cls) -> dict[str, float]:
-        """Return all cached exchange rates as {currency_code: rate_to_usd}."""
+        """Return all cached exchange rates, using Django cache to avoid repeated DB queries."""
+        cached = cache.get(EXCHANGE_RATES_CACHE_KEY)
+        if cached is not None:
+            return cached
+
         rates = {}
         for obj in cls.objects.all():
             rates[obj.currency_code] = float(obj.rate_to_usd)
-        # Always include USD as baseline
         rates.setdefault('USD', 1.0)
+
+        cache.set(EXCHANGE_RATES_CACHE_KEY, rates, EXCHANGE_RATES_CACHE_TTL)
         return rates
+
+    @classmethod
+    def invalidate_cache(cls):
+        """Clear the cached exchange rates (called after rates are updated)."""
+        cache.delete(EXCHANGE_RATES_CACHE_KEY)
+        logger.info('Exchange rate cache invalidated')
