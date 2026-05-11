@@ -18,7 +18,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useResultModal, useVisits, useFollowersModal } from '../../hooks';
+import { useResultModal, useVisits, useFollowersModal, useProfileSettings } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -27,17 +27,16 @@ import CafeDetailSheet from '../cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
 import ListsPanel from '../lists/ListsPanel';
-import { authApi, reviewApi } from '../../api/client';
+import { reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { formatDate, formatRating } from '../../utils';
 import { CURRENCIES } from '../../utils/currency';
 import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
-import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
 import { logger } from '../../utils/logger';
-import { trackUserLoggedOut, trackVisitDeleted, trackPrivacySettingsChanged, trackProfileTabViewed } from '../../lib/analytics';
+import { trackVisitDeleted, trackProfileTabViewed } from '../../lib/analytics';
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
@@ -51,17 +50,30 @@ const ProfilePanel: React.FC = () => {
   // Followers/Following modal state
   const { openFollowersModal, followersModalProps } = useFollowersModal();
 
-  // Settings tab state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingDisplayName, setEditingDisplayName] = useState(false);
-  const [bio, setBio] = useState(user?.bio || '');
-  const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [isAnonymous, setIsAnonymous] = useState(user?.is_anonymous_display || false);
-  const [loading, setLoading] = useState(false);
-  const [savingDisplayName, setSavingDisplayName] = useState(false);
-  const [editingUsername, setEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState(user?.username || '');
-  const [savingUsername, setSavingUsername] = useState(false);
+  // Settings state and handlers
+  const {
+    bio,
+    setBio,
+    displayName,
+    setDisplayName,
+    isEditing,
+    setIsEditing,
+    editingDisplayName,
+    setEditingDisplayName,
+    isAnonymous,
+    loading,
+    savingDisplayName,
+    editingUsername,
+    setEditingUsername,
+    newUsername,
+    setNewUsername,
+    savingUsername,
+    handleSaveProfile,
+    handleSaveDisplayName,
+    handleUsernameUpdate,
+    handleAnonymousToggle,
+    handleLogout,
+  } = useProfileSettings({ user, updateUser, logout, resultModal });
 
   // Visits tab state and hooks
   const {
@@ -167,143 +179,6 @@ const ProfilePanel: React.FC = () => {
     );
   }
 
-  const handleSaveProfile = async () => {
-    try {
-      setLoading(true);
-      const updatedUser = await authApi.updateProfile({ bio, display_name: displayName });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-      setIsEditing(false);
-
-      resultModal.showSuccess('Profile Updated', 'Your profile has been updated successfully!');
-    } catch (error) {
-      const apiError = extractApiError(error);
-      const bioError = getFieldError(apiError, 'bio');
-      const displayNameError = getFieldError(apiError, 'display_name');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: displayNameError || bioError || apiError.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveDisplayName = async () => {
-    try {
-      setSavingDisplayName(true);
-      const updatedUser = await authApi.updateProfile({ display_name: displayName });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-      setEditingDisplayName(false);
-
-      resultModal.showSuccess('Display Name Updated', 'Your display name has been updated successfully!');
-    } catch (error) {
-      const apiError = extractApiError(error);
-      const displayNameError = getFieldError(apiError, 'display_name');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: displayNameError || apiError.message,
-      });
-    } finally {
-      setSavingDisplayName(false);
-    }
-  };
-
-  const handleUsernameUpdate = async () => {
-    // Validation
-    if (newUsername.length < 3) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Invalid Username',
-        message: 'Username must be at least 3 characters',
-      });
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Invalid Username',
-        message: 'Username can only contain letters, numbers, and underscores',
-      });
-      return;
-    }
-
-    if (newUsername === user?.username) {
-      setEditingUsername(false);
-      return;
-    }
-
-    try {
-      setSavingUsername(true);
-      const updatedUser = await authApi.updateProfile({ username: newUsername });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-      setEditingUsername(false);
-
-      resultModal.showSuccess('Username Updated', 'Your username has been updated successfully!');
-    } catch (error) {
-      const apiError = extractApiError(error);
-      const usernameError = getFieldError(apiError, 'username');
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: usernameError || apiError.message,
-      });
-    } finally {
-      setSavingUsername(false);
-    }
-  };
-
-  const handleAnonymousToggle = async (checked: boolean) => {
-    // Optimistic update
-    setIsAnonymous(checked);
-
-    try {
-      const updatedUser = await authApi.updateProfile({
-        is_anonymous_display: checked
-      });
-      // Merge with existing user to preserve all fields (like date_joined)
-      updateUser({ ...user, ...updatedUser });
-
-      // Track analytics after successful update
-      trackPrivacySettingsChanged({
-        setting: 'anonymous_display',
-        newValue: checked,
-      });
-    } catch (error) {
-      // Revert on error
-      setIsAnonymous(!checked);
-      resultModal.showResultModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: 'Failed to update privacy settings. Please try again.',
-      });
-    }
-  };
-
-  const handleLogout = () => {
-    resultModal.showResultModal({
-      type: 'warning',
-      title: 'Log Out',
-      message: 'Are you sure you want to log out?',
-      primaryButton: {
-        label: 'Log Out',
-        onClick: async () => {
-          trackUserLoggedOut();
-          await logout();  // Wait for logout to complete
-          resultModal.closeResultModal();
-        },
-      },
-      secondaryButton: {
-        label: 'Cancel',
-        onClick: () => resultModal.closeResultModal(),
-      },
-    });
-  };
 
   // Cafe-level review handlers
   const handleAddCafeReview = (cafeId: number, cafeName: string) => {

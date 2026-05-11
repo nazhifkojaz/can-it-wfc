@@ -237,8 +237,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
           <div className={styles.checkboxGrid}>
             {FACILITY_CONFIG.map((f) => {
-              const setter = form.facilitySetters[f.key as keyof typeof form.facilitySetters];
-              const checked = form[`has${f.key.charAt(0).toUpperCase()}${f.key.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}` as keyof typeof form] as boolean;
+              const setter = form.facilitySetters[f.key];
+              const checked = form.facilityValues[f.key] ?? false;
               if (!setter) return null;
               return (
                 <FacilityCheckbox
@@ -246,7 +246,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
                   label={f.label}
                   icon={f.icon}
                   checked={checked}
-                  onChange={setter as (v: boolean) => void}
+                  onChange={setter}
                   disabled={isViewMode}
                 />
               );

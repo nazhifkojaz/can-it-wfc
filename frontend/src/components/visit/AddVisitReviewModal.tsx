@@ -692,18 +692,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             <h4 className={styles.reviewSectionTitle}>Work From Cafe Review</h4>
 
             {(() => {
-              const ratingStateMap: Record<string, { value: number; setter: (v: number) => void }> = {
-                wifi_quality: { value: form.wifi_quality, setter: form.setWifiQuality },
-                power_outlets_rating: { value: form.power_outlets_rating, setter: form.setPowerOutlets },
-                seating_comfort: { value: form.seating_comfort, setter: form.setSeatingComfort },
-                noise_level: { value: form.noise_level, setter: form.setNoiseLevel },
-              };
-              const facilityStateMap: Record<string, { checked: boolean; setter: (v: boolean) => void }> = {
-                smoking_area: { checked: form.hasSmokingArea, setter: form.setHasSmokingArea },
-                prayer_room: { checked: form.hasPrayerRoom, setter: form.setHasPrayerRoom },
-                indoor_seating: { checked: form.hasIndoorSeating, setter: form.setHasIndoorSeating },
-                outdoor_seating: { checked: form.hasOutdoorSeating, setter: form.setHasOutdoorSeating },
-              };
               const subRatings = RATING_DIMENSIONS.filter(d => d.key !== 'wfc_rating');
               return (
                 <>
@@ -716,29 +704,31 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
                     <StarRating value={form.wfcRating} disabled />
                   </div>
                   {subRatings.map(d => {
-                    const entry = ratingStateMap[d.key];
-                    if (!entry) return null;
+                    const value = form.ratingValues[d.key];
+                    const setter = form.ratingSetters[d.key];
+                    if (value === undefined || !setter) return null;
                     return (
                       <div key={d.key} className={styles.ratingField}>
                         <label className={styles.ratingLabel}>
                           {d.icon}
                           {d.label}
                         </label>
-                        <StarRating value={entry.value} onChange={entry.setter} />
+                        <StarRating value={value} onChange={setter} />
                       </div>
                     );
                   })}
                   <div className={styles.checkboxGrid}>
                     {FACILITY_CONFIG.map(f => {
-                      const entry = facilityStateMap[f.key];
-                      if (!entry) return null;
+                      const checked = form.facilityValues[f.key];
+                      const setter = form.facilitySetters[f.key];
+                      if (checked === undefined || !setter) return null;
                       return (
                         <FacilityCheckbox
                           key={f.key}
                           label={f.label}
                           icon={f.icon}
-                          checked={entry.checked}
-                          onChange={entry.setter}
+                          checked={checked}
+                          onChange={setter}
                         />
                       );
                     })}

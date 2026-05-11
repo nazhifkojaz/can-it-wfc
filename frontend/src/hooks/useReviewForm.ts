@@ -36,18 +36,32 @@ export function useReviewForm(options: UseReviewFormOptions = {}) {
     [wifi_quality, power_outlets_rating, seating_comfort, noise_level],
   );
 
-  const ratingSetters = {
+  const ratingSetters: Record<string, (v: number) => void> = {
     wifi_quality: setWifiQuality,
     power_outlets_rating: setPowerOutlets,
     seating_comfort: setSeatingComfort,
     noise_level: setNoiseLevel,
   };
 
-  const facilitySetters = {
+  const ratingValues: Record<string, number> = {
+    wifi_quality,
+    power_outlets_rating,
+    seating_comfort,
+    noise_level,
+  };
+
+  const facilitySetters: Record<string, (v: boolean) => void> = {
     smoking_area: setHasSmokingArea,
     prayer_room: setHasPrayerRoom,
     indoor_seating: setHasIndoorSeating,
     outdoor_seating: setHasOutdoorSeating,
+  };
+
+  const facilityValues: Record<string, boolean> = {
+    smoking_area: hasSmokingArea,
+    prayer_room: hasPrayerRoom,
+    indoor_seating: hasIndoorSeating,
+    outdoor_seating: hasOutdoorSeating,
   };
 
   const facilityPayload = () => ({
@@ -92,7 +106,9 @@ export function useReviewForm(options: UseReviewFormOptions = {}) {
     setHasIndoorSeating,
     setHasOutdoorSeating,
     ratingSetters,
+    ratingValues,
     facilitySetters,
+    facilityValues,
     facilityPayload,
     ratingPayload,
   };
