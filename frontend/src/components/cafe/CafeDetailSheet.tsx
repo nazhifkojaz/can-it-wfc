@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapPin, Bookmark, Star, Flag, ChevronDown } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { Cafe, Review } from '../../types';
@@ -88,10 +88,12 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   );
 
   // Determine dynamic icon based on list memberships with priority: to_go > favorites > custom
-  const sortedMemberships = [...memberships].sort((a, b) => {
-    const priority = { to_go: 0, favorites: 1, custom: 2 };
-    return (priority[a.list_type] ?? 3) - (priority[b.list_type] ?? 3);
-  });
+  const sortedMemberships = useMemo(() => {
+    return [...memberships].sort((a, b) => {
+      const priority = { to_go: 0, favorites: 1, custom: 2 };
+      return (priority[a.list_type] ?? 3) - (priority[b.list_type] ?? 3);
+    });
+  }, [memberships]);
   const firstInListMembership = sortedMemberships.find(m => m.in_list);
   const isInAnyList = !!firstInListMembership;
   const activeIcon = firstInListMembership?.icon || 'bookmark';

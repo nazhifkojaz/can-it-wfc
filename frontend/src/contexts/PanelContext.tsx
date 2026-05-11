@@ -22,25 +22,12 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const hash = window.location.hash.substring(1);
       const validPanels: Panel[] = ['activity', 'profile', 'userProfile'];
 
-      // Check if hash contains encoded data (e.g., userProfile:username)
       const [panelType, ...dataParts] = hash.split(':');
-      const encodedData = dataParts.join(':'); // Rejoin in case username contains ':'
+      const encodedData = dataParts.join(':');
 
       if (validPanels.includes(panelType as Panel)) {
-        const newPanel = panelType as Panel;
+        setActivePanel(panelType as Panel);
 
-        // Track panel opened when changing via hash (but not on initial load)
-        if (activePanel !== newPanel) {
-          const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
-            newPanel === 'userProfile' ? 'user_profile' :
-            newPanel as 'activity' | 'profile';
-
-          trackPanelOpened({ panel: analyticsPanel });
-        }
-
-        setActivePanel(newPanel);
-
-        // For userProfile, extract username from hash
         if (panelType === 'userProfile' && encodedData) {
           setPanelData({ username: decodeURIComponent(encodedData) });
         } else {
@@ -53,17 +40,15 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    handleHashChange(); // Initial check
+    handleHashChange();
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [activePanel]);
+  }, []);
 
   const showPanel = (panel: Panel, data?: PanelData) => {
-    // Only track if opening a different panel
     if (activePanel !== panel) {
-      // Map panel types to analytics panel types
       const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
         panel === 'userProfile' ? 'user_profile' :
         panel as 'activity' | 'profile';
@@ -71,9 +56,6 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       trackPanelOpened({ panel: analyticsPanel });
     }
 
-    setPanelData(data || null);
-
-    // For userProfile, encode username in hash for persistence on refresh
     if (panel === 'userProfile' && data?.username) {
       window.location.hash = `${panel}:${encodeURIComponent(data.username)}`;
     } else {
@@ -82,7 +64,6 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const hidePanel = () => {
-    setPanelData(null);
     window.location.hash = '';
   };
 

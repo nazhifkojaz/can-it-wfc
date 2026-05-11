@@ -23,7 +23,13 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('bookmark');
   const [pendingListId, setPendingListId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setTimeout(() => setErrorMessage(null), 4000);
+  };
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -56,6 +62,7 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
       }
     } catch (error) {
       const apiError = extractApiError(error);
+      showError(apiError.message || 'Failed to update list');
       console.error('Failed to toggle list:', apiError.message);
     } finally {
       setPendingListId(null);
@@ -77,6 +84,7 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
           onClose();
         } catch (error) {
           const apiError = extractApiError(error);
+          showError(apiError.message || 'Failed to add to favorites');
           console.error('Failed to add to favorites:', apiError.message);
         }
         return;
@@ -124,6 +132,12 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
       <div className={styles.popover} ref={popoverRef}>
         <p className={styles.popoverHeader}>Save to List</p>
 
+        {errorMessage && (
+          <div className={styles.errorBanner}>
+            {errorMessage}
+          </div>
+        )}
+
         <div className={styles.listRows}>
           {/* To-go */}
           {toGoMembership && (
@@ -143,6 +157,7 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
                     queryClient.invalidateQueries({ queryKey: ['cafes'] });
                     queryClient.invalidateQueries({ queryKey: ['lists'] });
                   } catch (err) {
+                    showError(extractApiError(err).message || 'Failed to add to to-go');
                     console.error('Failed to add to to-go:', extractApiError(err).message);
                   }
                 } else {
@@ -179,7 +194,7 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
 
           {/* Divider */}
           {sortedMemberships.some((m) => m.list_type === 'custom') && (
-            <div style={{ borderTop: '1px solid var(--neo-gray-200)', margin: '4px 0' }} />
+            <div className={styles.divider} />
           )}
 
           {/* Custom lists */}
@@ -217,19 +232,13 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
                 maxLength={100}
                 disabled={isCreating}
               />
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <div className={styles.iconPicker}>
                 {AVAILABLE_ICONS.map((icon) => (
                   <button
                     key={icon}
                     type="button"
                     onClick={() => setNewIcon(icon)}
-                    style={{
-                      padding: 4,
-                      border: `2px solid ${newIcon === icon ? 'var(--neo-primary)' : 'var(--neo-black)'}`,
-                      borderRadius: 4,
-                      background: newIcon === icon ? 'var(--neo-primary-light)' : 'white',
-                      cursor: 'pointer',
-                    }}
+                    className={`${styles.iconButton} ${newIcon === icon ? styles.iconButtonActive : ''}`}
                   >
                     <ListIcon icon={icon} size={14} />
                   </button>

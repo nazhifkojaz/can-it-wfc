@@ -217,7 +217,12 @@ function Toggle({
         role="switch"
         aria-checked={checked}
         tabIndex={0}
-        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onChange(!checked)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onChange(!checked);
+          }
+        }}
       >
         <span className={styles.toggleThumb} />
       </div>

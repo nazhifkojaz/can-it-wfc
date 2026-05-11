@@ -1,46 +1,8 @@
 import React from 'react';
-import {
-  ChevronRight,
-  Bookmark,
-  Heart,
-  Coffee,
-  Wifi,
-  Star,
-  MapPin,
-  Briefcase,
-  Users,
-  Moon,
-  Sun,
-  Music,
-  BookOpen,
-  Camera,
-  Gift,
-  Home,
-  Plane,
-  Zap,
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { CafeList } from '../../types';
+import { LIST_ICON_MAP } from '../../utils/listIcons';
 import styles from './Lists.module.css';
-
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  bookmark: Bookmark,
-  heart: Heart,
-  coffee: Coffee,
-  wifi: Wifi,
-  star: Star,
-  'map-pin': MapPin,
-  briefcase: Briefcase,
-  users: Users,
-  moon: Moon,
-  sun: Sun,
-  music: Music,
-  'book-open': BookOpen,
-  camera: Camera,
-  gift: Gift,
-  home: Home,
-  plane: Plane,
-  zap: Zap,
-};
 
 interface ListCardProps {
   list: CafeList;
@@ -48,7 +10,7 @@ interface ListCardProps {
 }
 
 const ListCard: React.FC<ListCardProps> = ({ list, onClick }) => {
-  const IconComponent = ICON_MAP[list.icon] || Bookmark;
+  const IconComponent = LIST_ICON_MAP[list.icon] || LIST_ICON_MAP.bookmark;
 
   return (
     <div className={styles.listCard} onClick={() => onClick(list)}>
