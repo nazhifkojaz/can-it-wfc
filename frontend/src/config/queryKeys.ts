@@ -24,4 +24,16 @@ export const queryKeys = {
 
   user: ['user'] as const,
   userProfile: () => [...queryKeys.user, 'profile'] as const,
+
+  discover: ['discover'] as const,
+  discoverRecentReviews: (limit?: number) =>
+    [...queryKeys.discover, 'recent-reviews', { limit }] as const,
+  discoverFeaturedLists: (limit?: number) =>
+    [...queryKeys.discover, 'featured-lists', { limit }] as const,
+  discoverTrending: (days: number, limit: number) =>
+    [...queryKeys.discover, 'trending', { days, limit }] as const,
+  discoverTrendingLists: (days: number, limit: number) =>
+    [...queryKeys.discover, 'trending-lists', { days, limit }] as const,
+  savedLists: (limit?: number) =>
+    [...queryKeys.user, 'saved-lists', { limit }] as const,
 };

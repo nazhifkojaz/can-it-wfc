@@ -25,8 +25,16 @@ import {
   CafeListMembership,
   CafeListCreate,
   CafeListUpdate,
+  SaveListResponse,
+  SavedListsResponse,
 } from '../types';
 import { CafeInsightsResponse } from '../types/insights';
+import type {
+  DiscoverReview,
+  FeaturedListsResponse,
+  TrendingCafesResponse,
+  TrendingListsResponse,
+} from '../types/discover';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
@@ -172,6 +180,10 @@ export const userApi = {
   updateSettings: (data: Partial<UserSettings>) =>
     patch<UserSettings>('/auth/me/settings/', data),
 
+  // Saved lists
+  getSavedLists: (offset: number = 0, limit: number = 20) =>
+    get<SavedListsResponse>('/auth/me/saved-lists/', { offset, limit }),
+
   // Follow Management
   followUser: (username: string) => post(`/auth/follow/${username}/`),
 
@@ -300,6 +312,12 @@ export const listApi = {
   // Membership — powers the save-to-list popover state
   getCafeMemberships: (cafeId: number) =>
     get<CafeListMembership[]>(`/cafes/${cafeId}/my-lists/`),
+
+  // Save/unsave a public list
+  save: (listId: number) =>
+    post<SaveListResponse>(`/lists/${listId}/save/`),
+  unsave: (listId: number) =>
+    del(`/lists/${listId}/save/`),
 };
 
 export const visitApi = {
@@ -407,12 +425,26 @@ export const reviewApi = {
   markHelpful: (reviewId: number) => post(`/reviews/${reviewId}/mark_helpful/`),
 
   // Flag review
-  flagReview: (reviewId: number, reason: string, description?: string) =>
+    flagReview: (reviewId: number, reason: string, description?: string) =>
     post('/reviews/flags/', {
       review_id: reviewId,
       reason,
       comment: description || '',
     }),
+};
+
+export const discoverApi = {
+  getRecentReviews: (offset: number = 0, limit: number = 20) =>
+    get<PaginatedResponse<DiscoverReview>>('/discover/recent-reviews/', { offset, limit }),
+
+  getFeaturedLists: (limit: number = 6) =>
+    get<FeaturedListsResponse>('/discover/featured-lists/', { limit }),
+
+  getTrendingCafes: (days: number = 7, limit: number = 5) =>
+    get<TrendingCafesResponse>('/discover/trending/', { days, limit }),
+
+  getTrendingLists: (days: number = 30, limit: number = 6) =>
+    get<TrendingListsResponse>('/discover/trending-lists/', { days, limit }),
 };
 
 export default api;

@@ -340,7 +340,19 @@ export type {
   CafeListMembership,
   CafeListCreate,
   CafeListUpdate,
+  SaveListResponse,
+  SavedListsResponse,
 } from './lists';
+
+export type {
+  DiscoverReview,
+  DiscoverFeaturedList,
+  DiscoverTrendingCafe,
+  DiscoverTrendingList,
+  FeaturedListsResponse,
+  TrendingCafesResponse,
+  TrendingListsResponse,
+} from './discover';
 
 export interface SearchResult {
   google_place_id: string;
