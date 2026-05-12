@@ -247,6 +247,8 @@ class Review(models.Model):
             models.Index(fields=['cafe', 'is_hidden', '-created_at'], name='review_cafe_hidden_created_idx'),
             # Index for helpful count (used in sorting "most helpful" reviews)
             models.Index(fields=['-helpful_count'], name='review_helpful_count_idx'),
+            # Recency index for global discover feed (is_hidden filter + ordering)
+            models.Index(fields=['-created_at', 'is_hidden'], name='review_recency_idx'),
         ]
     
     def __str__(self):

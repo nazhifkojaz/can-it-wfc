@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/lists/', include('apps.cafes.list_urls')),
     path('api/', include('apps.reviews.urls')),
     path('api/activity/', include('apps.activity.urls')),
+    path('api/discover/', include('apps.discover.urls')),
 ]
 
 # Serve media files and API docs in development only

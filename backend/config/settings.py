@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.cafes',
     'apps.reviews',
     'apps.activity',  # Activity stream for feeds
+    'apps.discover',  # Discover panel
 ]
 
 MIDDLEWARE = [
