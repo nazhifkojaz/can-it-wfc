@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
 from django import forms
-from .models import Cafe, CafeList, CafeListItem, CafeFlag
+from .models import Cafe, CafeList, CafeListItem, CafeFlag, SavedCafeList
 
 
 # Constants for TextField max length validation in admin
@@ -188,11 +188,11 @@ class CafeAdmin(admin.ModelAdmin):
 
 @admin.register(CafeList)
 class CafeListAdmin(admin.ModelAdmin):
-    list_display = ['owner', 'name', 'is_default', 'item_count', 'updated_at']
-    list_filter = ['is_default', 'is_public']
+    list_display = ['owner', 'name', 'is_default', 'is_featured', 'item_count', 'updated_at']
+    list_filter = ['is_default', 'is_public', 'is_featured']
     search_fields = ['owner__username', 'name']
     ordering = ['-updated_at']
-    readonly_fields = ['item_count', 'created_at', 'updated_at']
+    readonly_fields = ['item_count', 'created_at', 'updated_at', 'featured_at']
 
 
 @admin.register(CafeListItem)
@@ -300,3 +300,12 @@ class CafeFlagAdmin(admin.ModelAdmin):
         )
         self.message_user(request, f"Marked {count} flags as pending.")
     mark_as_pending.short_description = "Mark as pending"
+
+
+@admin.register(SavedCafeList)
+class SavedCafeListAdmin(admin.ModelAdmin):
+    list_display = ['user', 'cafe_list', 'saved_at']
+    list_filter = ['saved_at']
+    search_fields = ['user__username', 'cafe_list__name']
+    ordering = ['-saved_at']
+    readonly_fields = ['saved_at']

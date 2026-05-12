@@ -1,6 +1,8 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
+from django.utils import timezone
 from apps.core.constants import EARTH_RADIUS_KM, LIST_ICON_CHOICES
 from apps.core.geo_utils import bounding_box_deltas
 from core.logging import get_logger
@@ -275,7 +277,7 @@ class CafeList(models.Model):
         related_name='cafe_lists',
     )
     name = models.CharField(max_length=80)
-    description = models.TextField(blank=True, max_length=300)
+    description = models.TextField(blank=True, max_length=160)
     list_type = models.CharField(
         max_length=20,
         choices=LIST_TYPE_CHOICES,
@@ -294,11 +296,26 @@ class CafeList(models.Model):
     )
     is_public = models.BooleanField(
         default=False,
-        help_text="Reserved for future sharing UI.",
+        help_text="Appears on the Discover panel when also is_featured=True.",
+    )
+    is_featured = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Featured lists appear on the Discover panel.",
+    )
+    featured_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when the list was featured. Auto-set when is_featured flips true.",
     )
     item_count = models.IntegerField(
         default=0,
         help_text="Denormalized count; updated via signal on item add/remove.",
+    )
+    save_count = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Denormalized count; updated via signal on save/unsave.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -319,9 +336,22 @@ class CafeList(models.Model):
             )
         ]
 
+    def clean(self):
+        super().clean()
+        if self.is_featured and not self.is_public:
+            raise ValidationError({
+                'is_featured': 'Featured lists must be public.',
+            })
+        if self.is_public and self.list_type in ('to_go', 'favorites'):
+            raise ValidationError({
+                'is_public': 'Special lists (to-go, favorites) cannot be made public.',
+            })
+
     def save(self, *args, **kwargs):
-        """Auto-set is_default based on list_type."""
+        """Auto-set is_default based on list_type and featured_at on first feature."""
         self.is_default = self.list_type in ('to_go', 'favorites')
+        if self.is_featured and self.featured_at is None:
+            self.featured_at = timezone.now()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -360,6 +390,34 @@ class CafeListItem(models.Model):
 
     def __str__(self):
         return f"{self.cafe_list} → {self.cafe.name}"
+
+
+class SavedCafeList(models.Model):
+    """A user saving a public CafeList created by another user."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='saved_cafe_lists',
+    )
+    cafe_list = models.ForeignKey(
+        CafeList,
+        on_delete=models.CASCADE,
+        related_name='saves',
+    )
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'saved_cafe_lists'
+        unique_together = [('user', 'cafe_list')]
+        ordering = ['-saved_at']
+        indexes = [
+            models.Index(fields=['cafe_list', '-saved_at']),
+            models.Index(fields=['user', '-saved_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} saved {self.cafe_list.name}"
 
 
 class PriceCluster(models.Model):
