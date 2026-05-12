@@ -5,6 +5,7 @@ from .views import (
     CafeListRetrieveUpdateDestroyView,
     CafeListItemCreateView,
     CafeListItemDetailView,
+    SaveCafeListView,
     SpecialListItemView,
 )
 
@@ -12,6 +13,7 @@ urlpatterns = [
     # Lists CRUD
     path('', CafeListListCreateView.as_view(), name='list-list-create'),
     path('<int:pk>/', CafeListRetrieveUpdateDestroyView.as_view(), name='list-detail'),
+    path('<int:pk>/save/', SaveCafeListView.as_view(), name='list-save'),
 
     # Items within a specific list
     path('<int:pk>/items/', CafeListItemCreateView.as_view(), name='list-item-create'),

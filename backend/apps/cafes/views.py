@@ -1,7 +1,7 @@
 import math
 from decimal import Decimal
 
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, permissions, status
 from rest_framework.exceptions import NotFound, ValidationError
@@ -21,7 +21,7 @@ from core.exceptions import (
 from core.logging import get_logger
 from core.permissions import IsOwnerOrReadOnly
 
-from .models import Cafe, CafeFlag, CafeList, CafeListItem
+from .models import Cafe, CafeFlag, CafeList, CafeListItem, SavedCafeList
 from .serializers import (
     CafeDetailSerializer,
     CafeFilterSerializer,
@@ -39,6 +39,7 @@ from .serializers import (
     CafeCreateSerializer,
     CafeUpdateSerializer,
     NearbyQuerySerializer,
+    SaveListResponseSerializer,
 )
 from .services import GooglePlacesService
 
@@ -235,7 +236,7 @@ class CafeListListCreateView(generics.ListCreateAPIView):
     pagination_class = None  # lists are bounded at MAX_LISTS_PER_USER (50)
 
     def get_queryset(self):
-        return CafeList.objects.filter(owner=self.request.user)
+        return CafeList.objects.filter(owner=self.request.user).select_related('owner')
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -261,15 +262,37 @@ class CafeListListCreateView(generics.ListCreateAPIView):
 
 class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
-    GET    /api/lists/<id>/  — list metadata + items
-    PATCH  /api/lists/<id>/  — rename or update description
+    GET    /api/lists/<id>/  — list metadata + items (public lists viewable by anyone)
+    PATCH  /api/lists/<id>/  — rename, update description, toggle is_public
     DELETE /api/lists/<id>/  — delete (blocked for default list)
     """
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
     http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        return CafeList.objects.filter(owner=self.request.user)
+        if self.request.method == 'GET':
+            if self.request.user.is_authenticated:
+                qs = CafeList.objects.filter(
+                    Q(owner=self.request.user) | Q(is_public=True)
+                )
+            else:
+                qs = CafeList.objects.filter(is_public=True)
+        else:
+            qs = CafeList.objects.filter(owner=self.request.user)
+        if self.request.user.is_authenticated:
+            qs = qs.annotate(
+                is_saved_by_user=Exists(
+                    SavedCafeList.objects.filter(
+                        cafe_list=OuterRef('pk'),
+                        user=self.request.user,
+                    )
+                )
+            )
+        return qs
 
     def get_object(self):
         try:
@@ -293,7 +316,9 @@ class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                 raise ValidationError({'name': f'You already have a list named "{new_name}".'})
 
         serializer.save()
-        return Response(CafeListSerializer(cafe_list).data)
+        cafe_list.refresh_from_db()
+        detail_serializer = CafeListDetailSerializer(cafe_list)
+        return Response(detail_serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         cafe_list = self.get_object()
@@ -429,6 +454,63 @@ class CafeListItemDetailView(APIView):
     def delete(self, request, pk, cafe_id):
         item = self._get_item(request, pk, cafe_id)
         item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SaveCafeListView(APIView):
+    """
+    POST   /api/lists/<pk>/save/   — save a public list
+    DELETE /api/lists/<pk>/save/   — unsave a list
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_list(self, pk):
+        try:
+            return CafeList.objects.get(pk=pk)
+        except CafeList.DoesNotExist:
+            return None
+
+    def post(self, request, pk):
+        cafe_list = self._get_list(pk)
+        if cafe_list is None:
+            return Response({'detail': 'List not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if cafe_list.owner_id == request.user.id:
+            return Response(
+                {'detail': 'You cannot save your own list.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not cafe_list.is_public:
+            return Response({'detail': 'List not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        saved, created = SavedCafeList.objects.get_or_create(
+            user=request.user,
+            cafe_list=cafe_list,
+        )
+
+        cafe_list.refresh_from_db()
+
+        return Response({
+            'id': saved.id,
+            'save_count': cafe_list.save_count,
+            'is_saved_by_user': True,
+            'saved_at': saved.saved_at,
+        }, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        cafe_list = self._get_list(pk)
+        if cafe_list is None:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        deleted, _ = SavedCafeList.objects.filter(
+            user=request.user,
+            cafe_list=cafe_list,
+        ).delete()
+
+        cafe_list.refresh_from_db()
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

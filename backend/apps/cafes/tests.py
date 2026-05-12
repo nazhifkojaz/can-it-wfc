@@ -854,3 +854,364 @@ class TestCafeMembershipView:
         assert response.status_code == status.HTTP_200_OK
         names = [row['name'] for row in response.data]
         assert 'Private list' not in names
+
+
+@pytest.mark.django_db
+class TestCafeListFeatured:
+    """Tests for is_featured / featured_at on CafeList (Discover panel)."""
+
+    def test_is_featured_defaults_false(self, test_user):
+        from apps.cafes.models import CafeList
+        lst = CafeList.objects.create(owner=test_user, name='Default test')
+        assert lst.is_featured is False
+        assert lst.featured_at is None
+
+    def test_clean_rejects_featured_but_not_public(self, test_user):
+        from apps.cafes.models import CafeList
+        from django.core.exceptions import ValidationError
+        lst = CafeList(owner=test_user, name='Bad featured', is_featured=True, is_public=False)
+        with pytest.raises(ValidationError) as exc_info:
+            lst.clean()
+        assert 'is_featured' in exc_info.value.message_dict
+
+    def test_clean_accepts_featured_and_public(self, test_user):
+        from apps.cafes.models import CafeList
+        lst = CafeList(owner=test_user, name='Good featured', is_featured=True, is_public=True)
+        lst.clean()  # Should not raise
+
+    def test_save_auto_sets_featured_at_on_first_feature(self, test_user):
+        from apps.cafes.models import CafeList
+        lst = CafeList.objects.create(owner=test_user, name='New list', is_public=True)
+        assert lst.featured_at is None
+
+        lst.is_featured = True
+        lst.save()
+        lst.refresh_from_db()
+        assert lst.featured_at is not None
+
+        first_featured_at = lst.featured_at
+        lst.name = 'Renamed'
+        lst.save()
+        lst.refresh_from_db()
+        assert lst.featured_at == first_featured_at  # Not overwritten
+
+    def test_save_does_not_overwrite_existing_featured_at(self, test_user):
+        from apps.cafes.models import CafeList
+        from django.utils import timezone
+        past = timezone.now() - timezone.timedelta(days=10)
+        lst = CafeList.objects.create(
+            owner=test_user, name='Pre-featured', is_public=True,
+            is_featured=True, featured_at=past,
+        )
+        lst.name = 'Updated name'
+        lst.save()
+        lst.refresh_from_db()
+        assert lst.featured_at == past
+
+
+@pytest.mark.django_db
+class TestCafeListCleanTightening:
+    """Tests for CafeList.clean() — special lists cannot be public."""
+
+    def test_clean_rejects_public_to_go_list(self, test_user):
+        from apps.cafes.models import CafeList
+        from django.core.exceptions import ValidationError
+        lst = CafeList(
+            owner=test_user, name='Try Public ToGo',
+            list_type='to_go', is_public=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            lst.clean()
+        assert 'is_public' in exc_info.value.message_dict
+
+    def test_clean_rejects_public_favorites_list(self, test_user):
+        from apps.cafes.models import CafeList
+        from django.core.exceptions import ValidationError
+        lst = CafeList(
+            owner=test_user, name='Try Public Favs',
+            list_type='favorites', is_public=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            lst.clean()
+        assert 'is_public' in exc_info.value.message_dict
+
+    def test_clean_rejects_featured_and_public_combined_invalid(self, test_user):
+        from apps.cafes.models import CafeList
+        from django.core.exceptions import ValidationError
+        lst = CafeList(
+            owner=test_user, name='Double Invalid',
+            list_type='favorites', is_public=True, is_featured=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            lst.clean()
+        msg_dict = exc_info.value.message_dict
+        assert 'is_featured' in msg_dict or 'is_public' in msg_dict
+
+    def test_clean_accepts_public_custom_list(self, test_user):
+        from apps.cafes.models import CafeList
+        lst = CafeList(
+            owner=test_user, name='Public Custom',
+            list_type='custom', is_public=True,
+        )
+        lst.clean()  # Should not raise
+
+    def test_clean_accepts_private_special_list(self, test_user):
+        from apps.cafes.models import CafeList
+        lst = CafeList(
+            owner=test_user, name='Private Favs',
+            list_type='favorites', is_public=False,
+        )
+        lst.clean()  # Should not raise
+
+
+@pytest.mark.django_db
+class TestSaveCafeList:
+    """Tests for POST/DELETE /api/lists/<id>/save/ (Phase 5)."""
+
+    def _make_public_list(self, owner, name='Public List'):
+        from apps.cafes.models import CafeList
+        return CafeList.objects.create(
+            owner=owner, name=name, is_public=True,
+        )
+
+    def test_save_public_list(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='listowner', email='owner@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(other)
+        api_client.force_authenticate(user=test_user)
+
+        response = api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['is_saved_by_user'] is True
+        assert response.data['save_count'] == 1
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 1
+
+    def test_unsave_list(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='listowner2', email='owner2@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(other)
+        api_client.force_authenticate(user=test_user)
+        api_client.post(f'/api/lists/{cafe_list.id}/save/')
+
+        response = api_client.delete(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 0
+
+    def test_save_is_idempotent(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='listowner3', email='owner3@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(other)
+        api_client.force_authenticate(user=test_user)
+
+        api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        response = api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_200_OK
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 1
+
+    def test_unsave_is_idempotent(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='listowner4', email='owner4@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(other)
+        api_client.force_authenticate(user=test_user)
+
+        response = api_client.delete(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 0
+
+    def test_self_save_blocked(self, api_client, test_user):
+        cafe_list = self._make_public_list(test_user)
+        api_client.force_authenticate(user=test_user)
+
+        response = api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 0
+
+    def test_nonexistent_list_returns_404_on_save(self, api_client, test_user):
+        api_client.force_authenticate(user=test_user)
+        response = api_client.post('/api/lists/99999/save/')
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_nonexistent_list_returns_204_on_unsave(self, api_client, test_user):
+        api_client.force_authenticate(user=test_user)
+        response = api_client.delete('/api/lists/99999/save/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_private_list_blocked_for_save(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='privowner', email='privowner@example.com', password='pass',
+        )
+        from apps.cafes.models import CafeList
+        cafe_list = CafeList.objects.create(
+            owner=other, name='Secret List', is_public=False,
+        )
+        api_client.force_authenticate(user=test_user)
+
+        response = api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_save_requires_auth(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='listowner5', email='owner5@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(other)
+
+        response = api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_unsave_requires_auth(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='listowner6', email='owner6@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(other)
+
+        response = api_client.delete(f'/api/lists/{cafe_list.id}/save/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_save_count_increments_via_signal(self, api_client, test_user):
+        from apps.cafes.models import CafeList, SavedCafeList
+        other = User.objects.create_user(
+            username='sigowner', email='sigowner@example.com', password='pass',
+        )
+        cafe_list = CafeList.objects.create(
+            owner=other, name='Signal Test', is_public=True,
+        )
+        saver1 = User.objects.create_user(
+            username='saver1', email='saver1@example.com', password='pass',
+        )
+        saver2 = User.objects.create_user(
+            username='saver2', email='saver2@example.com', password='pass',
+        )
+
+        api_client.force_authenticate(user=saver1)
+        api_client.post(f'/api/lists/{cafe_list.id}/save/')
+        api_client.force_authenticate(user=saver2)
+        api_client.post(f'/api/lists/{cafe_list.id}/save/')
+
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 2
+
+        api_client.force_authenticate(user=saver1)
+        api_client.delete(f'/api/lists/{cafe_list.id}/save/')
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 1
+
+
+@pytest.mark.django_db
+class TestPublicListViewing:
+    """Tests for anonymous/public access to CafeList detail (Phase 5)."""
+
+    def _make_public_list(self, owner, name='Public', **kwargs):
+        from apps.cafes.models import CafeList
+        return CafeList.objects.create(
+            owner=owner, name=name, is_public=True, **kwargs,
+        )
+
+    def test_anonymous_can_view_public_list(self, api_client, test_user):
+        cafe_list = self._make_public_list(test_user)
+        response = api_client.get(f'/api/lists/{cafe_list.id}/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['name'] == 'Public'
+
+    def test_anonymous_cannot_view_private_list(self, api_client, test_user):
+        from apps.cafes.models import CafeList
+        cafe_list = CafeList.objects.create(
+            owner=test_user, name='Private', is_public=False,
+        )
+        response = api_client.get(f'/api/lists/{cafe_list.id}/')
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_owner_can_view_own_private_list(self, api_client, test_user):
+        from apps.cafes.models import CafeList
+        cafe_list = CafeList.objects.create(
+            owner=test_user, name='My Private', is_public=False,
+        )
+        api_client.force_authenticate(user=test_user)
+        response = api_client.get(f'/api/lists/{cafe_list.id}/')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_is_saved_by_user_false_for_anonymous(self, api_client, test_user):
+        cafe_list = self._make_public_list(test_user)
+        response = api_client.get(f'/api/lists/{cafe_list.id}/')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_is_saved_by_user_true_for_saver(self, api_client, test_user):
+        other = User.objects.create_user(
+            username='viewer', email='viewer@example.com', password='pass',
+        )
+        cafe_list = self._make_public_list(test_user)
+        from apps.cafes.models import SavedCafeList
+        SavedCafeList.objects.create(user=other, cafe_list=cafe_list)
+
+        api_client.force_authenticate(user=other)
+        response = api_client.get(f'/api/lists/{cafe_list.id}/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data.get('is_saved_by_user') is True
+
+    def test_public_list_with_patch_requires_auth(self, api_client, test_user):
+        cafe_list = self._make_public_list(test_user)
+        response = api_client.patch(f'/api/lists/{cafe_list.id}/', {'name': 'Hacked'})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_public_list_with_delete_requires_auth(self, api_client, test_user):
+        cafe_list = self._make_public_list(test_user)
+        response = api_client.delete(f'/api/lists/{cafe_list.id}/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+class TestRecomputeSaveCounts:
+    """Tests for the recompute_save_counts management command (Phase 5)."""
+
+    def test_fixes_drifted_count(self, test_user):
+        from django.core.management import call_command
+        from io import StringIO
+        from apps.cafes.models import CafeList, SavedCafeList
+
+        cafe_list = CafeList.objects.create(
+            owner=test_user, name='Drifted', is_public=True,
+        )
+        saver = User.objects.create_user(
+            username='drifter', email='drift@example.com', password='pass',
+        )
+        SavedCafeList.objects.create(user=saver, cafe_list=cafe_list)
+
+        # Manually break the count
+        CafeList.objects.filter(pk=cafe_list.pk).update(save_count=5)
+
+        out = StringIO()
+        call_command('recompute_save_counts', stdout=out)
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 1
+        assert 'Fixed 1 list' in out.getvalue()
+
+    def test_dry_run_does_not_write(self, test_user):
+        from django.core.management import call_command
+        from io import StringIO
+        from apps.cafes.models import CafeList, SavedCafeList
+
+        cafe_list = CafeList.objects.create(
+            owner=test_user, name='Dry Run', is_public=True,
+        )
+        saver = User.objects.create_user(
+            username='dryruner', email='dryrun@example.com', password='pass',
+        )
+        SavedCafeList.objects.create(user=saver, cafe_list=cafe_list)
+        stored_before = cafe_list.save_count
+
+        CafeList.objects.filter(pk=cafe_list.pk).update(save_count=10)
+
+        out = StringIO()
+        call_command('recompute_save_counts', '--dry-run', stdout=out)
+
+        cafe_list.refresh_from_db()
+        assert cafe_list.save_count == 10
+        assert 'Would fix' in out.getvalue()
