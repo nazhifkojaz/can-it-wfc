@@ -1,5 +1,11 @@
 """
 Activity API views.
+
+DEPRECATED (2026-05-11): The ActivityFeedView is no longer consumed by the
+frontend. The Activity panel was replaced by the Discover panel
+(see PLAN_DISCOVER_PANEL.md). This endpoint, the Activity model, and
+Activity.signals will be repurposed for a future Notifications panel.
+DO NOT DELETE.
 """
 from rest_framework.views import APIView
 from rest_framework.response import Response

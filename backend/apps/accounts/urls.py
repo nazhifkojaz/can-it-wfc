@@ -12,6 +12,7 @@ from .views import (
     MyFollowingListView,
     UserFollowersListView,
     UserFollowingListView,
+    SavedListsView,
 )
 
 urlpatterns = [
@@ -21,6 +22,7 @@ urlpatterns = [
     # Session Management
     path('me/', UserDetailView.as_view(), name='user-detail'),
     path('me/settings/', UserSettingsUpdateView.as_view(), name='user-settings'),
+    path('me/saved-lists/', SavedListsView.as_view(), name='saved-lists'),
     path('logout/', LogoutView.as_view(), name='logout'),
 
     # Follow Management

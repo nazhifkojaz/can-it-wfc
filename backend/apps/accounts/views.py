@@ -38,6 +38,8 @@ from .utils import get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
 from apps.reviews.models import Visit, Review
+from apps.cafes.models import CafeList, CafeListItem, SavedCafeList
+from apps.cafes.serializers import CafeListSerializer
 
 logger = get_logger(__name__)
 
@@ -480,3 +482,47 @@ class UserFollowingListView(generics.ListAPIView):
         following_ids = user.get_following_ids()
 
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
+
+
+class SavedListsView(APIView):
+    """
+    Get the current user's saved public lists.
+
+    GET /api/auth/me/saved-lists/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            limit = min(int(request.query_params.get('limit', 20)), 50)
+        except (ValueError, TypeError):
+            limit = 20
+        try:
+            offset = int(request.query_params.get('offset', 0))
+        except (ValueError, TypeError):
+            offset = 0
+
+        saved = (
+            SavedCafeList.objects
+            .filter(user=request.user, cafe_list__is_public=True)
+            .select_related('cafe_list__owner')
+            .order_by('-saved_at')
+        )
+
+        total_count = saved.count()
+        page = saved[offset:offset + limit]
+
+        cafe_lists = [s.cafe_list for s in page]
+        for cafe_list in cafe_lists:
+            cafe_list.preview_items = list(
+                cafe_list.items.select_related('cafe').order_by('added_at')[:3]
+            )
+
+        serializer = CafeListSerializer(cafe_lists, many=True)
+
+        return Response({
+            'count': total_count,
+            'next': None,
+            'previous': None,
+            'results': serializer.data,
+        })

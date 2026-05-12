@@ -223,3 +223,83 @@ class TestUnfollowUpdatesCounts:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
+@pytest.mark.django_db
+class TestSavedLists:
+    """Tests for GET /api/auth/me/saved-lists/ (Phase 5)."""
+
+    def test_returns_saved_public_lists(self, api_client, test_user):
+        from apps.cafes.models import CafeList, SavedCafeList
+        other = User.objects.create_user(
+            username='listmaker', email='maker@example.com', password='pass',
+        )
+        cafe_list = CafeList.objects.create(
+            owner=other, name='Saved Public', is_public=True,
+        )
+        SavedCafeList.objects.create(user=test_user, cafe_list=cafe_list)
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.get('/api/auth/me/saved-lists/')
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 1
+        assert results[0]['name'] == 'Saved Public'
+
+    def test_empty_when_no_saved_lists(self, api_client, test_user):
+        api_client.force_authenticate(user=test_user)
+        response = api_client.get('/api/auth/me/saved-lists/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'] == []
+        assert response.data['count'] == 0
+
+    def test_requires_auth(self, api_client):
+        response = api_client.get('/api/auth/me/saved-lists/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_does_not_show_other_users_saves(self, api_client, test_user):
+        from apps.cafes.models import CafeList, SavedCafeList
+        other = User.objects.create_user(
+            username='maker2', email='maker2@example.com', password='pass',
+        )
+        stranger = User.objects.create_user(
+            username='stranger2', email='stranger2@example.com', password='pass',
+        )
+        cafe_list = CafeList.objects.create(
+            owner=other, name='Other Save', is_public=True,
+        )
+        SavedCafeList.objects.create(user=stranger, cafe_list=cafe_list)
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.get('/api/auth/me/saved-lists/')
+        assert len(response.data['results']) == 0
+
+    def test_hides_private_list_from_saved(self, api_client, test_user):
+        from apps.cafes.models import CafeList, SavedCafeList
+        other = User.objects.create_user(
+            username='privmaker', email='privmaker@example.com', password='pass',
+        )
+        cafe_list = CafeList.objects.create(
+            owner=other, name='Was Public', is_public=False,
+        )
+        SavedCafeList.objects.create(user=test_user, cafe_list=cafe_list)
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.get('/api/auth/me/saved-lists/')
+        assert len(response.data['results']) == 0
+
+    def test_pagination(self, api_client, test_user):
+        from apps.cafes.models import CafeList, SavedCafeList
+        other = User.objects.create_user(
+            username='manyowner', email='many@example.com', password='pass',
+        )
+        for i in range(5):
+            cl = CafeList.objects.create(
+                owner=other, name=f'Paginated {i}', is_public=True,
+            )
+            SavedCafeList.objects.create(user=test_user, cafe_list=cl)
+
+        api_client.force_authenticate(user=test_user)
+        response = api_client.get('/api/auth/me/saved-lists/?limit=2')
+        assert len(response.data['results']) == 2
+        assert response.data['count'] == 5
+
+
