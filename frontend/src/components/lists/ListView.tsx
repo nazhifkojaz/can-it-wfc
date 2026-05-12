@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Edit2, Trash2, Check, X } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Check, X, Globe, Lock, Bookmark } from 'lucide-react';
 import { useListDetail, useLists, useResultModal } from '../../hooks';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSaveList } from '../../hooks/useSaveList';
 import { Loading, EmptyState, ConfirmDialog, SharedResultModal } from '../common';
 import type { CafeListItem } from '../../types';
 import ListItemRow from './ListItemRow';
@@ -15,11 +17,20 @@ interface ListViewProps {
 const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
   const { list, isLoading, removeItem, updateNote } = useListDetail(listId);
   const { updateList, deleteList, isUpdating, isDeleting } = useLists();
+  const { user } = useAuth();
   const resultModal = useResultModal();
+
+  const { isSaved, saveCount, toggle, isPending: isSaving, error: saveError } = useSaveList(
+    listId,
+    { initialSaved: list?.is_saved_by_user ?? false, initialSaveCount: list?.save_count ?? 0 }
+  );
 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const isOwner = !!(user && list?.owner?.id && user.id === list.owner.id);
+  const isSpecialList = list?.list_type === 'to_go' || list?.list_type === 'favorites';
 
   const startRename = () => {
     setRenameValue(list?.name || '');
@@ -48,6 +59,15 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
       onBack();
     } catch {
       resultModal.showResultModal({ type: 'error', title: 'Failed to Delete', message: 'Could not delete list. Please try again.' });
+    }
+  };
+
+  const togglePublic = async () => {
+    if (!list) return;
+    try {
+      await updateList(listId, { is_public: !list.is_public });
+    } catch {
+      resultModal.showResultModal({ type: 'error', title: 'Failed to Update', message: 'Could not update list visibility. Please try again.' });
     }
   };
 
@@ -89,18 +109,43 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
             <p className={styles.listViewSubtitle}>
               {list.item_count} {list.item_count === 1 ? 'cafe' : 'cafes'}
               {list.is_default && ' · Default List'}
+              {saveCount > 0 && ` · ${saveCount} saved`}
             </p>
+            {saveError && (
+              <p className={styles.saveError}>{saveError}</p>
+            )}
           </div>
         )}
 
         {!renaming && (
           <div className={styles.listViewHeaderActions}>
-            {!list.is_default && (
+            {isOwner && !isSpecialList && (
+              <button
+                className={styles.btnIcon}
+                onClick={togglePublic}
+                disabled={isUpdating}
+                aria-label={list.is_public ? 'Make list private' : 'Make list public'}
+                title={list.is_public ? 'Public' : 'Private'}
+              >
+                {list.is_public ? <Globe size={14} /> : <Lock size={14} />}
+              </button>
+            )}
+            {!isOwner && user && (
+              <button
+                className={styles.btnIcon}
+                onClick={toggle}
+                disabled={isSaving}
+                aria-label={isSaved ? 'Unsave list' : 'Save list'}
+              >
+                <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
+              </button>
+            )}
+            {isOwner && !list.is_default && (
               <button className={styles.btnIcon} onClick={startRename} aria-label="Rename list">
                 <Edit2 size={14} />
               </button>
             )}
-            {!list.is_default && (
+            {isOwner && !list.is_default && (
               <button className={styles.btnDanger} onClick={() => setShowDeleteConfirm(true)} aria-label="Delete list">
                 <Trash2 size={14} />
               </button>

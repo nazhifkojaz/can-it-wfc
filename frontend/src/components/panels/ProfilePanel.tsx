@@ -27,6 +27,8 @@ import CafeDetailSheet from '../cafe/CafeDetailSheet';
 import AddVisitReviewModal from '../visit/AddVisitReviewModal';
 import FollowersModal from '../social/FollowersModal';
 import ListsPanel from '../lists/ListsPanel';
+import ListView from '../lists/ListView';
+import SavedListsTab from '../profile/SavedListsTab';
 import { reviewApi } from '../../api/client';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { formatDate, formatRating } from '../../utils';
@@ -45,7 +47,8 @@ const ProfilePanel: React.FC = () => {
   const resultModal = useResultModal();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'lists'>('visits');
+  const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'lists' | 'saved'>('visits');
+  const [selectedListId, setSelectedListId] = useState<number | null>(null);
 
   // Followers/Following modal state
   const { openFollowersModal, followersModalProps } = useFollowersModal();
@@ -499,6 +502,15 @@ const ProfilePanel: React.FC = () => {
             Lists
           </button>
           <button
+            className={`profile-tab ${activeTab === 'saved' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('saved');
+              trackProfileTabViewed({ tab: 'saved' });
+            }}
+          >
+            Saved
+          </button>
+          <button
             className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('settings');
@@ -658,6 +670,17 @@ const ProfilePanel: React.FC = () => {
           <ListsPanel
             onCafeClick={(item) => {
               setSelectedCafe(item.cafe);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Saved Tab Content */}
+      {activeTab === 'saved' && (
+        <div className="tab-content">
+          <SavedListsTab
+            onListClick={(list) => {
+              setSelectedListId(list.id);
             }}
           />
         </div>
@@ -872,6 +895,20 @@ const ProfilePanel: React.FC = () => {
           variant="danger"
           isLoading={isDeleting}
         />
+      )}
+
+      {/* List View (for saved lists) */}
+      {selectedListId && (
+        <div className="list-view-overlay">
+          <ListView
+            listId={selectedListId}
+            onBack={() => setSelectedListId(null)}
+            onCafeClick={(item) => {
+              setSelectedListId(null);
+              setSelectedCafe(item.cafe);
+            }}
+          />
+        </div>
       )}
 
       {/* Cafe Detail Sheet (for favorites) */}

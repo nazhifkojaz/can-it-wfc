@@ -520,3 +520,9 @@
   border-color: var(--neo-gray-500);
   color: var(--neo-gray-600);
 }
+
+.saveError {
+  color: var(--neo-danger);
+  font-size: 12px;
+  margin: 4px 0 0 0;
+}
