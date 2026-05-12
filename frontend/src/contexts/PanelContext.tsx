@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { trackPanelOpened } from '../lib/analytics';
 
-type Panel = 'activity' | 'profile' | 'userProfile';
+type Panel = 'discover' | 'profile' | 'userProfile';
 type PanelData = { username: string } | null;
 
 interface PanelContextType {
@@ -20,7 +20,7 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.substring(1);
-      const validPanels: Panel[] = ['activity', 'profile', 'userProfile'];
+      const validPanels: Panel[] = ['discover', 'profile', 'userProfile'];
 
       const [panelType, ...dataParts] = hash.split(':');
       const encodedData = dataParts.join(':');
@@ -49,9 +49,9 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const showPanel = (panel: Panel, data?: PanelData) => {
     if (activePanel !== panel) {
-      const analyticsPanel: 'activity' | 'profile' | 'user_profile' =
+      const analyticsPanel: 'discover' | 'profile' | 'user_profile' =
         panel === 'userProfile' ? 'user_profile' :
-        panel as 'activity' | 'profile';
+        panel as 'discover' | 'profile';
 
       trackPanelOpened({ panel: analyticsPanel });
     }

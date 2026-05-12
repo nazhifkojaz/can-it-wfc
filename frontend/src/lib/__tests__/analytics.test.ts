@@ -525,11 +525,11 @@ describe('Analytics - Panel Events (Phase 3)', () => {
   });
 
   describe('trackPanelOpened', () => {
-    it('should capture panel_opened event for activity panel', () => {
-      trackPanelOpened({ panel: 'activity' });
+    it('should capture panel_opened event for discover panel', () => {
+      trackPanelOpened({ panel: 'discover' });
 
       expect(mockCapture).toHaveBeenCalledWith('panel_opened', {
-        panel: 'activity',
+        panel: 'discover',
       });
     });
 

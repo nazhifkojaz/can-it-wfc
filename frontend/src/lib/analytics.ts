@@ -39,7 +39,8 @@ type CafeViewSource =
   | 'search_result'
   | 'activity_feed'
   | 'favorite'
-  | 'direct';
+  | 'direct'
+  | 'discover';
 
 /**
  * Track when a user opens the Cafe Detail Sheet.
@@ -362,7 +363,7 @@ export const trackListSorted = (props: {
   });
 };
 
-type PanelType = 'activity' | 'profile' | 'user_profile';
+type PanelType = 'discover' | 'profile' | 'user_profile';
 
 /**
  * Track when a user opens a side panel.
@@ -375,7 +376,7 @@ export const trackPanelOpened = (props: {
   });
 };
 
-type ProfileTab = 'visits' | 'lists' | 'settings';
+type ProfileTab = 'visits' | 'lists' | 'saved' | 'settings';
 
 /**
  * Track when a user switches tabs in the Profile Panel.
