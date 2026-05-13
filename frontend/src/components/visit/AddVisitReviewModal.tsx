@@ -599,16 +599,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             How much did you spend? (Optional)
           </label>
           <div className={styles.currencyInputGroup}>
-            <input
-              id="amount-spent"
-              type="number"
-              value={amountSpent}
-              onChange={(e) => setAmountSpent(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              className={styles.currencyInput}
-            />
             <select
               id="currency"
               value={currency}
@@ -621,6 +611,16 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
                 </option>
               ))}
             </select>
+            <input
+              id="amount-spent"
+              type="number"
+              value={amountSpent}
+              onChange={(e) => setAmountSpent(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              className={styles.currencyInput}
+            />
           </div>
         </div>
 

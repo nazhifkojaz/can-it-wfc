@@ -1363,11 +1363,19 @@
 }
 
 .currency-input {
-  flex: 1;
+  flex: 3;
+  min-width: 100px;
+  -moz-appearance: textfield;
+}
+
+.currency-input::-webkit-outer-spin-button,
+.currency-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .currency-select {
-  width: 120px;
+  flex: 1;
 }
 
 .deadline-info {

@@ -1029,16 +1029,6 @@ const ProfilePanel: React.FC = () => {
                   Amount Spent (Optional)
                 </label>
                 <div className="currency-input-group">
-                  <input
-                    id="edit-amount-spent"
-                    type="number"
-                    value={editAmountSpent}
-                    onChange={(e) => setEditAmountSpent(e.target.value)}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="currency-input"
-                  />
                   <select
                     id="edit-currency"
                     value={editCurrency}
@@ -1051,6 +1041,16 @@ const ProfilePanel: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                  <input
+                    id="edit-amount-spent"
+                    type="number"
+                    value={editAmountSpent}
+                    onChange={(e) => setEditAmountSpent(e.target.value)}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="currency-input"
+                  />
                 </div>
               </div>
 
