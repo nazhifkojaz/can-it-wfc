@@ -5,6 +5,8 @@ import { PanelProvider } from './contexts/PanelContext';
 
 // Pages
 import LandingPage from './pages/LandingPage';
+import SharedListPage from './pages/SharedListPage';
+import SharedProfilePage from './pages/SharedProfilePage';
 import MapPage from './pages/MapPage';
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/list/:id" element={<SharedListPage />} />
+            <Route path="/user/:username" element={<SharedProfilePage />} />
 
             {/* Protected Routes */}
             <Route

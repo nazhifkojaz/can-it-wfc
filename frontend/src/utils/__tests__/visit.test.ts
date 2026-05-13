@@ -15,7 +15,6 @@ const mockUser: User = {
   display_name: 'Test User',
   effective_display_name: 'Test User',
   bio: '',
-  is_anonymous_display: false,
   total_reviews: 0,
   total_visits: 0,
   date_joined: '2024-01-01T00:00:00Z',

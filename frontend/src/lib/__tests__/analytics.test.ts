@@ -509,6 +509,14 @@ describe('Analytics - UX Events', () => {
       });
     });
 
+    it('should capture profile_tab_viewed event for reviews tab', () => {
+      trackProfileTabViewed({ tab: 'reviews' });
+
+      expect(mockCapture).toHaveBeenCalledWith('profile_tab_viewed', {
+        tab: 'reviews',
+      });
+    });
+
     it('should capture profile_tab_viewed event for settings tab', () => {
       trackProfileTabViewed({ tab: 'settings' });
 
