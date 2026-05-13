@@ -595,9 +595,9 @@ class SavedListsView(APIView):
 
     def get(self, request):
         try:
-            limit = min(int(request.query_params.get('limit', 20)), 50)
+            limit = min(int(request.query_params.get('limit', 10)), 50)
         except (ValueError, TypeError):
-            limit = 20
+            limit = 10
         try:
             offset = int(request.query_params.get('offset', 0))
         except (ValueError, TypeError):
@@ -605,7 +605,7 @@ class SavedListsView(APIView):
 
         saved = (
             SavedCafeList.objects
-            .filter(user=request.user, cafe_list__is_public=True)
+            .filter(user=request.user, cafe_list__visibility='public')
             .select_related('cafe_list__owner')
             .order_by('-saved_at')
         )
@@ -621,9 +621,47 @@ class SavedListsView(APIView):
 
         serializer = CafeListSerializer(cafe_lists, many=True)
 
+        next_offset = offset + limit
+        next_url = None
+        if next_offset < total_count:
+            next_url = request.build_absolute_uri(
+                f"{request.path}?offset={next_offset}&limit={limit}"
+            )
+
         return Response({
             'count': total_count,
-            'next': None,
+            'next': next_url,
             'previous': None,
             'results': serializer.data,
         })
+
+
+class UserPublicListsView(APIView):
+    """
+    Get public lists for a given user by username or ID.
+
+    GET /api/auth/users/{username}/lists/
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
+
+    def get(self, request, username):
+        try:
+            target_user = get_user_by_username_or_id(username)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        lists = (
+            CafeList.objects
+            .filter(owner=target_user, visibility='public')
+            .select_related('owner')
+            .order_by('-updated_at')
+        )
+
+        for cafe_list in lists:
+            cafe_list.preview_items = list(
+                cafe_list.items.select_related('cafe').order_by('added_at')[:3]
+            )
+
+        serializer = CafeListSerializer(lists, many=True)
+        return Response(serializer.data)

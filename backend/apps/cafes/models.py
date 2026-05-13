@@ -8,6 +8,7 @@ from apps.core.geo_utils import bounding_box_deltas
 from core.logging import get_logger
 from decimal import Decimal
 import math
+import uuid
 
 logger = get_logger(__name__)
 
@@ -294,14 +295,28 @@ class CafeList(models.Model):
         default=False,
         help_text="True for to-go and favorites (protected special lists).",
     )
-    is_public = models.BooleanField(
-        default=False,
-        help_text="Appears on the Discover panel when also is_featured=True.",
+    VISIBILITY_CHOICES = [
+        ('private', 'Private'),
+        ('shareable', 'Shareable'),
+        ('public', 'Public'),
+    ]
+    visibility = models.CharField(
+        max_length=10,
+        choices=VISIBILITY_CHOICES,
+        default='private',
+        db_index=True,
+        help_text="Who can view this list. Private=owner only, Shareable=anyone with link, Public=everyone.",
+    )
+    share_token = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="Auto-generated when visibility='shareable'. Used for shareable link access.",
     )
     is_featured = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="Featured lists appear on the Discover panel.",
+        help_text="Featured lists appear on the Discover panel. Requires visibility='public'.",
     )
     featured_at = models.DateTimeField(
         null=True,
@@ -338,13 +353,13 @@ class CafeList(models.Model):
 
     def clean(self):
         super().clean()
-        if self.is_featured and not self.is_public:
+        if self.is_featured and self.visibility != 'public':
             raise ValidationError({
                 'is_featured': 'Featured lists must be public.',
             })
-        if self.is_public and self.list_type in ('to_go', 'favorites'):
+        if self.visibility in ('public', 'shareable') and self.list_type in ('to_go', 'favorites'):
             raise ValidationError({
-                'is_public': 'Special lists (to-go, favorites) cannot be made public.',
+                'visibility': 'Special lists (to-go, favorites) cannot be made public or shareable.',
             })
 
     def save(self, *args, **kwargs):
@@ -352,6 +367,8 @@ class CafeList(models.Model):
         self.is_default = self.list_type in ('to_go', 'favorites')
         if self.is_featured and self.featured_at is None:
             self.featured_at = timezone.now()
+        if self.visibility == 'shareable' and not self.share_token:
+            self.share_token = uuid.uuid4()
         super().save(*args, **kwargs)
 
     def __str__(self):

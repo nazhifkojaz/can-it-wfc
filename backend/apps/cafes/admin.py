@@ -188,8 +188,8 @@ class CafeAdmin(admin.ModelAdmin):
 
 @admin.register(CafeList)
 class CafeListAdmin(admin.ModelAdmin):
-    list_display = ['owner', 'name', 'is_default', 'is_featured', 'item_count', 'updated_at']
-    list_filter = ['is_default', 'is_public', 'is_featured']
+    list_display = ['owner', 'name', 'is_default', 'is_featured', 'visibility', 'item_count', 'updated_at']
+    list_filter = ['is_default', 'visibility', 'is_featured']
     search_fields = ['owner__username', 'name']
     ordering = ['-updated_at']
     readonly_fields = ['item_count', 'created_at', 'updated_at', 'featured_at']

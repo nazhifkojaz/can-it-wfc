@@ -189,7 +189,7 @@ class TestFeaturedLists:
         CafeList.objects.filter(is_featured=True).delete()
         CafeList.objects.create(
             owner=test_user, name='Top Picks', description='Best cafes',
-            is_public=True, is_featured=True,
+            visibility='public', is_featured=True,
         )
 
         response = api_client.get(self.ENDPOINT)
@@ -202,7 +202,7 @@ class TestFeaturedLists:
         cache.clear()
         CafeList.objects.filter(is_featured=True).delete()
         CafeList.objects.create(
-            owner=test_user, name='Not Featured', is_public=True, is_featured=False,
+            owner=test_user, name='Not Featured', visibility='public', is_featured=False,
         )
 
         response = api_client.get(self.ENDPOINT)
@@ -212,7 +212,7 @@ class TestFeaturedLists:
         cache.clear()
         CafeList.objects.all().delete()
         lst = CafeList(
-            owner=test_user, name='Secret', is_public=False, is_featured=True,
+            owner=test_user, name='Secret', visibility='private', is_featured=True,
         )
         lst.save()  # clean() not called on raw save()
 
@@ -224,7 +224,7 @@ class TestFeaturedLists:
         CafeList.objects.all().delete()
         owner = _make_user('delowner')
         lst = CafeList.objects.create(
-            owner=owner, name='From deleted user', is_public=True, is_featured=True,
+            owner=owner, name='From deleted user', visibility='public', is_featured=True,
         )
         owner.is_active = False
         owner.save(update_fields=['is_active'])
@@ -236,7 +236,7 @@ class TestFeaturedLists:
         cache.clear()
         CafeList.objects.all().delete()
         lst = CafeList.objects.create(
-            owner=test_user, name='Many cafes', is_public=True, is_featured=True,
+            owner=test_user, name='Many cafes', visibility='public', is_featured=True,
         )
         cafes = []
         for i in range(5):
@@ -262,7 +262,7 @@ class TestFeaturedLists:
         cache.clear()
         CafeList.objects.filter(is_featured=True).delete()
         CafeList.objects.create(
-            owner=test_user, name='Empty list', is_public=True, is_featured=True,
+            owner=test_user, name='Empty list', visibility='public', is_featured=True,
         )
 
         response = api_client.get(self.ENDPOINT)
@@ -280,7 +280,7 @@ class TestFeaturedLists:
         for i in range(8):
             CafeList.objects.create(
                 owner=test_user, name=f'Featured List {i}',
-                is_public=True, is_featured=True,
+                visibility='public', is_featured=True,
             )
 
         response = api_client.get(f'{self.ENDPOINT}?limit=3')
@@ -295,7 +295,7 @@ class TestFeaturedLists:
         for i in range(25):
             CafeList.objects.create(
                 owner=test_user, name=f'FL {i}',
-                is_public=True, is_featured=True,
+                visibility='public', is_featured=True,
             )
 
         response = api_client.get(f'{self.ENDPOINT}?limit=50')
@@ -307,7 +307,7 @@ class TestFeaturedLists:
         desc = 'A detailed 140-char description about remote work cafes.'
         CafeList.objects.create(
             owner=test_user, name='Desc test',
-            description=desc, is_public=True, is_featured=True,
+            description=desc, visibility='public', is_featured=True,
         )
 
         response = api_client.get(self.ENDPOINT)
@@ -564,7 +564,7 @@ class TestTrendingLists:
     def _make_public_list(self, owner, name='My List', **kwargs):
         from apps.cafes.models import CafeList
         return CafeList.objects.create(
-            owner=owner, name=name, is_public=True, **kwargs,
+            owner=owner, name=name, visibility='public', **kwargs,
         )
 
     def _make_save(self, user, cafe_list):
@@ -575,7 +575,7 @@ class TestTrendingLists:
         from apps.cafes.models import CafeList
         owner = _make_user('tlo1')
         cafe_list = CafeList.objects.create(
-            owner=owner, name='Trending List', is_public=True, item_count=1,
+            owner=owner, name='Trending List', visibility='public', item_count=1,
         )
         s1 = _make_user('ts1')
         s2 = _make_user('ts2')
@@ -595,7 +595,7 @@ class TestTrendingLists:
         from apps.cafes.models import CafeList
         owner = _make_user('tlo2')
         cafe_list = CafeList.objects.create(
-            owner=owner, name='Not enough', is_public=True, item_count=1,
+            owner=owner, name='Not enough', visibility='public', item_count=1,
         )
         s1 = _make_user('ts4')
         s2 = _make_user('ts5')
@@ -622,7 +622,7 @@ class TestTrendingLists:
         from apps.cafes.models import CafeList
         owner = _make_user('tlo4')
         cafe_list = CafeList.objects.create(
-            owner=owner, name='Private', is_public=False, item_count=1,
+            owner=owner, name='Private', visibility='private', item_count=1,
         )
         s1 = _make_user('ts9')
         s2 = _make_user('ts10')
@@ -638,9 +638,9 @@ class TestTrendingLists:
         from apps.cafes.models import CafeList
         owner = _make_user('tlo5')
         cafe_list = CafeList.objects.get(owner=owner, list_type='to_go')
-        cafe_list.is_public = True
+        cafe_list.visibility = 'public'
         cafe_list.item_count = 1
-        cafe_list.save(update_fields=['is_public', 'item_count'])
+        cafe_list.save(update_fields=['visibility', 'item_count'])
         s1 = _make_user('ts12')
         s2 = _make_user('ts13')
         s3 = _make_user('ts14')
@@ -683,10 +683,10 @@ class TestTrendingLists:
         owner = _make_user('tlo8')
         from apps.cafes.models import CafeList, SavedCafeList
         list_a = CafeList.objects.create(
-            owner=owner, name='A', is_public=True, item_count=1,
+            owner=owner, name='A', visibility='public', item_count=1,
         )
         list_b = CafeList.objects.create(
-            owner=owner, name='B', is_public=True, item_count=1,
+            owner=owner, name='B', visibility='public', item_count=1,
         )
 
         # Both get 3 recent saves (tied), but B gets higher lifetime

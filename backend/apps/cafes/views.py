@@ -262,9 +262,11 @@ class CafeListListCreateView(generics.ListCreateAPIView):
 
 class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
-    GET    /api/lists/<id>/  — list metadata + items (public lists viewable by anyone)
-    PATCH  /api/lists/<id>/  — rename, update description, toggle is_public
+    GET    /api/lists/<id>/  — list metadata + items (public/shareable lists viewable)
+    PATCH  /api/lists/<id>/  — rename, update description, toggle visibility
     DELETE /api/lists/<id>/  — delete (blocked for default list)
+
+    Shareable lists require a matching ?token=<uuid> query param.
     """
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -275,12 +277,18 @@ class CafeListRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         if self.request.method == 'GET':
+            token = self.request.query_params.get('token')
             if self.request.user.is_authenticated:
                 qs = CafeList.objects.filter(
-                    Q(owner=self.request.user) | Q(is_public=True)
+                    Q(owner=self.request.user) |
+                    Q(visibility='public') |
+                    (Q(visibility='shareable', share_token=token) if token else Q())
                 )
             else:
-                qs = CafeList.objects.filter(is_public=True)
+                qs = CafeList.objects.filter(
+                    Q(visibility='public') |
+                    (Q(visibility='shareable', share_token=token) if token else Q())
+                )
         else:
             qs = CafeList.objects.filter(owner=self.request.user)
         if self.request.user.is_authenticated:
@@ -482,7 +490,7 @@ class SaveCafeListView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not cafe_list.is_public:
+        if cafe_list.visibility != 'public':
             return Response({'detail': 'List not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         saved, created = SavedCafeList.objects.get_or_create(

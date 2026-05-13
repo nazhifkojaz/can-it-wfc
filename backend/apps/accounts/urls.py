@@ -45,4 +45,5 @@ urlpatterns = [
     # Public profiles and activity
     path('users/<str:username>/profile/', UserPublicProfileView.as_view(), name='user-public-profile'),
     path('users/<str:username>/activity/', UserActivityView.as_view(), name='user-activity'),
+    path('users/<str:username>/lists/', UserPublicListsView.as_view(), name='user-public-lists'),
 ]

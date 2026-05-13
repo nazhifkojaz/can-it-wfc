@@ -869,19 +869,19 @@ class TestCafeListFeatured:
     def test_clean_rejects_featured_but_not_public(self, test_user):
         from apps.cafes.models import CafeList
         from django.core.exceptions import ValidationError
-        lst = CafeList(owner=test_user, name='Bad featured', is_featured=True, is_public=False)
+        lst = CafeList(owner=test_user, name='Bad featured', is_featured=True, visibility='private')
         with pytest.raises(ValidationError) as exc_info:
             lst.clean()
         assert 'is_featured' in exc_info.value.message_dict
 
     def test_clean_accepts_featured_and_public(self, test_user):
         from apps.cafes.models import CafeList
-        lst = CafeList(owner=test_user, name='Good featured', is_featured=True, is_public=True)
+        lst = CafeList(owner=test_user, name='Good featured', is_featured=True, visibility='public')
         lst.clean()  # Should not raise
 
     def test_save_auto_sets_featured_at_on_first_feature(self, test_user):
         from apps.cafes.models import CafeList
-        lst = CafeList.objects.create(owner=test_user, name='New list', is_public=True)
+        lst = CafeList.objects.create(owner=test_user, name='New list', visibility='public')
         assert lst.featured_at is None
 
         lst.is_featured = True
@@ -900,7 +900,7 @@ class TestCafeListFeatured:
         from django.utils import timezone
         past = timezone.now() - timezone.timedelta(days=10)
         lst = CafeList.objects.create(
-            owner=test_user, name='Pre-featured', is_public=True,
+            owner=test_user, name='Pre-featured', visibility='public',
             is_featured=True, featured_at=past,
         )
         lst.name = 'Updated name'
@@ -918,40 +918,40 @@ class TestCafeListCleanTightening:
         from django.core.exceptions import ValidationError
         lst = CafeList(
             owner=test_user, name='Try Public ToGo',
-            list_type='to_go', is_public=True,
+            list_type='to_go', visibility='public',
         )
         with pytest.raises(ValidationError) as exc_info:
             lst.clean()
-        assert 'is_public' in exc_info.value.message_dict
+        assert 'visibility' in exc_info.value.message_dict
 
     def test_clean_rejects_public_favorites_list(self, test_user):
         from apps.cafes.models import CafeList
         from django.core.exceptions import ValidationError
         lst = CafeList(
             owner=test_user, name='Try Public Favs',
-            list_type='favorites', is_public=True,
+            list_type='favorites', visibility='public',
         )
         with pytest.raises(ValidationError) as exc_info:
             lst.clean()
-        assert 'is_public' in exc_info.value.message_dict
+        assert 'visibility' in exc_info.value.message_dict
 
     def test_clean_rejects_featured_and_public_combined_invalid(self, test_user):
         from apps.cafes.models import CafeList
         from django.core.exceptions import ValidationError
         lst = CafeList(
             owner=test_user, name='Double Invalid',
-            list_type='favorites', is_public=True, is_featured=True,
+            list_type='favorites', visibility='public', is_featured=True,
         )
         with pytest.raises(ValidationError) as exc_info:
             lst.clean()
         msg_dict = exc_info.value.message_dict
-        assert 'is_featured' in msg_dict or 'is_public' in msg_dict
+        assert 'is_featured' in msg_dict or 'visibility' in msg_dict
 
     def test_clean_accepts_public_custom_list(self, test_user):
         from apps.cafes.models import CafeList
         lst = CafeList(
             owner=test_user, name='Public Custom',
-            list_type='custom', is_public=True,
+            list_type='custom', visibility='public',
         )
         lst.clean()  # Should not raise
 
@@ -959,7 +959,7 @@ class TestCafeListCleanTightening:
         from apps.cafes.models import CafeList
         lst = CafeList(
             owner=test_user, name='Private Favs',
-            list_type='favorites', is_public=False,
+            list_type='favorites', visibility='private',
         )
         lst.clean()  # Should not raise
 
@@ -971,7 +971,7 @@ class TestSaveCafeList:
     def _make_public_list(self, owner, name='Public List'):
         from apps.cafes.models import CafeList
         return CafeList.objects.create(
-            owner=owner, name=name, is_public=True,
+            owner=owner, name=name, visibility='public',
         )
 
     def test_save_public_list(self, api_client, test_user):
@@ -1051,7 +1051,7 @@ class TestSaveCafeList:
         )
         from apps.cafes.models import CafeList
         cafe_list = CafeList.objects.create(
-            owner=other, name='Secret List', is_public=False,
+            owner=other, name='Secret List', visibility='private',
         )
         api_client.force_authenticate(user=test_user)
 
@@ -1082,7 +1082,7 @@ class TestSaveCafeList:
             username='sigowner', email='sigowner@example.com', password='pass',
         )
         cafe_list = CafeList.objects.create(
-            owner=other, name='Signal Test', is_public=True,
+            owner=other, name='Signal Test', visibility='public',
         )
         saver1 = User.objects.create_user(
             username='saver1', email='saver1@example.com', password='pass',
@@ -1112,7 +1112,7 @@ class TestPublicListViewing:
     def _make_public_list(self, owner, name='Public', **kwargs):
         from apps.cafes.models import CafeList
         return CafeList.objects.create(
-            owner=owner, name=name, is_public=True, **kwargs,
+            owner=owner, name=name, visibility='public', **kwargs,
         )
 
     def test_anonymous_can_view_public_list(self, api_client, test_user):
@@ -1124,7 +1124,7 @@ class TestPublicListViewing:
     def test_anonymous_cannot_view_private_list(self, api_client, test_user):
         from apps.cafes.models import CafeList
         cafe_list = CafeList.objects.create(
-            owner=test_user, name='Private', is_public=False,
+            owner=test_user, name='Private', visibility='private',
         )
         response = api_client.get(f'/api/lists/{cafe_list.id}/')
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -1132,7 +1132,7 @@ class TestPublicListViewing:
     def test_owner_can_view_own_private_list(self, api_client, test_user):
         from apps.cafes.models import CafeList
         cafe_list = CafeList.objects.create(
-            owner=test_user, name='My Private', is_public=False,
+            owner=test_user, name='My Private', visibility='private',
         )
         api_client.force_authenticate(user=test_user)
         response = api_client.get(f'/api/lists/{cafe_list.id}/')
@@ -1177,7 +1177,7 @@ class TestRecomputeSaveCounts:
         from apps.cafes.models import CafeList, SavedCafeList
 
         cafe_list = CafeList.objects.create(
-            owner=test_user, name='Drifted', is_public=True,
+            owner=test_user, name='Drifted', visibility='public',
         )
         saver = User.objects.create_user(
             username='drifter', email='drift@example.com', password='pass',
@@ -1199,7 +1199,7 @@ class TestRecomputeSaveCounts:
         from apps.cafes.models import CafeList, SavedCafeList
 
         cafe_list = CafeList.objects.create(
-            owner=test_user, name='Dry Run', is_public=True,
+            owner=test_user, name='Dry Run', visibility='public',
         )
         saver = User.objects.create_user(
             username='dryruner', email='dryrun@example.com', password='pass',

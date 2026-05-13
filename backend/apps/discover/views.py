@@ -50,7 +50,7 @@ class FeaturedListsView(generics.ListAPIView):
 
         queryset = (
             CafeList.objects
-            .filter(is_featured=True, is_public=True, owner__is_active=True)
+            .filter(is_featured=True, visibility='public', owner__is_active=True)
             .select_related('owner')
             .prefetch_related(
                 Prefetch(
@@ -146,7 +146,7 @@ class TrendingListsView(APIView):
         lists = (
             CafeList.objects
             .filter(
-                is_public=True,
+                visibility='public',
                 is_featured=False,
                 list_type='custom',
                 item_count__gt=0,

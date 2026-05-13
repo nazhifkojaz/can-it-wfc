@@ -257,8 +257,8 @@ class CafeListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['id', 'name', 'description', 'list_type', 'icon', 'is_default', 'is_public', 'is_featured', 'save_count', 'item_count', 'owner', 'preview_cafes', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'list_type', 'is_default', 'is_featured', 'save_count', 'item_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'list_type', 'icon', 'is_default', 'visibility', 'share_token', 'is_featured', 'save_count', 'item_count', 'owner', 'preview_cafes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'list_type', 'is_default', 'visibility', 'share_token', 'is_featured', 'save_count', 'item_count', 'created_at', 'updated_at']
 
     def get_owner(self, obj):
         return {
@@ -311,7 +311,7 @@ class CafeListUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['name', 'description', 'icon', 'is_public']
+        fields = ['name', 'description', 'icon', 'visibility']
         extra_kwargs = {'name': {'required': False}}
 
 
