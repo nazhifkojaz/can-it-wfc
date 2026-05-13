@@ -12,7 +12,10 @@ from .views import (
     MyFollowingListView,
     UserFollowersListView,
     UserFollowingListView,
+    FollowRequestsListView,
+    HandleFollowRequestView,
     SavedListsView,
+    UserPublicListsView,
 )
 
 urlpatterns = [
@@ -28,6 +31,10 @@ urlpatterns = [
     # Follow Management
     path('follow/<str:username>/', FollowUserView.as_view(), name='follow-user'),
     path('unfollow/<str:username>/', UnfollowUserView.as_view(), name='unfollow-user'),
+
+    # Follow Requests
+    path('me/follow-requests/', FollowRequestsListView.as_view(), name='follow-requests'),
+    path('follow-requests/<int:user_id>/handle/', HandleFollowRequestView.as_view(), name='handle-follow-request'),
 
     # Followers/Following Lists
     path('me/followers/', MyFollowersListView.as_view(), name='my-followers'),

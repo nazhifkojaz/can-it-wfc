@@ -53,18 +53,13 @@ class TestUserProfile:
         api_client.force_authenticate(user=test_user)
         data = {
             'bio': 'Coffee lover and remote worker',
-            'is_anonymous_display': True
+            'display_name': 'Test Display'
         }
         response = api_client.patch('/api/auth/me/', data)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data['bio'] == 'Coffee lover and remote worker'
-        assert response.data['is_anonymous_display'] is True
-
-        # Verify in database
-        test_user.refresh_from_db()
-        assert test_user.bio == 'Coffee lover and remote worker'
-        assert test_user.is_anonymous_display is True
+        assert response.data['display_name'] == 'Test Display'
 
 
 @pytest.mark.django_db
@@ -93,9 +88,9 @@ class TestUserModel:
         assert test_user.effective_display_name == 'testuser'
 
     def test_display_name_anonymous(self, test_user):
-        """Test effective_display_name masks username when anonymous"""
-        test_user.is_anonymous_display = True
-        test_user.save()
+        """Test effective_display_name masks username when profile is private"""
+        test_user.settings.profile_visibility = 'private'
+        test_user.settings.save()
 
         display = test_user.effective_display_name
         assert display != 'testuser'
@@ -233,7 +228,7 @@ class TestSavedLists:
             username='listmaker', email='maker@example.com', password='pass',
         )
         cafe_list = CafeList.objects.create(
-            owner=other, name='Saved Public', is_public=True,
+            owner=other, name='Saved Public', visibility='public',
         )
         SavedCafeList.objects.create(user=test_user, cafe_list=cafe_list)
 
@@ -264,7 +259,7 @@ class TestSavedLists:
             username='stranger2', email='stranger2@example.com', password='pass',
         )
         cafe_list = CafeList.objects.create(
-            owner=other, name='Other Save', is_public=True,
+            owner=other, name='Other Save', visibility='public',
         )
         SavedCafeList.objects.create(user=stranger, cafe_list=cafe_list)
 
@@ -278,7 +273,7 @@ class TestSavedLists:
             username='privmaker', email='privmaker@example.com', password='pass',
         )
         cafe_list = CafeList.objects.create(
-            owner=other, name='Was Public', is_public=False,
+            owner=other, name='Was Public', visibility='private',
         )
         SavedCafeList.objects.create(user=test_user, cafe_list=cafe_list)
 
@@ -293,7 +288,7 @@ class TestSavedLists:
         )
         for i in range(5):
             cl = CafeList.objects.create(
-                owner=other, name=f'Paginated {i}', is_public=True,
+                owner=other, name=f'Paginated {i}', visibility='public',
             )
             SavedCafeList.objects.create(user=test_user, cafe_list=cl)
 

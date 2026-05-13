@@ -10,6 +10,8 @@ from core.exceptions import (
     SelfFollowNotAllowed,
     AlreadyFollowing,
     NotFollowing,
+    FollowRequestAlreadySent,
+    FollowRequestNotFound,
     OAuthTokenInvalid,
     OAuthTokenRequired,
     OAuthEmailNotProvided,
@@ -323,7 +325,9 @@ class UserSettingsUpdateView(generics.RetrieveUpdateAPIView):
 
 class FollowUserView(APIView):
     """
-    Follow a user.
+    Follow a user or request to follow.
+    Creates an active follow for public profiles,
+    and a pending follow request for private profiles.
 
     POST /api/accounts/follow/{username}/
     """
@@ -331,32 +335,73 @@ class FollowUserView(APIView):
 
     def post(self, request, username):
         """Follow a user by username."""
-        # Get target user
         try:
             target_user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise UserNotFound()
 
-        # Prevent self-following
         if request.user == target_user:
             raise SelfFollowNotAllowed()
 
-        # Check if already following
-        if Follow.objects.filter(follower=request.user, followed=target_user).exists():
-            raise AlreadyFollowing()
+        existing = Follow.objects.filter(
+            follower=request.user, followed=target_user
+        ).first()
 
-        # Create follow relationship
-        Follow.objects.create(follower=request.user, followed=target_user)
+        if existing:
+            if existing.status == 'active':
+                raise AlreadyFollowing()
+            elif existing.status == 'pending':
+                raise FollowRequestAlreadySent()
+            elif existing.status == 'rejected':
+                # Retry after rejection — reset to pending
+                is_private = target_user.settings.profile_visibility == 'private'
+                if is_private:
+                    existing.status = 'pending'
+                    existing.save(update_fields=['status'])
+                    return Response({
+                        'message': f'Follow request sent to {username}',
+                        'follow_status': 'pending',
+                        'is_following': False
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    existing.status = 'active'
+                    existing.save(update_fields=['status'])
+                    return Response({
+                        'message': f'You are now following {username}',
+                        'follow_status': 'active',
+                        'is_following': True
+                    }, status=status.HTTP_201_CREATED)
 
-        return Response({
-            'message': f'You are now following {username}',
-            'is_following': True
-        }, status=status.HTTP_201_CREATED)
+        # No existing follow — determine behavior based on target profile visibility
+        is_private = target_user.settings.profile_visibility == 'private'
+
+        if is_private:
+            follow = Follow.objects.create(
+                follower=request.user,
+                followed=target_user,
+                status='pending'
+            )
+            return Response({
+                'message': f'Follow request sent to {username}',
+                'follow_status': 'pending',
+                'is_following': False
+            }, status=status.HTTP_201_CREATED)
+        else:
+            Follow.objects.create(
+                follower=request.user,
+                followed=target_user,
+                status='active'
+            )
+            return Response({
+                'message': f'You are now following {username}',
+                'follow_status': 'active',
+                'is_following': True
+            }, status=status.HTTP_201_CREATED)
 
 
 class UnfollowUserView(APIView):
     """
-    Unfollow a user.
+    Unfollow a user or cancel a follow request.
 
     DELETE /api/accounts/unfollow/{username}/
     """
@@ -364,19 +409,13 @@ class UnfollowUserView(APIView):
 
     def delete(self, request, username):
         """Unfollow a user by username."""
-        # Get target user
         try:
             target_user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise UserNotFound()
 
-        # Try to delete follow relationship using model delete()
-        # (QuerySet.delete() skips the custom Follow.delete() which updates counts)
         try:
-            follow = Follow.objects.get(
-                follower=request.user,
-                followed=target_user
-            )
+            follow = Follow.objects.get(follower=request.user, followed=target_user)
         except Follow.DoesNotExist:
             raise NotFollowing()
 
@@ -418,6 +457,76 @@ class MyFollowingListView(generics.ListAPIView):
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
 
 
+class FollowRequestsListView(generics.ListAPIView):
+    """
+    Get list of pending follow requests for the current user.
+
+    GET /api/accounts/me/follow-requests/
+    """
+    serializer_class = FollowUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        """Return users who have requested to follow the current user."""
+        request_user_ids = Follow.objects.filter(
+            followed=self.request.user,
+            status='pending'
+        ).values_list('follower_id', flat=True)
+        return User.objects.filter(id__in=request_user_ids).order_by('-date_joined')
+
+
+class HandleFollowRequestView(APIView):
+    """
+    Accept or reject a follow request.
+
+    POST /api/accounts/follow-requests/{user_id}/handle/
+    Body: { "action": "accept" | "reject" }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id):
+        try:
+            requester = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise UserNotFound()
+
+        follow = Follow.objects.filter(
+            follower=requester,
+            followed=request.user,
+            status='pending'
+        ).first()
+
+        if not follow:
+            raise FollowRequestNotFound()
+
+        action = request.data.get('action')
+
+        if action == 'accept':
+            follow.status = 'active'
+            follow.save(update_fields=['status'])
+            # Update counts explicitly since save only updates for new follows
+            requester.update_follow_counts()
+            request.user.update_follow_counts()
+            return Response({
+                'message': f'You have accepted {requester.username}\'s follow request',
+                'follow_status': 'active'
+            }, status=status.HTTP_200_OK)
+
+        elif action == 'reject':
+            follow.status = 'rejected'
+            follow.save(update_fields=['status'])
+            return Response({
+                'message': f'You have rejected {requester.username}\'s follow request',
+                'follow_status': 'rejected'
+            }, status=status.HTTP_200_OK)
+
+        else:
+            return Response({
+                'message': 'Invalid action. Use "accept" or "reject".'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
 class UserFollowersListView(generics.ListAPIView):
     """
     Get list of users who follow a specific user (public).
@@ -437,17 +546,13 @@ class UserFollowersListView(generics.ListAPIView):
         except User.DoesNotExist:
             return User.objects.none()
 
-        # Check privacy settings
         settings = user.settings
-
         own_profile = is_own_profile(self.request, user)
 
-        # If show_followers is False and not own profile, return empty
         if not settings.show_followers and not own_profile:
             return User.objects.none()
 
         follower_ids = user.get_follower_ids()
-
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
 
 
@@ -470,17 +575,13 @@ class UserFollowingListView(generics.ListAPIView):
         except User.DoesNotExist:
             return User.objects.none()
 
-        # Check privacy settings
         settings = user.settings
-
         own_profile = is_own_profile(self.request, user)
 
-        # If show_following is False and not own profile, return empty
         if not settings.show_following and not own_profile:
             return User.objects.none()
 
         following_ids = user.get_following_ids()
-
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
 
 

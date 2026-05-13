@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import UserSettings, Follow
-from .utils import is_own_profile, check_is_following
+from .utils import is_own_profile, check_is_following, check_follow_status
 
 User = get_user_model()
 
@@ -30,6 +30,20 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'total_reviews', 'total_visits', 'date_joined']
 
 
+class UserSettingsSerializer(serializers.ModelSerializer):
+    """Serializer for user privacy and display settings."""
+
+    class Meta:
+        model = UserSettings
+        fields = [
+            'profile_visibility',
+            'show_activity_dates',
+            'show_followers',
+            'show_following',
+            'activity_visibility'
+        ]
+
+
 class UserDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for authenticated user's own profile only.
 
@@ -40,6 +54,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     effective_display_name = serializers.ReadOnlyField()
     account_age_hours = serializers.ReadOnlyField()
+    settings = UserSettingsSerializer(read_only=True)
 
     class Meta:
         model = User
@@ -51,18 +66,18 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'effective_display_name',
             'bio',
             'avatar_url',
-            'is_anonymous_display',
             'total_reviews',
             'total_visits',
             'followers_count',
             'following_count',
             'date_joined',
-            'account_age_hours'
+            'account_age_hours',
+            'settings'
         ]
         read_only_fields = [
             'id', 'total_reviews', 'total_visits',
             'followers_count', 'following_count',
-            'date_joined', 'account_age_hours'
+            'date_joined', 'account_age_hours', 'settings'
         ]
 class UserUpdateSerializer(serializers.ModelSerializer):
     """
@@ -93,7 +108,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'display_name', 'bio', 'avatar_url', 'is_anonymous_display']
+        fields = ['username', 'display_name', 'bio', 'avatar_url']
 
     def validate_username(self, value):
         """
@@ -190,20 +205,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid avatar URL format.")
 
         return value
-class UserSettingsSerializer(serializers.ModelSerializer):
-    """Serializer for user privacy and display settings."""
-
-    class Meta:
-        model = UserSettings
-        fields = [
-            'profile_visibility',
-            'show_activity_dates',
-            'show_followers',
-            'show_following',
-            'activity_visibility'
-        ]
-
-
 class UserProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for public user profiles.
@@ -214,6 +215,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     is_own_profile = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
     is_followed_by = serializers.SerializerMethodField()
+    follow_status = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -232,7 +235,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'settings',
             'is_own_profile',
             'is_following',
-            'is_followed_by'
+            'is_followed_by',
+            'follow_status'
         ]
         read_only_fields = [
             'id', 'username', 'total_reviews', 'total_visits',
@@ -249,8 +253,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_is_followed_by(self, obj):
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return Follow.objects.filter(follower=obj, followed=request.user).exists()
+            return Follow.objects.filter(follower=obj, followed=request.user, status='active').exists()
         return False
+
+    def get_follow_status(self, obj):
+        return check_follow_status(self.context.get('request'), obj)
+
+    def get_display_name(self, obj):
+        """Show the actual display_name instead of effective_display_name for the profile serializer.
+        effective_display_name is still available as a separate field for UI display."""
+        return obj.display_name
 
     def to_representation(self, instance):
         """Filter representation based on privacy settings."""
@@ -263,16 +275,26 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # Populate settings in response (fix null issue for existing users)
         ret['settings'] = UserSettingsSerializer(settings).data
 
-        # If profile is private and not own profile, hide sensitive data
         own_profile = is_own_profile(request, instance)
+        is_active_follower = check_is_following(request, instance)
 
         if settings.profile_visibility == 'private' and not own_profile:
-            # For private profiles, only show minimal information
+            # Followers of a private profile can see full details
+            if is_active_follower:
+                # Show full profile but use effective_display_name for name
+                return ret
+
+            # Non-followers get minimal information
             return {
                 'id': ret['id'],
                 'username': ret['username'],
                 'display_name': ret['display_name'],
                 'effective_display_name': ret['effective_display_name'],
+                'settings': ret['settings'],
+                'is_own_profile': ret['is_own_profile'],
+                'is_following': ret['is_following'],
+                'is_followed_by': ret['is_followed_by'],
+                'follow_status': ret['follow_status'],
                 'profile_visibility': 'private',
                 'message': 'This profile is private'
             }
