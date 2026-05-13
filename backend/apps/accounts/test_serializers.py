@@ -80,8 +80,9 @@ class TestUserUpdateSerializer:
             email='test@example.com',
             password='testpass123',
             display_name='John Doe Smith',
-            is_anonymous_display=True
         )
+        user.settings.profile_visibility = 'private'
+        user.settings.save()
 
         # Should mask the display_name (3 chars + 11 asterisks for "John Doe Smith")
         assert user.effective_display_name == 'Joh***********'
@@ -408,8 +409,8 @@ class TestUserUpdateSerializer:
         # Empty string should be converted to None
         assert user.avatar_url is None
 
-    def test_bio_and_anonymous_display_still_work(self):
-        """Test that bio and is_anonymous_display still work after changes"""
+    def test_bio_and_display_name_still_work(self):
+        """Test that bio and display_name still work after changes"""
         user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
@@ -418,7 +419,7 @@ class TestUserUpdateSerializer:
 
         data = {
             'bio': 'Coffee lover',
-            'is_anonymous_display': True
+            'display_name': 'Coffee Enthusiast'
         }
 
         class MockRequest:
@@ -436,7 +437,7 @@ class TestUserUpdateSerializer:
         serializer.save()
         user.refresh_from_db()
         assert user.bio == 'Coffee lover'
-        assert user.is_anonymous_display is True
+        assert user.display_name == 'Coffee Enthusiast'
 
     def test_can_update_multiple_fields_at_once(self):
         """

@@ -15,7 +15,6 @@ class UserAdmin(BaseUserAdmin):
         'total_visits',
         'followers_count',
         'following_count',
-        'is_anonymous_display',
         'is_staff',
         'date_joined'
     ]
@@ -24,7 +23,6 @@ class UserAdmin(BaseUserAdmin):
         'is_staff',
         'is_superuser',
         'is_active',
-        'is_anonymous_display',
         'date_joined'
     ]
     
@@ -34,7 +32,7 @@ class UserAdmin(BaseUserAdmin):
     
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Profile', {
-            'fields': ('bio', 'avatar_url', 'is_anonymous_display')
+            'fields': ('bio', 'avatar_url',)
         }),
         ('Statistics', {
             'fields': ('total_reviews', 'total_visits', 'followers_count', 'following_count'),
@@ -44,7 +42,7 @@ class UserAdmin(BaseUserAdmin):
     
     readonly_fields = ['date_joined', 'last_login']
     
-    actions = ['update_user_stats', 'enable_anonymous_display', 'disable_anonymous_display']
+    actions = ['update_user_stats']
     
     def update_user_stats(self, request, queryset):
         """Update statistics for selected users."""
@@ -52,18 +50,6 @@ class UserAdmin(BaseUserAdmin):
             user.update_stats()
         self.message_user(request, f"Updated stats for {queryset.count()} users.")
     update_user_stats.short_description = "Update user statistics"
-    
-    def enable_anonymous_display(self, request, queryset):
-        """Enable anonymous display for selected users."""
-        count = queryset.update(is_anonymous_display=True)
-        self.message_user(request, f"Enabled anonymous display for {count} users.")
-    enable_anonymous_display.short_description = "Enable anonymous display"
-    
-    def disable_anonymous_display(self, request, queryset):
-        """Disable anonymous display for selected users."""
-        count = queryset.update(is_anonymous_display=False)
-        self.message_user(request, f"Disabled anonymous display for {count} users.")
-    disable_anonymous_display.short_description = "Disable anonymous display"
 
 
 @admin.register(UserSettings)
@@ -93,8 +79,8 @@ class UserSettingsAdmin(admin.ModelAdmin):
 class FollowAdmin(admin.ModelAdmin):
     """Follow relationships admin."""
 
-    list_display = ['follower', 'followed', 'created_at']
-    list_filter = ['created_at']
+    list_display = ['follower', 'followed', 'status', 'created_at']
+    list_filter = ['created_at', 'status']
     search_fields = ['follower__username', 'followed__username']
     date_hierarchy = 'created_at'
 

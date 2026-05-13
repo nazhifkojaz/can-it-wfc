@@ -12,10 +12,6 @@ class User(AbstractUser):
     USERNAME_CHANGE_COOLDOWN_DAYS = 30
 
     # Additional fields beyond Django's default User
-    is_anonymous_display = models.BooleanField(
-        default=False,
-        help_text="If True, username/display_name will be displayed as masked (e.g., 'joh***')"
-    )
 
     date_joined = models.DateTimeField(default=timezone.now)
 
@@ -57,29 +53,28 @@ class User(AbstractUser):
         return self.username
 
     def get_follower_ids(self):
-        return list(Follow.objects.filter(followed=self).values_list('follower_id', flat=True))
+        return list(Follow.objects.filter(followed=self, status='active').values_list('follower_id', flat=True))
 
     def get_following_ids(self):
-        return list(Follow.objects.filter(follower=self).values_list('followed_id', flat=True))
+        return list(Follow.objects.filter(follower=self, status='active').values_list('followed_id', flat=True))
 
     @property
     def effective_display_name(self):
         """
         Returns the display name to show in UI.
 
+        When profile_visibility is 'private', the name is masked.
         Priority:
         1. Custom display_name field (if set)
-        2. Masked display_name if anonymous mode is on
+        2. Masked display_name if profile is private
         3. Username as fallback
         """
-        # If user has a custom display_name, use it (with masking if anonymous)
+        is_private = getattr(getattr(self, 'settings', None), 'profile_visibility', None) == 'private'
         if self.display_name:
-            if self.is_anonymous_display and len(self.display_name) > 3:
+            if is_private and len(self.display_name) > 3:
                 return f"{self.display_name[:3]}{'*' * (len(self.display_name) - 3)}"
             return self.display_name
-
-        # Fall back to username (with masking if anonymous)
-        if self.is_anonymous_display and len(self.username) > 3:
+        if is_private and len(self.username) > 3:
             return f"{self.username[:3]}{'*' * (len(self.username) - 3)}"
         return self.username
     
@@ -106,9 +101,10 @@ class User(AbstractUser):
         """
         Update cached follower/following counts.
         Uses @transaction.atomic to ensure all-or-nothing updates.
+        Only counts active (approved) follows.
         """
-        self.followers_count = self.followers.count()
-        self.following_count = self.following.count()
+        self.followers_count = self.followers.filter(status='active').count()
+        self.following_count = self.following.filter(status='active').count()
         self.save(update_fields=['followers_count', 'following_count'])
 
 
@@ -220,7 +216,14 @@ class LinkedProvider(models.Model):
 class Follow(models.Model):
     """
     User follow relationships.
+    Supports follow requests for private profiles.
     """
+    FOLLOW_STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('pending', 'Pending'),
+        ('rejected', 'Rejected'),
+    ]
+
     follower = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -233,6 +236,12 @@ class Follow(models.Model):
         related_name='followers',
         help_text="User being followed"
     )
+    status = models.CharField(
+        max_length=20,
+        choices=FOLLOW_STATUS_CHOICES,
+        default='active',
+        help_text="Follow relationship status"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -243,6 +252,7 @@ class Follow(models.Model):
         indexes = [
             models.Index(fields=['follower', '-created_at']),
             models.Index(fields=['followed', '-created_at']),
+            models.Index(fields=['followed', 'status'], name='follows_followed_status_idx'),
         ]
 
     def __str__(self):
@@ -252,10 +262,15 @@ class Follow(models.Model):
         # Prevent self-following
         if self.follower == self.followed:
             raise ValueError("Users cannot follow themselves")
+        was_active = self.pk and Follow.objects.filter(pk=self.pk, status='active').exists()
         super().save(*args, **kwargs)
-        # Update follow counts
-        self.follower.update_follow_counts()
-        self.followed.update_follow_counts()
+        # Update follow counts when status is or becomes active
+        if self.status == 'active':
+            self.follower.update_follow_counts()
+            self.followed.update_follow_counts()
+        elif was_active and self.status != 'active':
+            self.follower.update_follow_counts()
+            self.followed.update_follow_counts()
 
     def delete(self, *args, **kwargs):
         follower = self.follower
