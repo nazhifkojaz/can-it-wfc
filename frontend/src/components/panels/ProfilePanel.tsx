@@ -377,11 +377,6 @@ const ProfilePanel: React.FC = () => {
     setReviewCafeId(null);
     setReviewCafeName('');
 
-    if (visits && visits.length > 0) {
-      const ids = [...new Set(visits.map(v => v.cafe.id))];
-      await loadReviewStatuses(ids);
-    }
-
     refetchVisits();
 
     resultModal.showSuccess('Review Submitted!', 'Your review has been submitted successfully.');

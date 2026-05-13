@@ -69,7 +69,7 @@ const SharedProfilePage: React.FC = () => {
         setListsLoading(false);
       }
     };
-    if (activeTab === 'lists') {
+    if (activeTab === 'lists' && lists.length === 0) {
       fetchLists();
     }
   }, [activeTab, username, profile]);

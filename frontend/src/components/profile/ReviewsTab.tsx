@@ -40,14 +40,15 @@ const ReviewsTab: React.FC<ReviewsTabProps> = ({
   onDeleteReview,
   onEditReview,
 }) => {
-  const { ref: loadMoreRef } = useInView({
+  const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
-    onChange: (visible) => {
-      if (visible && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-      }
-    },
   });
+
+  React.useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   if (loading) {
     return <Loading message="Loading reviews..." />;

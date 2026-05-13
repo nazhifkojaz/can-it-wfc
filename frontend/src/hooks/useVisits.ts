@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData, keepPreviousData } from '@tanstack/react-query';
 import { visitApi } from '../api/client';
 import { Visit, VisitCreate, CombinedVisitReviewCreate, PaginatedResponse } from '../types';
 import { queryKeys } from '../config/queryKeys';
@@ -36,6 +36,7 @@ export const useVisits = (filters?: VisitFilters) => {
       return page ? parseInt(page) : undefined;
     },
     staleTime: 1 * 60 * 1000,
+    placeholderData: keepPreviousData,
     initialPageParam: 1,
   });
 
