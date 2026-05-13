@@ -89,3 +89,92 @@
   margin-top: 4px !important;
   font-weight: var(--neo-font-medium);
 }
+
+/* Follow Requests Section */
+.requestsSection {
+  background: var(--neo-warning-light, #fff8e1);
+  border: var(--neo-border-width-thin) solid var(--neo-warning, #f59e0b);
+  border-radius: var(--neo-border-radius);
+  padding: 12px;
+}
+
+.requestsTitle {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  color: var(--neo-black, #000);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.requestItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.requestItem + .requestItem {
+  border-top: 1px solid var(--neo-gray-200, #e5e7eb);
+}
+
+.requestActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.acceptBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--neo-success, #10b981);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  transition: all var(--neo-transition-fast);
+}
+
+.acceptBtn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  background: var(--neo-success-dark, #059669);
+}
+
+.rejectBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--neo-danger, #ef4444);
+  color: var(--neo-white);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  transition: all var(--neo-transition-fast);
+}
+
+.rejectBtn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+  background: var(--neo-danger-dark, #dc2626);
+}
+
+.acceptBtn:disabled,
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.requestsDivider {
+  height: 1px;
+  background: var(--neo-gray-300, #d1d5db);
+  margin: 4px 0;
+}
