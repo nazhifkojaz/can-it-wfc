@@ -9,13 +9,13 @@ export interface UserBase {
 export interface User extends UserBase {
   email: string;
   bio: string;
-  is_anonymous_display: boolean;
   total_reviews: number;
   total_visits: number;
   followers_count?: number;
   following_count?: number;
   date_joined: string;
   account_age_hours?: number;
+  settings?: UserSettings;
 }
 
 export interface UserUpdate {
@@ -23,7 +23,6 @@ export interface UserUpdate {
   display_name?: string; // Customizable display name (always editable)
   bio?: string;
   avatar_url?: string;
-  is_anonymous_display?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -52,6 +51,7 @@ export interface UserProfile extends UserBase {
   is_own_profile?: boolean;
   is_following?: boolean;
   is_followed_by?: boolean;
+  follow_status?: 'none' | 'active' | 'pending' | 'rejected';
   profile_visibility?: 'private';
   message?: string;
 }
@@ -126,6 +126,7 @@ export interface FollowUser extends UserBase {
   total_visits: number;
   total_reviews: number;
   is_following?: boolean;
+  follow_status?: string;
 }
 
 export interface AverageRatings {

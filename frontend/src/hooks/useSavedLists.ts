@@ -5,7 +5,7 @@ import { queryKeys } from '../config/queryKeys';
 import { extractApiError } from '../utils/errorUtils';
 
 export function useSavedLists(opts?: { limit?: number }) {
-  const limit = opts?.limit ?? 20;
+  const limit = opts?.limit ?? 10;
 
   const {
     data,

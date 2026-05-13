@@ -9,7 +9,8 @@ export interface CafeList {
   list_type: CafeListType;
   icon: string;
   is_default: boolean;
-  is_public: boolean;
+  visibility: 'private' | 'shareable' | 'public';
+  share_token?: string | null;
   is_featured: boolean;
   save_count: number;
   item_count: number;
@@ -49,7 +50,7 @@ export interface CafeListUpdate {
   name?: string;
   description?: string;
   icon?: string;
-  is_public?: boolean;
+  visibility?: 'private' | 'shareable' | 'public';
 }
 
 export interface SaveListResponse {
