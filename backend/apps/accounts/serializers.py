@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 from .models import UserSettings, Follow
 from .utils import is_own_profile, check_is_following, check_follow_status
 
@@ -247,44 +249,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return is_own_profile(request, obj)
 
-    def get_is_following(self, obj):
-        return check_is_following(self.context.get('request'), obj)
-
-    def get_is_followed_by(self, obj):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return Follow.objects.filter(follower=obj, followed=request.user, status='active').exists()
-        return False
-
-    def get_follow_status(self, obj):
-        return check_follow_status(self.context.get('request'), obj)
-
     def get_display_name(self, obj):
-        """Show the actual display_name instead of effective_display_name for the profile serializer.
-        effective_display_name is still available as a separate field for UI display."""
         return obj.display_name
 
     def to_representation(self, instance):
-        """Filter representation based on privacy settings."""
+        """Fetch follow info in a single query, then serialize."""
+        self._prefetch_follow_info(instance)
         ret = super().to_representation(instance)
         request = self.context.get('request')
 
-        # Get or create settings
-        settings, _ = UserSettings.objects.get_or_create(user=instance)
-
-        # Populate settings in response (fix null issue for existing users)
+        # Use select_related'd settings or create if missing
+        try:
+            settings = instance.settings
+        except ObjectDoesNotExist:
+            settings = UserSettings.objects.create(user=instance)
         ret['settings'] = UserSettingsSerializer(settings).data
 
         own_profile = is_own_profile(request, instance)
-        is_active_follower = check_is_following(request, instance)
+        is_active_follower = self._follow_info_val['is_following']
 
         if settings.profile_visibility == 'private' and not own_profile:
-            # Followers of a private profile can see full details
             if is_active_follower:
-                # Show full profile but use effective_display_name for name
                 return ret
-
-            # Non-followers get minimal information
             return {
                 'id': ret['id'],
                 'username': ret['username'],
@@ -300,6 +286,40 @@ class UserProfileSerializer(serializers.ModelSerializer):
             }
 
         return ret
+
+    def _prefetch_follow_info(self, obj):
+        """Fetch all follow-related info in a single query and cache on the serializer."""
+        request = self.context.get('request')
+        if not (request and hasattr(request, 'user') and request.user.is_authenticated):
+            self._follow_info_val = {
+                'is_following': False,
+                'is_followed_by': False,
+                'follow_status': 'none',
+            }
+            return
+
+        follows = Follow.objects.filter(
+            Q(follower=request.user, followed=obj) |
+            Q(follower=obj, followed=request.user)
+        )
+
+        info = {'is_following': False, 'is_followed_by': False, 'follow_status': 'none'}
+        for f in follows:
+            if f.follower_id == request.user.id and f.followed_id == obj.id:
+                info['is_following'] = f.status == 'active'
+                info['follow_status'] = f.status
+            elif f.follower_id == obj.id and f.followed_id == request.user.id:
+                info['is_followed_by'] = f.status == 'active'
+        self._follow_info_val = info
+
+    def get_is_following(self, obj):
+        return self._follow_info_val['is_following']
+
+    def get_is_followed_by(self, obj):
+        return self._follow_info_val['is_followed_by']
+
+    def get_follow_status(self, obj):
+        return self._follow_info_val['follow_status']
 
 
 class UserActivityItemSerializer(serializers.Serializer):

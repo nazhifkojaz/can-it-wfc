@@ -81,17 +81,21 @@ class UserPublicProfileView(generics.RetrieveAPIView):
     throttle_classes = [PublicApiThrottle]
     lookup_field = 'username'
 
+    def get_queryset(self):
+        return User.objects.all().select_related('settings')
+
     def get_object(self):
         """Get user by username or ID."""
         lookup_value = self.kwargs.get(self.lookup_field)
+        qs = self.get_queryset()
 
         if lookup_value and lookup_value.isdigit():
             try:
-                return get_user_by_username_or_id(lookup_value)
+                return qs.get(id=int(lookup_value))
             except User.DoesNotExist:
                 pass
 
-        return super().get_object()
+        return qs.get(username=lookup_value)
 
 
 class OAuthLoginView(APIView):
@@ -505,9 +509,6 @@ class HandleFollowRequestView(APIView):
         if action == 'accept':
             follow.status = 'active'
             follow.save(update_fields=['status'])
-            # Update counts explicitly since save only updates for new follows
-            requester.update_follow_counts()
-            request.user.update_follow_counts()
             return Response({
                 'message': f'You have accepted {requester.username}\'s follow request',
                 'follow_status': 'active'

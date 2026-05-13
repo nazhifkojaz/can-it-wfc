@@ -253,6 +253,7 @@ class Follow(models.Model):
             models.Index(fields=['follower', '-created_at']),
             models.Index(fields=['followed', '-created_at']),
             models.Index(fields=['followed', 'status'], name='follows_followed_status_idx'),
+            models.Index(fields=['follower', 'status'], name='follows_follower_status_idx'),
         ]
 
     def __str__(self):
