@@ -132,6 +132,7 @@ const ProfilePanel: React.FC = () => {
     fetchNextPage: fetchNextReviewsPage,
     hasNextPage: hasNextReviewsPage,
     isFetchingNextPage: isFetchingNextReviewsPage,
+    deleteReview,
   } = useMyReviews();
 
   // Click outside dropdown handler
@@ -162,6 +163,7 @@ const ProfilePanel: React.FC = () => {
   const [editVisitTime, setEditVisitTime] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
+  const [reviewToDelete, setReviewToDelete] = useState<{ id: number; cafeName: string } | null>(null);
   const [hasReviewForDelete, setHasReviewForDelete] = useState<boolean | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -196,28 +198,24 @@ const ProfilePanel: React.FC = () => {
   // Convert to stable string key for dependency comparison
   const cafeIdsKey = cafeIds.join(',');
 
-  React.useEffect(() => {
-    const loadReviewStatuses = async () => {
-      if (cafeIds.length === 0) return;
-
-      try {
-        // NEW: Use bulk endpoint - single request instead of N parallel requests
-        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
-
-        // Convert to Map for state
-        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
-          ([id, review]) => [parseInt(id), review]
-        );
-        setCafeReviews(new Map(reviewEntries));
-      } catch (error) {
-        logger.error('Error loading review statuses', error, 'ProfilePanel');
-      }
-    };
-
-    if (activeTab === 'visits' && cafeIds.length > 0) {
-      loadReviewStatuses();
+  const loadReviewStatuses = React.useCallback(async (ids: number[]) => {
+    if (ids.length === 0) return;
+    try {
+      const reviewMap = await reviewApi.getUserCafeReviews(ids);
+      const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
+        ([id, review]) => [parseInt(id), review]
+      );
+      setCafeReviews(new Map(reviewEntries));
+    } catch (error) {
+      logger.error('Error loading review statuses', error, 'ProfilePanel');
     }
-  }, [cafeIdsKey, activeTab]); // Use string key instead of array
+  }, []);
+
+  React.useEffect(() => {
+    if (activeTab === 'visits' && cafeIds.length > 0) {
+      loadReviewStatuses(cafeIds);
+    }
+  }, [cafeIdsKey, activeTab, loadReviewStatuses]);
 
   // Helper function to get review for a cafe
   const getReviewForCafe = (cafeId: number): Review | null => {
@@ -341,6 +339,22 @@ const ProfilePanel: React.FC = () => {
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setVisitToDelete(null);
+    setReviewToDelete(null);
+  };
+
+  const handleDeleteReview = async () => {
+    if (!reviewToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteReview(reviewToDelete.id);
+      setReviewToDelete(null);
+      setShowDeleteConfirm(false);
+      resultModal.showSuccess('Review Deleted', 'Your review has been deleted successfully.');
+    } catch (error) {
+      resultModal.showError('Failed to Delete Review', error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleLogVisit = () => {
@@ -364,16 +378,8 @@ const ProfilePanel: React.FC = () => {
     setReviewCafeName('');
 
     if (visits && visits.length > 0) {
-      const cafeIds = [...new Set(visits.map(v => v.cafe.id))];
-      try {
-        const reviewMap = await reviewApi.getUserCafeReviews(cafeIds);
-        const reviewEntries: [number, Review | null][] = Object.entries(reviewMap).map(
-          ([id, review]) => [parseInt(id), review]
-        );
-        setCafeReviews(new Map(reviewEntries));
-      } catch (error) {
-        logger.error('Error loading review statuses', error, 'ProfilePanel');
-      }
+      const ids = [...new Set(visits.map(v => v.cafe.id))];
+      await loadReviewStatuses(ids);
     }
 
     refetchVisits();
@@ -869,7 +875,7 @@ const ProfilePanel: React.FC = () => {
             isFetchingNextPage={isFetchingNextReviewsPage}
             isOwnProfile={true}
             onDeleteReview={(reviewId, cafeName) => {
-              setVisitToDelete({ id: reviewId, cafe: { name: cafeName } } as unknown as Visit);
+              setReviewToDelete({ id: reviewId, cafeName });
               setShowDeleteConfirm(true);
             }}
             onEditReview={(review) => {
@@ -1092,7 +1098,7 @@ const ProfilePanel: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog — Visit */}
       {visitToDelete && (
         <ConfirmDialog
           isOpen={showDeleteConfirm}
@@ -1108,6 +1114,24 @@ const ProfilePanel: React.FC = () => {
           cancelText="Cancel"
           onConfirm={handleConfirmDelete}
           onCancel={handleCancelDelete}
+          variant="danger"
+          isLoading={isDeleting}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog — Review */}
+      {reviewToDelete && (
+        <ConfirmDialog
+          isOpen={showDeleteConfirm}
+          title="Delete Review?"
+          message={<>Are you sure you want to delete your review for <span className="neo-highlight">{reviewToDelete.cafeName}</span>? This cannot be undone.</>}
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={handleDeleteReview}
+          onCancel={() => {
+            setReviewToDelete(null);
+            setShowDeleteConfirm(false);
+          }}
           variant="danger"
           isLoading={isDeleting}
         />

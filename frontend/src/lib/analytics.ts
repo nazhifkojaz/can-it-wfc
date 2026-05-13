@@ -258,11 +258,7 @@ export const trackDirectionsClicked = (props: {
   });
 };
 
-type FollowSource =
-  | 'user_profile_modal'
-  | 'user_profile_panel'
-  | 'review_card'
-  | 'followers_modal';
+type FollowSource = 'review_card';
 
 type ProfileViewSource =
   | 'review_card'

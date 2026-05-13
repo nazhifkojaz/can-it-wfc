@@ -98,8 +98,6 @@ const SharedListPage: React.FC = () => {
     );
   }
 
-  const isOwner = user && list.owner?.id && user.id === list.owner.id;
-
   return (
     <div className={styles.container}>
       <header className={styles.topBar}>
@@ -178,7 +176,7 @@ const SharedListPage: React.FC = () => {
           </div>
         </div>
 
-        {!user && !isOwner && (
+        {!user && (
           <div className={styles.ctaCard}>
             <button className={styles.signInBtn} onClick={handleSignIn}>
               Sign in to save or create your own list

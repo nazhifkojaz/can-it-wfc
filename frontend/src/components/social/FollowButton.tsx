@@ -6,11 +6,7 @@ import { logger } from '../../utils/logger';
 import { trackUserFollowed, trackUserUnfollowed } from '../../lib/analytics';
 import styles from './FollowButton.module.css';
 
-type FollowSource =
-  | 'user_profile_modal'
-  | 'user_profile_panel'
-  | 'review_card'
-  | 'followers_modal';
+type FollowSource = 'review_card';
 
 interface FollowButtonProps {
   username: string;

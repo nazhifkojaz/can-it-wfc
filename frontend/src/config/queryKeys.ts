@@ -38,6 +38,4 @@ export const queryKeys = {
     [...queryKeys.discover, 'trending-lists', { days, limit }] as const,
   savedLists: (limit?: number) =>
     [...queryKeys.user, 'saved-lists', { limit }] as const,
-  userLists: (username: string) =>
-    [...queryKeys.user, 'public-lists', username] as const,
 };

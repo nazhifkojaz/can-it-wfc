@@ -41,49 +41,6 @@ export const useVisits = (filters?: VisitFilters) => {
 
   const visits = data?.pages.flatMap(page => page.results) || [];
 
-  const createVisitMutation = useMutation({
-    mutationFn: visitApi.create,
-    onMutate: async (newVisit) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList(filters) });
-
-      const previousVisits = queryClient.getQueryData(queryKeys.visitsList(filters));
-
-      queryClient.setQueryData(queryKeys.visitsList(filters), (old: VisitsPageData | undefined) => {
-        if (!old) return old;
-
-        const optimisticVisit = {
-          id: Date.now(),
-          ...newVisit,
-          created_at: new Date().toISOString(),
-        } as unknown as Visit;
-
-        return {
-          ...old,
-          pages: old.pages.map((page, index) => {
-            if (index === 0) {
-              return {
-                ...page,
-                results: [optimisticVisit, ...page.results],
-              };
-            }
-            return page;
-          }),
-        };
-      });
-
-      return { previousVisits };
-    },
-    onError: (_err, _newVisit, context) => {
-      if (context?.previousVisits) {
-        queryClient.setQueryData(queryKeys.visitsList(filters), context.previousVisits);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList(filters) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
-    },
-  });
-
   const createWithReviewMutation = useMutation({
     mutationFn: visitApi.createWithReview,
     onMutate: async (newData) => {
@@ -173,10 +130,6 @@ export const useVisits = (filters?: VisitFilters) => {
     },
   });
 
-  const createVisit = async (data: VisitCreate) => {
-    return await createVisitMutation.mutateAsync(data);
-  };
-
   const createWithReview = async (data: CombinedVisitReviewCreate) => {
     return await createWithReviewMutation.mutateAsync(data);
   };
@@ -197,7 +150,6 @@ export const useVisits = (filters?: VisitFilters) => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    createVisit,
     createWithReview,
     updateVisit,
     deleteVisit,
