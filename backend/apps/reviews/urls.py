@@ -7,6 +7,7 @@ from .views import (
     ReviewCreateView,
     ReviewDetailView,
     MyReviewsView,
+    UserReviewsView,
     CafeReviewsView,
     ReviewFlagCreateView,
     UserCafeReviewView,
@@ -25,7 +26,8 @@ urlpatterns = [
     path('reviews/create/', ReviewCreateView.as_view(), name='review-create'),
     path('reviews/me/', MyReviewsView.as_view(), name='my-reviews'),
     path('reviews/for-cafe/', UserCafeReviewView.as_view(), name='user-cafe-review'),
-    path('reviews/bulk/', BulkUserCafeReviewsView.as_view(), name='bulk-user-cafe-reviews'),  # NEW: Bulk endpoint
+    path('reviews/bulk/', BulkUserCafeReviewsView.as_view(), name='bulk-user-cafe-reviews'),
+    path('reviews/users/<str:username>/reviews/', UserReviewsView.as_view(), name='user-reviews'),
     path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
     path('reviews/<int:pk>/mark_helpful/', MarkReviewHelpfulView.as_view(), name='review-mark-helpful'),
 
