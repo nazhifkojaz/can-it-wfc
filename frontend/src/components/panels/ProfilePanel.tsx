@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Mail,
   Calendar,
@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   ChevronRight,
+  ChevronDown,
   Home,
   MapPin,
   Clock,
@@ -18,7 +19,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useResultModal, useVisits, useFollowersModal, useProfileSettings } from '../../hooks';
+import { useResultModal, useVisits, useFollowersModal, useProfileSettings, useMyReviews, VisitFilters } from '../../hooks';
 import { usePanel } from '../../contexts/PanelContext';
 import { SharedResultModal, Loading, EmptyState, ConfirmDialog } from '../common';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -29,8 +30,9 @@ import FollowersModal from '../social/FollowersModal';
 import ListsPanel from '../lists/ListsPanel';
 import ListView from '../lists/ListView';
 import SavedListsTab from '../profile/SavedListsTab';
+import ReviewsTab from '../profile/ReviewsTab';
 import { reviewApi } from '../../api/client';
-import { formatDistanceToNow, differenceInDays } from 'date-fns';
+import { formatDistanceToNow, differenceInDays, differenceInHours, startOfMonth, subMonths, startOfYear, format, addDays } from 'date-fns';
 import { formatDate, formatRating } from '../../utils';
 import { CURRENCIES } from '../../utils/currency';
 import { formatVisitTime, groupVisitsByDate, getAmountSpentLabel } from '../../utils/visit';
@@ -47,8 +49,41 @@ const ProfilePanel: React.FC = () => {
   const resultModal = useResultModal();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'lists' | 'saved'>('visits');
+  const [activeTab, setActiveTab] = useState<'settings' | 'visits' | 'reviews' | 'lists' | 'saved'>('visits');
+  const [isVisitsDropdownOpen, setIsVisitsDropdownOpen] = useState(false);
+  const visitsDropdownRef = useRef<HTMLDivElement>(null);
+  const [isListsDropdownOpen, setIsListsDropdownOpen] = useState(false);
+  const listsDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
+
+  // Visit filter/sort state
+  const [datePreset, setDatePreset] = useState<string>('all');
+  const [customDateFrom, setCustomDateFrom] = useState<string>('');
+  const [customDateTo, setCustomDateTo] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('newest');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const visitFilters: VisitFilters = React.useMemo(() => {
+    const filters: VisitFilters = {
+      ordering: sortBy === 'oldest' ? 'visit_date' : '-visit_date',
+    };
+    if (datePreset === 'custom' && customDateFrom) {
+      filters.visit_date__gte = customDateFrom;
+    }
+    if (datePreset === 'custom' && customDateTo) {
+      filters.visit_date__lte = customDateTo;
+    }
+    if (datePreset === 'this_month') {
+      filters.visit_date__gte = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+    }
+    if (datePreset === 'last_3_months') {
+      filters.visit_date__gte = format(subMonths(new Date(), 3), 'yyyy-MM-dd');
+    }
+    if (datePreset === 'this_year') {
+      filters.visit_date__gte = format(startOfYear(new Date()), 'yyyy-MM-dd');
+    }
+    return filters;
+  }, [datePreset, customDateFrom, customDateTo, sortBy]);
 
   // Followers/Following modal state
   const { openFollowersModal, followersModalProps } = useFollowersModal();
@@ -63,7 +98,7 @@ const ProfilePanel: React.FC = () => {
     setIsEditing,
     editingDisplayName,
     setEditingDisplayName,
-    isAnonymous,
+    profileVisibility,
     loading,
     savingDisplayName,
     editingUsername,
@@ -74,7 +109,7 @@ const ProfilePanel: React.FC = () => {
     handleSaveProfile,
     handleSaveDisplayName,
     handleUsernameUpdate,
-    handleAnonymousToggle,
+    handleVisibilityToggle,
     handleLogout,
   } = useProfileSettings({ user, updateUser, logout, resultModal });
 
@@ -88,7 +123,31 @@ const ProfilePanel: React.FC = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useVisits();
+  } = useVisits(visitFilters);
+
+  // My reviews hook
+  const {
+    reviews: myReviews,
+    loading: reviewsLoading,
+    fetchNextPage: fetchNextReviewsPage,
+    hasNextPage: hasNextReviewsPage,
+    isFetchingNextPage: isFetchingNextReviewsPage,
+  } = useMyReviews();
+
+  // Click outside dropdown handler
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (visitsDropdownRef.current && !visitsDropdownRef.current.contains(e.target as Node)) {
+        setIsVisitsDropdownOpen(false);
+      }
+      if (listsDropdownRef.current && !listsDropdownRef.current.contains(e.target as Node)) {
+        setIsListsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -170,6 +229,17 @@ const ProfilePanel: React.FC = () => {
     const visitDate = new Date(visit.visit_date);
     const daysSince = differenceInDays(new Date(), visitDate);
     return daysSince <= REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT;
+  };
+
+  const getEditTimeLeft = (visit: Visit): string | null => {
+    const deadline = addDays(new Date(visit.visit_date), REVIEW_CONFIG.DAYS_TO_REVIEW_AFTER_VISIT + 1);
+    const now = new Date();
+    const hoursLeft = differenceInHours(deadline, now);
+    if (hoursLeft <= 0) return null;
+    if (hoursLeft < 24) return `${hoursLeft}h left`;
+    const daysLeft = Math.floor(hoursLeft / 24);
+    const remainHours = hoursLeft % 24;
+    return `${daysLeft}d ${remainHours}h left`;
   };
 
   if (!user) {
@@ -483,33 +553,100 @@ const ProfilePanel: React.FC = () => {
       {/* Tabs */}
       <div className="profile-tabs-container">
         <div className="profile-tabs">
-          <button
-            className={`profile-tab ${activeTab === 'visits' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('visits');
-              trackProfileTabViewed({ tab: 'visits' });
-            }}
+          {/* Visits / Reviews Dropdown */}
+          <div
+            ref={visitsDropdownRef}
+            className={`profile-tab-dropdown ${activeTab === 'visits' || activeTab === 'reviews' ? 'active' : ''}`}
           >
-            Visits
-          </button>
-          <button
-            className={`profile-tab ${activeTab === 'lists' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('lists');
-              trackProfileTabViewed({ tab: 'lists' });
-            }}
+            <button
+              className="profile-tab-dropdown-label"
+              onClick={() => {
+                setActiveTab(activeTab === 'reviews' ? 'reviews' : 'visits');
+                trackProfileTabViewed({ tab: activeTab === 'reviews' ? 'reviews' : 'visits' });
+              }}
+            >
+              {activeTab === 'reviews' ? 'Reviews' : 'Visits'}
+            </button>
+            <button
+              className="profile-tab-dropdown-trigger"
+              onClick={() => setIsVisitsDropdownOpen(!isVisitsDropdownOpen)}
+              aria-label="Toggle visits/reviews menu"
+            >
+              <ChevronDown size={14} className={isVisitsDropdownOpen ? 'chevron-up' : ''} />
+            </button>
+            {isVisitsDropdownOpen && (
+              <div className="profile-tab-dropdown-menu">
+                <button
+                  className={`profile-tab-dropdown-item ${activeTab === 'visits' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('visits');
+                    setIsVisitsDropdownOpen(false);
+                    trackProfileTabViewed({ tab: 'visits' });
+                  }}
+                >
+                  {activeTab === 'visits' && '● '}Visits
+                </button>
+                <button
+                  className={`profile-tab-dropdown-item ${activeTab === 'reviews' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('reviews');
+                    setIsVisitsDropdownOpen(false);
+                    trackProfileTabViewed({ tab: 'reviews' });
+                  }}
+                >
+                  {activeTab === 'reviews' && '● '}Reviews
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Lists / Saved Dropdown */}
+          <div
+            ref={listsDropdownRef}
+            className={`profile-tab-dropdown ${activeTab === 'lists' || activeTab === 'saved' ? 'active' : ''}`}
           >
-            Lists
-          </button>
-          <button
-            className={`profile-tab ${activeTab === 'saved' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('saved');
-              trackProfileTabViewed({ tab: 'saved' });
-            }}
-          >
-            Saved
-          </button>
+            <button
+              className="profile-tab-dropdown-label"
+              onClick={() => {
+                setActiveTab(activeTab === 'saved' ? 'saved' : 'lists');
+                trackProfileTabViewed({ tab: activeTab === 'saved' ? 'saved' : 'lists' });
+              }}
+            >
+              {activeTab === 'saved' ? 'Saved' : 'Lists'}
+            </button>
+            <button
+              className="profile-tab-dropdown-trigger"
+              onClick={() => setIsListsDropdownOpen(!isListsDropdownOpen)}
+              aria-label="Toggle lists/saved menu"
+            >
+              <ChevronDown size={14} className={isListsDropdownOpen ? 'chevron-up' : ''} />
+            </button>
+            {isListsDropdownOpen && (
+              <div className="profile-tab-dropdown-menu">
+                <button
+                  className={`profile-tab-dropdown-item ${activeTab === 'lists' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('lists');
+                    setIsListsDropdownOpen(false);
+                    trackProfileTabViewed({ tab: 'lists' });
+                  }}
+                >
+                  {activeTab === 'lists' && '● '}My Lists
+                </button>
+                <button
+                  className={`profile-tab-dropdown-item ${activeTab === 'saved' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('saved');
+                    setIsListsDropdownOpen(false);
+                    trackProfileTabViewed({ tab: 'saved' });
+                  }}
+                >
+                  {activeTab === 'saved' && '● '}Saved
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => {
@@ -525,13 +662,62 @@ const ProfilePanel: React.FC = () => {
       {/* Visits Tab Content */}
       {activeTab === 'visits' && (
         <div className="tab-content">
+          <div className="visits-toolbar">
+            <div className="visits-toolbar-group">
+              <select
+                className="visits-toolbar-select"
+                value={datePreset}
+                onChange={(e) => {
+                  setDatePreset(e.target.value);
+                  if (e.target.value !== 'custom') {
+                    setShowDatePicker(false);
+                  } else {
+                    setShowDatePicker(true);
+                  }
+                }}
+              >
+                <option value="all">All time</option>
+                <option value="this_month">This month</option>
+                <option value="last_3_months">Last 3 months</option>
+                <option value="this_year">This year</option>
+                <option value="custom">Custom range</option>
+              </select>
+              <select
+                className="visits-toolbar-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+            {showDatePicker && (
+              <div className="visits-date-range">
+                <input
+                  type="date"
+                  className="visits-date-input"
+                  value={customDateFrom}
+                  onChange={(e) => setCustomDateFrom(e.target.value)}
+                  placeholder="From"
+                />
+                <span className="visits-date-separator">→</span>
+                <input
+                  type="date"
+                  className="visits-date-input"
+                  value={customDateTo}
+                  onChange={(e) => setCustomDateTo(e.target.value)}
+                  placeholder="To"
+                />
+              </div>
+            )}
+          </div>
           {visitsLoading ? (
             <Loading message="Loading your visits..." />
           ) : visits.length === 0 ? (
             <EmptyState
               icon={<MapPin size={64} />}
-              title="No visits yet"
-              description="Start exploring cafes and log your visits!"
+              title={datePreset !== 'all' ? "No visits found" : "No visits yet"}
+              description={datePreset !== 'all' ? "Try adjusting your filters" : "Start exploring cafes and log your visits!"}
             />
           ) : (
             <div className="visits-timeline">
@@ -597,7 +783,7 @@ const ProfilePanel: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Edit Visit Button (within 7 days) */}
+                        {/* Edit Visit Button (within edit window) */}
                         {canEditVisit(visit) && (
                           <button
                             className="edit-visit-button"
@@ -605,6 +791,9 @@ const ProfilePanel: React.FC = () => {
                           >
                             <Edit size={16} />
                             Edit Visit Details
+                            {getEditTimeLeft(visit) && (
+                              <span className="time-left">{getEditTimeLeft(visit)}</span>
+                            )}
                           </button>
                         )}
 
@@ -615,17 +804,22 @@ const ProfilePanel: React.FC = () => {
                           if (review) {
                             return (
                               <div className="review-actions">
-                                <div className="review-status-display">
-                                  <span className="review-badge">⭐ Your Review</span>
-                                  <span className="review-rating">{review.wfc_rating}/5</span>
-                                  {review.comment && <p className="review-comment">"{review.comment}"</p>}
-                                </div>
                                 <button
-                                  className="add-review-button"
+                                  className="review-block"
                                   onClick={() => handleEditCafeReview(visit.cafe.id, visit.cafe.name, review)}
+                                  aria-label="Edit your review"
                                 >
-                                  <Edit size={18} />
-                                  Edit Your Review for {visit.cafe.name}
+                                  <div className="review-block-content">
+                                    <span className="review-block-stars">
+                                      {'⭐'.repeat(review.wfc_rating)}
+                                    </span>
+                                    {review.comment && (
+                                      <span className="review-block-comment">
+                                        "{review.comment}"
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Edit size={18} className="review-block-edit" />
                                 </button>
                               </div>
                             );
@@ -661,6 +855,27 @@ const ProfilePanel: React.FC = () => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Reviews Tab Content */}
+      {activeTab === 'reviews' && (
+        <div className="tab-content">
+          <ReviewsTab
+            reviews={myReviews}
+            loading={reviewsLoading}
+            fetchNextPage={fetchNextReviewsPage}
+            hasNextPage={hasNextReviewsPage}
+            isFetchingNextPage={isFetchingNextReviewsPage}
+            isOwnProfile={true}
+            onDeleteReview={(reviewId, cafeName) => {
+              setVisitToDelete({ id: reviewId, cafe: { name: cafeName } } as unknown as Visit);
+              setShowDeleteConfirm(true);
+            }}
+            onEditReview={(review) => {
+              handleEditCafeReview(review.cafe.id, review.cafe.name, review);
+            }}
+          />
         </div>
       )}
 
@@ -748,27 +963,28 @@ const ProfilePanel: React.FC = () => {
             <h2 className="section-title">Settings</h2>
 
             <div className="settings-list">
-              {/* Anonymous Display Toggle */}
+              {/* Profile Visibility Toggle */}
               <div className="setting-item">
                 <div className="setting-info">
                   <div className="setting-icon">
-                    {isAnonymous ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {profileVisibility === 'public' ? <Eye size={20} /> : <EyeOff size={20} />}
                   </div>
                   <div>
-                    <p className="setting-label">Anonymous Display</p>
+                    <p className="setting-label">Profile Visibility</p>
                     <p className="setting-description">
-                      Show as {isAnonymous
-                        ? (user.display_name || user.username || 'Use').substring(0, 3) + '***'
-                        : (user.effective_display_name || user.display_name || user.username)
-                      } in reviews
+                      {profileVisibility === 'public'
+                        ? 'Your profile and name are visible to everyone'
+                        : 'Only followers can see your profile. Your name is masked as '
+                          + (user.display_name || user.username || 'Use').substring(0, 3) + '***'
+                      }
                     </p>
                   </div>
                 </div>
                 <label className="toggle">
                   <input
                     type="checkbox"
-                    checked={isAnonymous}
-                    onChange={(e) => handleAnonymousToggle(e.target.checked)}
+                    checked={profileVisibility === 'public'}
+                    onChange={(e) => handleVisibilityToggle(e.target.checked ? 'public' : 'private')}
                   />
                   <span className="toggle-slider"></span>
                 </label>
@@ -958,6 +1174,7 @@ const ProfilePanel: React.FC = () => {
       <FollowersModal
         {...followersModalProps}
         username={user?.username || ''}
+        isOwnModal={true}
       />
     </div>
   );

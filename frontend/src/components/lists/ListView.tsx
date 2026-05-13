@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Edit2, Trash2, Check, X, Globe, Lock, Bookmark } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Check, X, Globe, Lock, Link, Copy, Bookmark } from 'lucide-react';
 import { useListDetail, useLists, useResultModal } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSaveList } from '../../hooks/useSaveList';
@@ -28,6 +28,7 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isOwner = !!(user && list?.owner?.id && user.id === list.owner.id);
   const isSpecialList = list?.list_type === 'to_go' || list?.list_type === 'favorites';
@@ -62,13 +63,36 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
     }
   };
 
-  const togglePublic = async () => {
+  const cycleVisibility = async () => {
     if (!list) return;
+    const next: 'private' | 'shareable' | 'public' =
+      list.visibility === 'private' ? 'shareable' :
+      list.visibility === 'shareable' ? 'public' : 'private';
     try {
-      await updateList(listId, { is_public: !list.is_public });
+      await updateList(listId, { visibility: next });
     } catch {
       resultModal.showResultModal({ type: 'error', title: 'Failed to Update', message: 'Could not update list visibility. Please try again.' });
     }
+  };
+
+  const copyShareLink = async () => {
+    if (!list) return;
+    const base = `${window.location.origin}/?list=${listId}`;
+    const url = list.share_token ? `${base}&token=${list.share_token}` : base;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (isLoading || !list) {
@@ -120,15 +144,35 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
         {!renaming && (
           <div className={styles.listViewHeaderActions}>
             {isOwner && !isSpecialList && (
-              <button
-                className={styles.btnIcon}
-                onClick={togglePublic}
-                disabled={isUpdating}
-                aria-label={list.is_public ? 'Make list private' : 'Make list public'}
-                title={list.is_public ? 'Public' : 'Private'}
-              >
-                {list.is_public ? <Globe size={14} /> : <Lock size={14} />}
-              </button>
+              <>
+                <button
+                  className={styles.btnIcon}
+                  onClick={cycleVisibility}
+                  disabled={isUpdating}
+                  aria-label={
+                    list.visibility === 'private' ? 'Private' :
+                    list.visibility === 'shareable' ? 'Shareable' : 'Public'
+                  }
+                  title={
+                    list.visibility === 'private' ? 'Make shareable' :
+                    list.visibility === 'shareable' ? 'Make public' : 'Make private'
+                  }
+                >
+                  {list.visibility === 'private' ? <Lock size={14} /> :
+                   list.visibility === 'shareable' ? <Link size={14} /> :
+                   <Globe size={14} />}
+                </button>
+                {list.visibility !== 'private' && (
+                  <button
+                    className={styles.copyBtn}
+                    onClick={copyShareLink}
+                    aria-label="Copy shareable link"
+                    title={copied ? 'Copied!' : 'Copy shareable link'}
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                )}
+              </>
             )}
             {!isOwner && user && (
               <button

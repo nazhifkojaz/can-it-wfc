@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Home, User as UserIcon, Calendar, Star, MapPin, DollarSign } from 'lucide-react';
+import { Home, User as UserIcon, Calendar, Star, MapPin, DollarSign, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePanel } from '../../contexts/PanelContext';
 import { userApi } from '../../api/client';
-import { UserProfile, UserActivityItem } from '../../types';
-import { Loading } from '../common';
+import { UserProfile, UserActivityItem, CafeList, CafeListItem } from '../../types';
+import { Loading, EmptyState } from '../common';
 import FollowButton from '../social/FollowButton';
 import FollowersModal from '../social/FollowersModal';
-import { useFollowersModal } from '../../hooks';
+import { useFollowersModal, useUserReviews } from '../../hooks';
+import ListCard from '../lists/ListCard';
+import ListView from '../lists/ListView';
+import ReviewsTab from '../profile/ReviewsTab';
 import { formatVisitTime } from '../../utils/visit';
 import { formatRelativeDate } from '../../utils/date';
 import { logger } from '../../utils/logger';
@@ -23,8 +26,23 @@ const UserProfilePanel: React.FC = () => {
   const [activity, setActivity] = useState<UserActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'activity' | 'stats'>('activity');
+  const [activeTab, setActiveTab] = useState<'activity' | 'reviews' | 'lists' | 'stats'>('activity');
   const { openFollowersModal, followersModalProps } = useFollowersModal();
+
+  // Lists tab state
+  const [lists, setLists] = useState<CafeList[]>([]);
+  const [listsLoading, setListsLoading] = useState(false);
+  const [listsError, setListsError] = useState<string | null>(null);
+  const [openListId, setOpenListId] = useState<number | null>(null);
+
+  // Reviews tab state
+  const {
+    reviews: userReviews,
+    loading: reviewsLoading,
+    fetchNextPage: fetchNextReviewsPage,
+    hasNextPage: hasNextReviewsPage,
+    isFetchingNextPage: isFetchingNextReviewsPage,
+  } = useUserReviews(username);
 
   // Reset state when panel changes away
   React.useEffect(() => {
@@ -32,6 +50,8 @@ const UserProfilePanel: React.FC = () => {
       setProfile(null);
       setActivity([]);
       setActiveTab('activity');
+      setLists([]);
+      setListsError(null);
     }
   }, [activePanel]);
 
@@ -113,6 +133,30 @@ const UserProfilePanel: React.FC = () => {
 
     fetchProfile();
   }, [username]);
+
+  // Fetch public lists when Lists tab is active
+  useEffect(() => {
+    if (activeTab !== 'lists' || !username || !profile) return;
+    if (profile.profile_visibility === 'private' && !profile.is_own_profile) return;
+    if (lists.length > 0 || listsLoading || listsError) return;
+
+    const fetchLists = async () => {
+      try {
+        setListsLoading(true);
+        setListsError(null);
+        const data = await userApi.getUserLists(username);
+        setLists(data);
+      } catch (err: unknown) {
+        const apiError = extractApiError(err);
+        logger.error('Failed to load user lists', err, 'UserProfilePanel');
+        setListsError(apiError.message);
+      } finally {
+        setListsLoading(false);
+      }
+    };
+
+    fetchLists();
+  }, [activeTab, username, profile, lists.length, listsLoading, listsError]);
 
   const handleActivityClick = (cafeId: number) => {
     hidePanel();
@@ -200,9 +244,14 @@ const UserProfilePanel: React.FC = () => {
             {!profile.is_own_profile && (
               <FollowButton
                 username={profile.username}
-                isFollowing={profile.is_following || false}
-                onFollowChange={(following) => {
-                  setProfile(prev => prev ? { ...prev, is_following: following } : null);
+                followStatus={profile.follow_status || 'none'}
+                isFollowing={profile.is_following}
+                onStatusChange={(status) => {
+                  setProfile(prev => prev ? {
+                    ...prev,
+                    is_following: status === 'active',
+                    follow_status: status,
+                  } : null);
                 }}
               />
             )}
@@ -272,6 +321,18 @@ const UserProfilePanel: React.FC = () => {
                   Activity
                 </button>
                 <button
+                  className={`profile-tab ${activeTab === 'reviews' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('reviews')}
+                >
+                  Reviews
+                </button>
+                <button
+                  className={`profile-tab ${activeTab === 'lists' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('lists')}
+                >
+                  Lists
+                </button>
+                <button
                   className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`}
                   onClick={() => setActiveTab('stats')}
                 >
@@ -294,6 +355,68 @@ const UserProfilePanel: React.FC = () => {
                         key={`${item.type}-${item.id}`}
                         item={item}
                         onClick={() => handleActivityClick(item.cafe_id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Reviews Tab */}
+            {activeTab === 'reviews' && (
+              <div className="tab-content">
+                <ReviewsTab
+                  reviews={userReviews}
+                  loading={reviewsLoading}
+                  fetchNextPage={fetchNextReviewsPage}
+                  hasNextPage={hasNextReviewsPage}
+                  isFetchingNextPage={isFetchingNextReviewsPage}
+                  isOwnProfile={false}
+                />
+              </div>
+            )}
+
+            {/* Lists Tab */}
+            {activeTab === 'lists' && (
+              <div className="tab-content">
+                {listsLoading ? (
+                  <div className="lists-grid">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="list-card-skeleton">
+                        <div className="skeleton-icon" />
+                        <div className="skeleton-lines">
+                          <div className="skeleton-line skeleton-line-short" />
+                          <div className="skeleton-line skeleton-line-long" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : listsError ? (
+                  <div className="lists-error">
+                    <p>Couldn&apos;t load lists.</p>
+                    <button
+                      className="lists-retry-btn"
+                      onClick={() => {
+                        setListsError(null);
+                        setLists([]);
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : lists.length === 0 ? (
+                  <EmptyState
+                    icon={<List size={48} />}
+                    title="No public lists yet"
+                    description="This user hasn&apos;t made any lists public."
+                  />
+                ) : (
+                  <div className="lists-grid">
+                    {lists.map((list) => (
+                      <ListCard
+                        key={list.id}
+                        list={list}
+                        onClick={() => setOpenListId(list.id)}
                       />
                     ))}
                   </div>
@@ -328,6 +451,23 @@ const UserProfilePanel: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* List View Overlay */}
+      {openListId && (
+        <div className="list-view-overlay">
+          <ListView
+            listId={openListId}
+            onBack={() => setOpenListId(null)}
+            onCafeClick={(item: CafeListItem) => {
+              setOpenListId(null);
+              hidePanel();
+              setTimeout(() => {
+                navigate(`/map?cafe=${item.cafe.id}`);
+              }, 100);
+            }}
+          />
+        </div>
+      )}
 
       {/* Followers/Following Modal */}
       <FollowersModal
