@@ -5,6 +5,8 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.db.models import Prefetch
+from django.http import Http404
 from core.exceptions import (
     UserNotFound,
     SelfFollowNotAllowed,
@@ -95,7 +97,10 @@ class UserPublicProfileView(generics.RetrieveAPIView):
             except User.DoesNotExist:
                 pass
 
-        return qs.get(username=lookup_value)
+        try:
+            return qs.get(username=lookup_value)
+        except User.DoesNotExist:
+            raise Http404
 
 
 class OAuthLoginView(APIView):
@@ -608,6 +613,13 @@ class SavedListsView(APIView):
             SavedCafeList.objects
             .filter(user=request.user, cafe_list__visibility='public')
             .select_related('cafe_list__owner')
+            .prefetch_related(
+                Prefetch(
+                    'cafe_list__items',
+                    queryset=CafeListItem.objects.select_related('cafe').order_by('added_at')[:3],
+                    to_attr='preview_items',
+                )
+            )
             .order_by('-saved_at')
         )
 
@@ -615,10 +627,6 @@ class SavedListsView(APIView):
         page = saved[offset:offset + limit]
 
         cafe_lists = [s.cafe_list for s in page]
-        for cafe_list in cafe_lists:
-            cafe_list.preview_items = list(
-                cafe_list.items.select_related('cafe').order_by('added_at')[:3]
-            )
 
         serializer = CafeListSerializer(cafe_lists, many=True)
 
@@ -656,13 +664,15 @@ class UserPublicListsView(APIView):
             CafeList.objects
             .filter(owner=target_user, visibility='public')
             .select_related('owner')
+            .prefetch_related(
+                Prefetch(
+                    'items',
+                    queryset=CafeListItem.objects.select_related('cafe').order_by('added_at')[:3],
+                    to_attr='preview_items',
+                )
+            )
             .order_by('-updated_at')
         )
-
-        for cafe_list in lists:
-            cafe_list.preview_items = list(
-                cafe_list.items.select_related('cafe').order_by('added_at')[:3]
-            )
 
         serializer = CafeListSerializer(lists, many=True)
         return Response(serializer.data)
