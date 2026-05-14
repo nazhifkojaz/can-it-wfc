@@ -2,13 +2,15 @@ from rest_framework import generics, permissions, filters, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError, Throttled
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateFilter
 from django.db import transaction
 from core.exceptions import (
     ReviewNotFound,
     SelfHelpfulNotAllowed,
     InvalidCafeIds,
     TooManyCafeIds,
+    UserNotFound,
 )
 from .models import Visit, Review, ReviewHelpful
 from .serializers import (
@@ -24,6 +26,8 @@ from core.permissions import IsOwnerOrReadOnly
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 from django.db.models import Prefetch
+from django.contrib.auth import get_user_model
+from apps.accounts.utils import is_own_profile, can_view_user_activity, get_user_by_username_or_id
 
 
 def _build_review_queryset(request, base_qs=None):
@@ -51,18 +55,35 @@ def _build_review_queryset(request, base_qs=None):
     return queryset
 
 
+class VisitPagination(PageNumberPagination):
+    page_size = 10
+
+
+class VisitFilterSet(FilterSet):
+    visit_date__gte = DateFilter(field_name='visit_date', lookup_expr='gte')
+    visit_date__lte = DateFilter(field_name='visit_date', lookup_expr='lte')
+
+    class Meta:
+        from .models import Visit
+        model = Visit
+        fields = ['cafe', 'visit_date']
+
+
 class VisitListCreateView(generics.ListCreateAPIView):
     """
     List user's visits or create a new visit.
 
     GET /api/visits/
     GET /api/visits/?cafe={id}&visit_date={YYYY-MM-DD}  # Filter by cafe and/or date
+    GET /api/visits/?visit_date__gte={YYYY-MM-DD}&visit_date__lte={YYYY-MM-DD}  # Date range
+    GET /api/visits/?ordering=visit_date  # Sort: visit_date or -visit_date
     POST /api/visits/
     """
     serializer_class = VisitSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = VisitPagination
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['cafe', 'visit_date']  # Added visit_date for duplicate checking
+    filterset_class = VisitFilterSet
     ordering_fields = ['visit_date', 'created_at']
     ordering = ['-visit_date', '-created_at']
 
@@ -224,6 +245,34 @@ class MyReviewsView(generics.ListAPIView):
     
     def get_queryset(self):
         return Review.objects.filter(user=self.request.user)
+
+
+class UserReviewsView(generics.ListAPIView):
+    """
+    List a user's public reviews.
+
+    GET /api/reviews/users/{username}/reviews/
+    """
+    serializer_class = ReviewListSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['wfc_rating', 'created_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        lookup_value = self.kwargs.get('username')
+        User = get_user_model()
+        try:
+            user = get_user_by_username_or_id(lookup_value)
+        except User.DoesNotExist:
+            raise UserNotFound()
+
+        request = self.request
+        if not is_own_profile(request, user):
+            if not can_view_user_activity(request.user, user):
+                return Review.objects.none()
+
+        return _build_review_queryset(request, Review.objects.filter(user=user, is_hidden=False))
 
 
 class CafeReviewsView(generics.ListAPIView):

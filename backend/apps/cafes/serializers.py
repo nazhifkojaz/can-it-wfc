@@ -252,10 +252,29 @@ class NearbyQuerySerializer(serializers.Serializer):
 class CafeListSerializer(serializers.ModelSerializer):
     """Cafe list (named collection) summary — used in the lists index."""
 
+    owner = serializers.SerializerMethodField()
+    preview_cafes = serializers.SerializerMethodField()
+
     class Meta:
         model = CafeList
-        fields = ['id', 'name', 'description', 'list_type', 'icon', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'list_type', 'is_default', 'is_public', 'item_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'list_type', 'icon', 'is_default', 'visibility', 'share_token', 'is_featured', 'save_count', 'item_count', 'owner', 'preview_cafes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'list_type', 'is_default', 'visibility', 'share_token', 'is_featured', 'save_count', 'item_count', 'created_at', 'updated_at']
+
+    def get_owner(self, obj):
+        return {
+            'id': obj.owner.id,
+            'username': obj.owner.username,
+            'display_name': obj.owner.effective_display_name,
+            'avatar_url': obj.owner.avatar_url,
+        }
+
+    def get_preview_cafes(self, obj):
+        items = getattr(obj, 'preview_items', [])
+        return [
+            {'id': item.cafe.id, 'name': item.cafe.name}
+            for item in items
+            if item.cafe
+        ]
 
 
 class CafeListItemSerializer(serializers.ModelSerializer):
@@ -273,9 +292,10 @@ class CafeListDetailSerializer(CafeListSerializer):
     """List metadata + all embedded items. Used for GET /api/lists/<id>/."""
 
     items = CafeListItemSerializer(many=True, read_only=True)
+    is_saved_by_user = serializers.BooleanField(read_only=True, default=False)
 
     class Meta(CafeListSerializer.Meta):
-        fields = CafeListSerializer.Meta.fields + ['items']
+        fields = CafeListSerializer.Meta.fields + ['items', 'is_saved_by_user']
 
 
 class CafeListCreateSerializer(serializers.ModelSerializer):
@@ -291,8 +311,17 @@ class CafeListUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CafeList
-        fields = ['name', 'description', 'icon']
+        fields = ['name', 'description', 'icon', 'visibility']
         extra_kwargs = {'name': {'required': False}}
+
+
+class SaveListResponseSerializer(serializers.Serializer):
+    """Response for POST/DELETE /api/lists/<id>/save/."""
+
+    id = serializers.IntegerField()
+    save_count = serializers.IntegerField()
+    is_saved_by_user = serializers.BooleanField()
+    saved_at = serializers.DateTimeField(required=False)
 
 
 class CafeListItemCreateSerializer(serializers.Serializer):
@@ -397,11 +426,11 @@ class CafeFlagSerializer(serializers.ModelSerializer):
 class CafeFilterSerializer(serializers.Serializer):
     """Validates WFC filter query params for nearby/count endpoints."""
 
-    min_wifi = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
-    max_noise = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
-    min_power = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
-    min_seating = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
-    min_wfc = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=1, max_value=5)
+    min_wifi = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=Decimal('1'), max_value=Decimal('5'))
+    max_noise = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=Decimal('1'), max_value=Decimal('5'))
+    min_power = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=Decimal('1'), max_value=Decimal('5'))
+    min_seating = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=Decimal('1'), max_value=Decimal('5'))
+    min_wfc = serializers.DecimalField(max_digits=3, decimal_places=1, required=False, min_value=Decimal('1'), max_value=Decimal('5'))
     price = serializers.CharField(required=False, allow_blank=True)
     hide_closed = serializers.BooleanField(required=False, default=True)
     verified = serializers.BooleanField(required=False, default=False)
@@ -435,16 +464,16 @@ class CafeSearchQuerySerializer(serializers.Serializer):
         required=False,
         max_digits=10,
         decimal_places=8,
-        min_value=-90,
-        max_value=90,
+        min_value=Decimal('-90'),
+        max_value=Decimal('90'),
         error_messages={'invalid': 'Invalid latitude value'}
     )
     lon = serializers.DecimalField(
         required=False,
         max_digits=11,
         decimal_places=8,
-        min_value=-180,
-        max_value=180,
+        min_value=Decimal('-180'),
+        max_value=Decimal('180'),
         error_messages={'invalid': 'Invalid longitude value'}
     )
     limit = serializers.IntegerField(

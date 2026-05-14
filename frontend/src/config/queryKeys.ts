@@ -13,7 +13,8 @@ export const queryKeys = {
   listDetail: (id: number) => [...queryKeys.lists, 'detail', id] as const,
 
   visits: ['visits'] as const,
-  visitsList: () => [...queryKeys.visits, 'list'] as const,
+  visitsList: (filters?: { ordering?: string; visit_date__gte?: string; visit_date__lte?: string }) =>
+    [...queryKeys.visits, 'list', filters ?? {}] as const,
   visitDetail: (id: number) => [...queryKeys.visits, 'detail', id] as const,
 
   reviews: ['reviews'] as const,
@@ -21,7 +22,20 @@ export const queryKeys = {
     [...queryKeys.reviews, 'list', { cafeId }] as const,
   reviewDetail: (id: number) => [...queryKeys.reviews, 'detail', id] as const,
   myReviews: () => [...queryKeys.reviews, 'my'] as const,
+  userReviews: (username: string) => [...queryKeys.reviews, 'user', username] as const,
 
   user: ['user'] as const,
   userProfile: () => [...queryKeys.user, 'profile'] as const,
+
+  discover: ['discover'] as const,
+  discoverRecentReviews: (limit?: number) =>
+    [...queryKeys.discover, 'recent-reviews', { limit }] as const,
+  discoverFeaturedLists: (limit?: number) =>
+    [...queryKeys.discover, 'featured-lists', { limit }] as const,
+  discoverTrending: (days: number, limit: number) =>
+    [...queryKeys.discover, 'trending', { days, limit }] as const,
+  discoverTrendingLists: (days: number, limit: number) =>
+    [...queryKeys.discover, 'trending-lists', { days, limit }] as const,
+  savedLists: (limit?: number) =>
+    [...queryKeys.user, 'saved-lists', { limit }] as const,
 };

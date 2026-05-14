@@ -520,3 +520,40 @@
   border-color: var(--neo-gray-500);
   color: var(--neo-gray-600);
 }
+
+.copyBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--neo-primary-light, #ede9fe);
+  border: var(--neo-border-width-thin) solid var(--neo-black);
+  border-radius: var(--neo-border-radius);
+  font-size: 13px;
+  font-weight: var(--neo-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 2px 2px 0 var(--neo-black);
+  font-family: inherit;
+  color: var(--neo-black);
+}
+
+.copyBtn:hover:not(:disabled) {
+  background: var(--neo-primary);
+  color: var(--neo-white);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--neo-black);
+}
+
+.copyBtn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--neo-black);
+}
+
+.saveError {
+  color: var(--neo-danger);
+  font-size: 12px;
+  margin: 4px 0 0 0;
+}

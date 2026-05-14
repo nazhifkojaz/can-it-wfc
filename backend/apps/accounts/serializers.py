@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 from .models import UserSettings, Follow
-from .utils import is_own_profile, check_is_following
+from .utils import is_own_profile, check_is_following, check_follow_status
 
 User = get_user_model()
 
@@ -30,6 +32,20 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'total_reviews', 'total_visits', 'date_joined']
 
 
+class UserSettingsSerializer(serializers.ModelSerializer):
+    """Serializer for user privacy and display settings."""
+
+    class Meta:
+        model = UserSettings
+        fields = [
+            'profile_visibility',
+            'show_activity_dates',
+            'show_followers',
+            'show_following',
+            'activity_visibility'
+        ]
+
+
 class UserDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for authenticated user's own profile only.
 
@@ -40,6 +56,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     effective_display_name = serializers.ReadOnlyField()
     account_age_hours = serializers.ReadOnlyField()
+    settings = UserSettingsSerializer(read_only=True)
 
     class Meta:
         model = User
@@ -51,18 +68,18 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'effective_display_name',
             'bio',
             'avatar_url',
-            'is_anonymous_display',
             'total_reviews',
             'total_visits',
             'followers_count',
             'following_count',
             'date_joined',
-            'account_age_hours'
+            'account_age_hours',
+            'settings'
         ]
         read_only_fields = [
             'id', 'total_reviews', 'total_visits',
             'followers_count', 'following_count',
-            'date_joined', 'account_age_hours'
+            'date_joined', 'account_age_hours', 'settings'
         ]
 class UserUpdateSerializer(serializers.ModelSerializer):
     """
@@ -93,7 +110,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'display_name', 'bio', 'avatar_url', 'is_anonymous_display']
+        fields = ['username', 'display_name', 'bio', 'avatar_url']
 
     def validate_username(self, value):
         """
@@ -190,20 +207,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid avatar URL format.")
 
         return value
-class UserSettingsSerializer(serializers.ModelSerializer):
-    """Serializer for user privacy and display settings."""
-
-    class Meta:
-        model = UserSettings
-        fields = [
-            'profile_visibility',
-            'show_activity_dates',
-            'show_followers',
-            'show_following',
-            'activity_visibility'
-        ]
-
-
 class UserProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for public user profiles.
@@ -214,6 +217,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     is_own_profile = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
     is_followed_by = serializers.SerializerMethodField()
+    follow_status = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -232,7 +237,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'settings',
             'is_own_profile',
             'is_following',
-            'is_followed_by'
+            'is_followed_by',
+            'follow_status'
         ]
         read_only_fields = [
             'id', 'username', 'total_reviews', 'total_visits',
@@ -243,41 +249,77 @@ class UserProfileSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return is_own_profile(request, obj)
 
-    def get_is_following(self, obj):
-        return check_is_following(self.context.get('request'), obj)
-
-    def get_is_followed_by(self, obj):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return Follow.objects.filter(follower=obj, followed=request.user).exists()
-        return False
+    def get_display_name(self, obj):
+        return obj.display_name
 
     def to_representation(self, instance):
-        """Filter representation based on privacy settings."""
+        """Fetch follow info in a single query, then serialize."""
+        self._prefetch_follow_info(instance)
         ret = super().to_representation(instance)
         request = self.context.get('request')
 
-        # Get or create settings
-        settings, _ = UserSettings.objects.get_or_create(user=instance)
-
-        # Populate settings in response (fix null issue for existing users)
+        # Use select_related'd settings or create if missing
+        try:
+            settings = instance.settings
+        except ObjectDoesNotExist:
+            settings = UserSettings.objects.create(user=instance)
         ret['settings'] = UserSettingsSerializer(settings).data
 
-        # If profile is private and not own profile, hide sensitive data
         own_profile = is_own_profile(request, instance)
+        is_active_follower = self._follow_info_val['is_following']
 
         if settings.profile_visibility == 'private' and not own_profile:
-            # For private profiles, only show minimal information
+            if is_active_follower:
+                return ret
             return {
                 'id': ret['id'],
                 'username': ret['username'],
                 'display_name': ret['display_name'],
                 'effective_display_name': ret['effective_display_name'],
+                'settings': ret['settings'],
+                'is_own_profile': ret['is_own_profile'],
+                'is_following': ret['is_following'],
+                'is_followed_by': ret['is_followed_by'],
+                'follow_status': ret['follow_status'],
                 'profile_visibility': 'private',
                 'message': 'This profile is private'
             }
 
         return ret
+
+    def _prefetch_follow_info(self, obj):
+        """Fetch all follow-related info in a single query and cache on the serializer."""
+        request = self.context.get('request')
+        if not (request and hasattr(request, 'user') and request.user.is_authenticated):
+            self._follow_info_val = {
+                'is_following': False,
+                'is_followed_by': False,
+                'follow_status': 'none',
+            }
+            return
+
+        follows = Follow.objects.filter(
+            Q(follower=request.user, followed=obj) |
+            Q(follower=obj, followed=request.user)
+        )
+
+        info = {'is_following': False, 'is_followed_by': False, 'follow_status': 'none'}
+        for f in follows:
+            if f.follower_id == request.user.id and f.followed_id == obj.id:
+                info['is_following'] = f.status == 'active'
+                info['follow_status'] = f.status
+            elif f.follower_id == obj.id and f.followed_id == request.user.id:
+                info['is_followed_by'] = f.status == 'active'
+        self._follow_info_val = info
+
+    def get_is_following(self, obj):
+        return self._follow_info_val['is_following']
+
+    def get_is_followed_by(self, obj):
+        return self._follow_info_val['is_followed_by']
+
+    def get_follow_status(self, obj):
+        return self._follow_info_val['follow_status']
 
 
 class UserActivityItemSerializer(serializers.Serializer):

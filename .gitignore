@@ -63,3 +63,9 @@ docs/internal_documentation/
 
 # Agent config
 .claude/
+# Added by code-review-graph
+.code-review-graph/
+
+# Tool artifacts
+.sisyphus/
+frontend/graph.svg

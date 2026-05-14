@@ -5,11 +5,15 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.db.models import Prefetch
+from django.http import Http404
 from core.exceptions import (
     UserNotFound,
     SelfFollowNotAllowed,
     AlreadyFollowing,
     NotFollowing,
+    FollowRequestAlreadySent,
+    FollowRequestNotFound,
     OAuthTokenInvalid,
     OAuthTokenRequired,
     OAuthEmailNotProvided,
@@ -38,6 +42,8 @@ from .utils import get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
 from apps.reviews.models import Visit, Review
+from apps.cafes.models import CafeList, CafeListItem, SavedCafeList
+from apps.cafes.serializers import CafeListSerializer
 
 logger = get_logger(__name__)
 
@@ -77,17 +83,24 @@ class UserPublicProfileView(generics.RetrieveAPIView):
     throttle_classes = [PublicApiThrottle]
     lookup_field = 'username'
 
+    def get_queryset(self):
+        return User.objects.all().select_related('settings')
+
     def get_object(self):
         """Get user by username or ID."""
         lookup_value = self.kwargs.get(self.lookup_field)
+        qs = self.get_queryset()
 
         if lookup_value and lookup_value.isdigit():
             try:
-                return get_user_by_username_or_id(lookup_value)
+                return qs.get(id=int(lookup_value))
             except User.DoesNotExist:
                 pass
 
-        return super().get_object()
+        try:
+            return qs.get(username=lookup_value)
+        except User.DoesNotExist:
+            raise Http404
 
 
 class OAuthLoginView(APIView):
@@ -321,7 +334,9 @@ class UserSettingsUpdateView(generics.RetrieveUpdateAPIView):
 
 class FollowUserView(APIView):
     """
-    Follow a user.
+    Follow a user or request to follow.
+    Creates an active follow for public profiles,
+    and a pending follow request for private profiles.
 
     POST /api/accounts/follow/{username}/
     """
@@ -329,32 +344,73 @@ class FollowUserView(APIView):
 
     def post(self, request, username):
         """Follow a user by username."""
-        # Get target user
         try:
             target_user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise UserNotFound()
 
-        # Prevent self-following
         if request.user == target_user:
             raise SelfFollowNotAllowed()
 
-        # Check if already following
-        if Follow.objects.filter(follower=request.user, followed=target_user).exists():
-            raise AlreadyFollowing()
+        existing = Follow.objects.filter(
+            follower=request.user, followed=target_user
+        ).first()
 
-        # Create follow relationship
-        Follow.objects.create(follower=request.user, followed=target_user)
+        if existing:
+            if existing.status == 'active':
+                raise AlreadyFollowing()
+            elif existing.status == 'pending':
+                raise FollowRequestAlreadySent()
+            elif existing.status == 'rejected':
+                # Retry after rejection — reset to pending
+                is_private = target_user.settings.profile_visibility == 'private'
+                if is_private:
+                    existing.status = 'pending'
+                    existing.save(update_fields=['status'])
+                    return Response({
+                        'message': f'Follow request sent to {username}',
+                        'follow_status': 'pending',
+                        'is_following': False
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    existing.status = 'active'
+                    existing.save(update_fields=['status'])
+                    return Response({
+                        'message': f'You are now following {username}',
+                        'follow_status': 'active',
+                        'is_following': True
+                    }, status=status.HTTP_201_CREATED)
 
-        return Response({
-            'message': f'You are now following {username}',
-            'is_following': True
-        }, status=status.HTTP_201_CREATED)
+        # No existing follow — determine behavior based on target profile visibility
+        is_private = target_user.settings.profile_visibility == 'private'
+
+        if is_private:
+            follow = Follow.objects.create(
+                follower=request.user,
+                followed=target_user,
+                status='pending'
+            )
+            return Response({
+                'message': f'Follow request sent to {username}',
+                'follow_status': 'pending',
+                'is_following': False
+            }, status=status.HTTP_201_CREATED)
+        else:
+            Follow.objects.create(
+                follower=request.user,
+                followed=target_user,
+                status='active'
+            )
+            return Response({
+                'message': f'You are now following {username}',
+                'follow_status': 'active',
+                'is_following': True
+            }, status=status.HTTP_201_CREATED)
 
 
 class UnfollowUserView(APIView):
     """
-    Unfollow a user.
+    Unfollow a user or cancel a follow request.
 
     DELETE /api/accounts/unfollow/{username}/
     """
@@ -362,19 +418,13 @@ class UnfollowUserView(APIView):
 
     def delete(self, request, username):
         """Unfollow a user by username."""
-        # Get target user
         try:
             target_user = User.objects.get(username=username)
         except User.DoesNotExist:
             raise UserNotFound()
 
-        # Try to delete follow relationship using model delete()
-        # (QuerySet.delete() skips the custom Follow.delete() which updates counts)
         try:
-            follow = Follow.objects.get(
-                follower=request.user,
-                followed=target_user
-            )
+            follow = Follow.objects.get(follower=request.user, followed=target_user)
         except Follow.DoesNotExist:
             raise NotFollowing()
 
@@ -416,6 +466,73 @@ class MyFollowingListView(generics.ListAPIView):
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
 
 
+class FollowRequestsListView(generics.ListAPIView):
+    """
+    Get list of pending follow requests for the current user.
+
+    GET /api/accounts/me/follow-requests/
+    """
+    serializer_class = FollowUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        """Return users who have requested to follow the current user."""
+        request_user_ids = Follow.objects.filter(
+            followed=self.request.user,
+            status='pending'
+        ).values_list('follower_id', flat=True)
+        return User.objects.filter(id__in=request_user_ids).order_by('-date_joined')
+
+
+class HandleFollowRequestView(APIView):
+    """
+    Accept or reject a follow request.
+
+    POST /api/accounts/follow-requests/{user_id}/handle/
+    Body: { "action": "accept" | "reject" }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id):
+        try:
+            requester = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise UserNotFound()
+
+        follow = Follow.objects.filter(
+            follower=requester,
+            followed=request.user,
+            status='pending'
+        ).first()
+
+        if not follow:
+            raise FollowRequestNotFound()
+
+        action = request.data.get('action')
+
+        if action == 'accept':
+            follow.status = 'active'
+            follow.save(update_fields=['status'])
+            return Response({
+                'message': f'You have accepted {requester.username}\'s follow request',
+                'follow_status': 'active'
+            }, status=status.HTTP_200_OK)
+
+        elif action == 'reject':
+            follow.status = 'rejected'
+            follow.save(update_fields=['status'])
+            return Response({
+                'message': f'You have rejected {requester.username}\'s follow request',
+                'follow_status': 'rejected'
+            }, status=status.HTTP_200_OK)
+
+        else:
+            return Response({
+                'message': 'Invalid action. Use "accept" or "reject".'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
 class UserFollowersListView(generics.ListAPIView):
     """
     Get list of users who follow a specific user (public).
@@ -435,17 +552,13 @@ class UserFollowersListView(generics.ListAPIView):
         except User.DoesNotExist:
             return User.objects.none()
 
-        # Check privacy settings
         settings = user.settings
-
         own_profile = is_own_profile(self.request, user)
 
-        # If show_followers is False and not own profile, return empty
         if not settings.show_followers and not own_profile:
             return User.objects.none()
 
         follower_ids = user.get_follower_ids()
-
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
 
 
@@ -468,15 +581,98 @@ class UserFollowingListView(generics.ListAPIView):
         except User.DoesNotExist:
             return User.objects.none()
 
-        # Check privacy settings
         settings = user.settings
-
         own_profile = is_own_profile(self.request, user)
 
-        # If show_following is False and not own profile, return empty
         if not settings.show_following and not own_profile:
             return User.objects.none()
 
         following_ids = user.get_following_ids()
-
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')
+
+
+class SavedListsView(APIView):
+    """
+    Get the current user's saved public lists.
+
+    GET /api/auth/me/saved-lists/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            limit = min(int(request.query_params.get('limit', 10)), 50)
+        except (ValueError, TypeError):
+            limit = 10
+        try:
+            offset = int(request.query_params.get('offset', 0))
+        except (ValueError, TypeError):
+            offset = 0
+
+        saved = (
+            SavedCafeList.objects
+            .filter(user=request.user, cafe_list__visibility='public')
+            .select_related('cafe_list__owner')
+            .prefetch_related(
+                Prefetch(
+                    'cafe_list__items',
+                    queryset=CafeListItem.objects.select_related('cafe').order_by('added_at')[:3],
+                    to_attr='preview_items',
+                )
+            )
+            .order_by('-saved_at')
+        )
+
+        total_count = saved.count()
+        page = saved[offset:offset + limit]
+
+        cafe_lists = [s.cafe_list for s in page]
+
+        serializer = CafeListSerializer(cafe_lists, many=True)
+
+        next_offset = offset + limit
+        next_url = None
+        if next_offset < total_count:
+            next_url = request.build_absolute_uri(
+                f"{request.path}?offset={next_offset}&limit={limit}"
+            )
+
+        return Response({
+            'count': total_count,
+            'next': next_url,
+            'previous': None,
+            'results': serializer.data,
+        })
+
+
+class UserPublicListsView(APIView):
+    """
+    Get public lists for a given user by username or ID.
+
+    GET /api/auth/users/{username}/lists/
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [PublicApiThrottle]
+
+    def get(self, request, username):
+        try:
+            target_user = get_user_by_username_or_id(username)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        lists = (
+            CafeList.objects
+            .filter(owner=target_user, visibility='public')
+            .select_related('owner')
+            .prefetch_related(
+                Prefetch(
+                    'items',
+                    queryset=CafeListItem.objects.select_related('cafe').order_by('added_at')[:3],
+                    to_attr='preview_items',
+                )
+            )
+            .order_by('-updated_at')
+        )
+
+        serializer = CafeListSerializer(lists, many=True)
+        return Response(serializer.data)

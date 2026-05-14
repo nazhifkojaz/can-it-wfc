@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData, keepPreviousData } from '@tanstack/react-query';
 import { visitApi } from '../api/client';
 import { Visit, VisitCreate, CombinedVisitReviewCreate, PaginatedResponse } from '../types';
 import { queryKeys } from '../config/queryKeys';
@@ -6,7 +6,13 @@ import { extractApiError } from '../utils/errorUtils';
 
 type VisitsPageData = InfiniteData<PaginatedResponse<Visit>>;
 
-export const useVisits = () => {
+export interface VisitFilters {
+  ordering?: string;
+  visit_date__gte?: string;
+  visit_date__lte?: string;
+}
+
+export const useVisits = (filters?: VisitFilters) => {
   const queryClient = useQueryClient();
 
   const {
@@ -18,9 +24,9 @@ export const useVisits = () => {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: queryKeys.visitsList(),
+    queryKey: queryKeys.visitsList(filters),
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await visitApi.getMyVisits(pageParam);
+      const response = await visitApi.getMyVisits(pageParam, filters);
       return response;
     },
     getNextPageParam: (lastPage) => {
@@ -30,63 +36,21 @@ export const useVisits = () => {
       return page ? parseInt(page) : undefined;
     },
     staleTime: 1 * 60 * 1000,
+    placeholderData: keepPreviousData,
     initialPageParam: 1,
   });
 
   const visits = data?.pages.flatMap(page => page.results) || [];
 
-  const createVisitMutation = useMutation({
-    mutationFn: visitApi.create,
-    onMutate: async (newVisit) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList() });
-
-      const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
-
-      queryClient.setQueryData(queryKeys.visitsList(), (old: VisitsPageData | undefined) => {
-        if (!old) return old;
-
-        const optimisticVisit = {
-          id: Date.now(),
-          ...newVisit,
-          created_at: new Date().toISOString(),
-        } as unknown as Visit;
-
-        return {
-          ...old,
-          pages: old.pages.map((page, index) => {
-            if (index === 0) {
-              return {
-                ...page,
-                results: [optimisticVisit, ...page.results],
-              };
-            }
-            return page;
-          }),
-        };
-      });
-
-      return { previousVisits };
-    },
-    onError: (_err, _newVisit, context) => {
-      if (context?.previousVisits) {
-        queryClient.setQueryData(queryKeys.visitsList(), context.previousVisits);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
-    },
-  });
-
   const createWithReviewMutation = useMutation({
     mutationFn: visitApi.createWithReview,
     onMutate: async (newData) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList(filters) });
       await queryClient.cancelQueries({ queryKey: queryKeys.cafes });
 
-      const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
+      const previousVisits = queryClient.getQueryData(queryKeys.visitsList(filters));
 
-      queryClient.setQueryData(queryKeys.visitsList(), (old: VisitsPageData | undefined) => {
+      queryClient.setQueryData(queryKeys.visitsList(filters), (old: VisitsPageData | undefined) => {
         if (!old) return old;
 
         const optimisticVisit = {
@@ -116,11 +80,11 @@ export const useVisits = () => {
     },
     onError: (_err, _newData, context) => {
       if (context?.previousVisits) {
-        queryClient.setQueryData(queryKeys.visitsList(), context.previousVisits);
+        queryClient.setQueryData(queryKeys.visitsList(filters), context.previousVisits);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList(filters) });
       queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
       queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
     },
@@ -129,11 +93,11 @@ export const useVisits = () => {
   const deleteVisitMutation = useMutation({
     mutationFn: visitApi.delete,
     onMutate: async (visitId) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.visitsList(filters) });
 
-      const previousVisits = queryClient.getQueryData(queryKeys.visitsList());
+      const previousVisits = queryClient.getQueryData(queryKeys.visitsList(filters));
 
-      queryClient.setQueryData(queryKeys.visitsList(), (old: VisitsPageData | undefined) => {
+      queryClient.setQueryData(queryKeys.visitsList(filters), (old: VisitsPageData | undefined) => {
         if (!old) return old;
 
         return {
@@ -149,11 +113,11 @@ export const useVisits = () => {
     },
     onError: (_err, _visitId, context) => {
       if (context?.previousVisits) {
-        queryClient.setQueryData(queryKeys.visitsList(), context.previousVisits);
+        queryClient.setQueryData(queryKeys.visitsList(filters), context.previousVisits);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList(filters) });
       queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
     },
   });
@@ -162,14 +126,10 @@ export const useVisits = () => {
     mutationFn: ({ id, data }: { id: number; data: Partial<VisitCreate> }) =>
       visitApi.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.visitsList(filters) });
       queryClient.invalidateQueries({ queryKey: queryKeys.cafes });
     },
   });
-
-  const createVisit = async (data: VisitCreate) => {
-    return await createVisitMutation.mutateAsync(data);
-  };
 
   const createWithReview = async (data: CombinedVisitReviewCreate) => {
     return await createWithReviewMutation.mutateAsync(data);
@@ -191,7 +151,6 @@ export const useVisits = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    createVisit,
     createWithReview,
     updateVisit,
     deleteVisit,

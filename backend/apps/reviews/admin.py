@@ -155,10 +155,11 @@ class ReviewAdmin(admin.ModelAdmin):
     
     def user_display(self, obj):
         """Display username with anonymous indicator."""
-        if obj.user.is_anonymous_display:
+        is_private = getattr(getattr(obj.user, 'settings', None), 'profile_visibility', None) == 'private'
+        if is_private:
             return format_html(
                 '{} <span style="color: gray;">(anonymous)</span>',
-                obj.user.display_name
+                obj.user.display_name or obj.user.username
             )
         return obj.user.username
     user_display.short_description = 'User'

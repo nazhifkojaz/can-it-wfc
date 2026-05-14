@@ -1,10 +1,10 @@
 import React from 'react';
-import { Activity, User } from 'lucide-react';
+import { Compass, User } from 'lucide-react';
 import { usePanel } from '../../contexts/PanelContext';
 import './BottomNav.css';
 
 interface NavItem {
-  panel: 'activity' | 'profile';
+  panel: 'discover' | 'profile';
   label: string;
   icon: React.ReactNode;
 }
@@ -14,9 +14,9 @@ const BottomNav: React.FC = () => {
 
   const navItems: NavItem[] = [
     {
-      panel: 'activity',
-      label: 'Activity',
-      icon: <Activity size={24} />,
+      panel: 'discover',
+      label: 'Discover',
+      icon: <Compass size={24} />,
     },
     {
       panel: 'profile',

@@ -25,8 +25,16 @@ import {
   CafeListMembership,
   CafeListCreate,
   CafeListUpdate,
+  SaveListResponse,
+  SavedListsResponse,
 } from '../types';
 import { CafeInsightsResponse } from '../types/insights';
+import type {
+  DiscoverReview,
+  FeaturedListsResponse,
+  TrendingCafesResponse,
+  TrendingListsResponse,
+} from '../types/discover';
 import { API_CONFIG } from '../config/constants';
 import { buildAppPath } from '../utils/url';
 import { extractApiError, ApiError } from '../utils/errorUtils';
@@ -113,7 +121,14 @@ api.interceptors.response.use(
       const landingVariants = [2, 4].map(n => `${normalizedBase}/${n}`);
       const publicPaths = [...rootPaths, ...landingVariants];
 
-      if (!publicPaths.some(p => path === p || path === `${p}/`)) {
+      // Allow public resource routes that work without auth
+      const listPrefix = normalizedBase ? `${normalizedBase}/list/` : '/list/';
+      const userPrefix = normalizedBase ? `${normalizedBase}/user/` : '/user/';
+      const isPublicRoute = publicPaths.some(p => path === p || path === `${p}/`);
+      const isListRoute = path.startsWith(listPrefix);
+      const isUserRoute = path.startsWith(userPrefix);
+
+      if (!isPublicRoute && !isListRoute && !isUserRoute) {
         window.location.href = buildAppPath('/');
       }
     }
@@ -172,8 +187,13 @@ export const userApi = {
   updateSettings: (data: Partial<UserSettings>) =>
     patch<UserSettings>('/auth/me/settings/', data),
 
+  // Saved lists
+  getSavedLists: (offset: number = 0, limit: number = 20) =>
+    get<SavedListsResponse>('/auth/me/saved-lists/', { offset, limit }),
+
   // Follow Management
-  followUser: (username: string) => post(`/auth/follow/${username}/`),
+  followUser: (username: string) =>
+    post<{ message: string; follow_status: string; is_following: boolean }>(`/auth/follow/${username}/`),
 
   unfollowUser: (username: string) => del(`/auth/unfollow/${username}/`),
 
@@ -186,8 +206,17 @@ export const userApi = {
 
   getUserFollowing: (username: string) => getPaginated<FollowUser>(`/auth/users/${username}/following/`),
 
+  // Follow Requests
+  getFollowRequests: () => get<FollowUser[]>('/auth/me/follow-requests/'),
+
+  handleFollowRequest: (userId: number, action: 'accept' | 'reject') =>
+    post<{ message: string }>(`/auth/follow-requests/${userId}/handle/`, { action }),
+
   // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
   getActivityFeed: (limit: number = 50) => get<ActivityFeedResponse>('/activity/feed/', { limit }),
+
+  // Get user's public lists
+  getUserLists: (username: string) => get<CafeList[]>(`/auth/users/${username}/lists/`),
 };
 
 export const cafeApi = {
@@ -247,7 +276,8 @@ export const listApi = {
   // Lists CRUD
   getLists: () => get<CafeList[]>('/lists/'),
   createList: (data: CafeListCreate) => post<CafeList>('/lists/', data),
-  getList: (id: number) => get<CafeListDetail>(`/lists/${id}/`),
+  getList: (id: number, token?: string) =>
+    get<CafeListDetail>(`/lists/${id}/`, token ? { token } : undefined),
   updateList: (id: number, data: CafeListUpdate) => patch<CafeList>(`/lists/${id}/`, data),
   deleteList: (id: number) => del(`/lists/${id}/`),
 
@@ -300,6 +330,12 @@ export const listApi = {
   // Membership — powers the save-to-list popover state
   getCafeMemberships: (cafeId: number) =>
     get<CafeListMembership[]>(`/cafes/${cafeId}/my-lists/`),
+
+  // Save/unsave a public list
+  save: (listId: number) =>
+    post<SaveListResponse>(`/lists/${listId}/save/`),
+  unsave: (listId: number) =>
+    del(`/lists/${listId}/save/`),
 };
 
 export const visitApi = {
@@ -315,13 +351,13 @@ export const visitApi = {
     }>('/visits/create-with-review/', data),
 
   // Get user's visits (backend filters by current user automatically)
-  getMyVisits: (page: number = 1) =>
+  getMyVisits: (page: number = 1, filters?: { ordering?: string; visit_date__gte?: string; visit_date__lte?: string }) =>
     get<{
       count: number;
       next: string | null;
       previous: string | null;
       results: Visit[];
-    }>('/visits/', { page }),
+    }>('/visits/', { page, ...filters }),
 
   // Get visits with filters (for duplicate checking, etc.)
   getVisits: (filters?: { cafe?: number; visit_date?: string; page?: number }) =>
@@ -372,7 +408,12 @@ export const reviewApi = {
   delete: (id: number) => del(`/reviews/${id}/`),
 
   // Get user's reviews
-  getMyReviews: () => getPaginated<Review>('/reviews/me/'),
+  getMyReviews: (page: number = 1) =>
+    get<PaginatedResponse<Review>>('/reviews/me/', { page }),
+
+  // Get another user's public reviews
+  getUserReviews: (username: string, page: number = 1) =>
+    get<PaginatedResponse<Review>>(`/reviews/users/${username}/reviews/`, { page }),
 
   // NEW: Check if user has a review for a specific cafe
   getUserCafeReview: async (cafeId: number): Promise<Review | null> => {
@@ -407,12 +448,26 @@ export const reviewApi = {
   markHelpful: (reviewId: number) => post(`/reviews/${reviewId}/mark_helpful/`),
 
   // Flag review
-  flagReview: (reviewId: number, reason: string, description?: string) =>
+    flagReview: (reviewId: number, reason: string, description?: string) =>
     post('/reviews/flags/', {
       review_id: reviewId,
       reason,
       comment: description || '',
     }),
+};
+
+export const discoverApi = {
+  getRecentReviews: (offset: number = 0, limit: number = 20) =>
+    get<PaginatedResponse<DiscoverReview>>('/discover/recent-reviews/', { offset, limit }),
+
+  getFeaturedLists: (limit: number = 6) =>
+    get<FeaturedListsResponse>('/discover/featured-lists/', { limit }),
+
+  getTrendingCafes: (days: number = 7, limit: number = 5) =>
+    get<TrendingCafesResponse>('/discover/trending/', { days, limit }),
+
+  getTrendingLists: (days: number = 30, limit: number = 6) =>
+    get<TrendingListsResponse>('/discover/trending-lists/', { days, limit }),
 };
 
 export default api;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { User } from '../types';
 import { UseResultModalReturn } from './useResultModal';
-import { authApi } from '../api/client';
+import { authApi, userApi } from '../api/client';
 import { extractApiError, getFieldError } from '../utils/errorUtils';
 import { trackUserLoggedOut, trackPrivacySettingsChanged } from '../lib/analytics';
 
@@ -17,7 +17,9 @@ export function useProfileSettings({ user, updateUser, logout, resultModal }: Us
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [bio, setBio] = useState(user?.bio || '');
   const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [isAnonymous, setIsAnonymous] = useState(user?.is_anonymous_display || false);
+  const [profileVisibility, setProfileVisibility] = useState<'public' | 'private'>(
+    user?.settings?.profile_visibility || 'public'
+  );
   const [loading, setLoading] = useState(false);
   const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
@@ -108,20 +110,20 @@ export function useProfileSettings({ user, updateUser, logout, resultModal }: Us
     }
   };
 
-  const handleAnonymousToggle = async (checked: boolean) => {
-    setIsAnonymous(checked);
+  const handleVisibilityToggle = async (value: 'public' | 'private') => {
+    setProfileVisibility(value);
 
     try {
-      const updatedUser = await authApi.updateProfile({
-        is_anonymous_display: checked
-      });
-      updateUser({ ...user, ...updatedUser });
+      const updatedSettings = await userApi.updateSettings({ profile_visibility: value });
+      if (user) {
+        updateUser({ ...user, settings: { ...user.settings, ...updatedSettings } as User['settings'] });
+      }
       trackPrivacySettingsChanged({
-        setting: 'anonymous_display',
-        newValue: checked,
+        setting: 'profile_visibility',
+        newValue: value,
       });
     } catch (error) {
-      setIsAnonymous(!checked);
+      setProfileVisibility(profileVisibility);
       resultModal.showResultModal({
         type: 'error',
         title: 'Update Failed',
@@ -159,7 +161,7 @@ export function useProfileSettings({ user, updateUser, logout, resultModal }: Us
     setIsEditing,
     editingDisplayName,
     setEditingDisplayName,
-    isAnonymous,
+    profileVisibility,
     loading,
     savingDisplayName,
     editingUsername,
@@ -170,7 +172,7 @@ export function useProfileSettings({ user, updateUser, logout, resultModal }: Us
     handleSaveProfile,
     handleSaveDisplayName,
     handleUsernameUpdate,
-    handleAnonymousToggle,
+    handleVisibilityToggle,
     handleLogout,
   };
 }

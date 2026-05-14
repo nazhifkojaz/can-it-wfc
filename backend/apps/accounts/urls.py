@@ -12,6 +12,10 @@ from .views import (
     MyFollowingListView,
     UserFollowersListView,
     UserFollowingListView,
+    FollowRequestsListView,
+    HandleFollowRequestView,
+    SavedListsView,
+    UserPublicListsView,
 )
 
 urlpatterns = [
@@ -21,11 +25,16 @@ urlpatterns = [
     # Session Management
     path('me/', UserDetailView.as_view(), name='user-detail'),
     path('me/settings/', UserSettingsUpdateView.as_view(), name='user-settings'),
+    path('me/saved-lists/', SavedListsView.as_view(), name='saved-lists'),
     path('logout/', LogoutView.as_view(), name='logout'),
 
     # Follow Management
     path('follow/<str:username>/', FollowUserView.as_view(), name='follow-user'),
     path('unfollow/<str:username>/', UnfollowUserView.as_view(), name='unfollow-user'),
+
+    # Follow Requests
+    path('me/follow-requests/', FollowRequestsListView.as_view(), name='follow-requests'),
+    path('follow-requests/<int:user_id>/handle/', HandleFollowRequestView.as_view(), name='handle-follow-request'),
 
     # Followers/Following Lists
     path('me/followers/', MyFollowersListView.as_view(), name='my-followers'),
@@ -36,4 +45,5 @@ urlpatterns = [
     # Public profiles and activity
     path('users/<str:username>/profile/', UserPublicProfileView.as_view(), name='user-public-profile'),
     path('users/<str:username>/activity/', UserActivityView.as_view(), name='user-activity'),
+    path('users/<str:username>/lists/', UserPublicListsView.as_view(), name='user-public-lists'),
 ]

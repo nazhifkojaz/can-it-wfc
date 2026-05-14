@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePanel } from '../../contexts/PanelContext';
-import ActivityPanel from './ActivityPanel';
+import DiscoverPanel from '../discover/DiscoverPanel';
 import ProfilePanel from './ProfilePanel';
 import UserProfilePanel from './UserProfilePanel';
 import './PanelManager.css';
@@ -14,7 +14,7 @@ const PanelManager: React.FC = () => {
 
   return (
     <div className="panel-manager">
-      {activePanel === 'activity' && <ActivityPanel />}
+      {activePanel === 'discover' && <DiscoverPanel />}
       {activePanel === 'profile' && <ProfilePanel />}
       {activePanel === 'userProfile' && <UserProfilePanel />}
     </div>

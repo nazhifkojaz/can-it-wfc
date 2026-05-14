@@ -526,7 +526,8 @@
 }
 
 .currencyInput {
-  flex: 2;
+  flex: 3;
+  min-width: 100px;
   padding: 12px 16px;
   border: var(--neo-border-width-thin) solid var(--neo-black);
   border-radius: var(--neo-border-radius);
@@ -534,17 +535,13 @@
   background: var(--neo-white);
   transition: box-shadow var(--neo-transition-fast);
   box-shadow: 2px 2px 0 var(--neo-black);
+  -moz-appearance: textfield;
 }
 
-/* Hide number input spinner buttons */
-.currencyInput::-webkit-inner-spin-button,
-.currencyInput::-webkit-outer-spin-button {
+.currencyInput::-webkit-outer-spin-button,
+.currencyInput::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-.currencyInput[type="number"] {
-  -moz-appearance: textfield;
 }
 
 .currencyInput:focus {

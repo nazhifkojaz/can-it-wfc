@@ -767,3 +767,111 @@ class TestCafeReviewsURL:
         results = response.data['results'] if 'results' in response.data else response.data
         assert len(results) == 1
         assert results[0]['cafe']['id'] == cafe_a.id
+
+
+@pytest.mark.django_db
+class TestUserReviewsView:
+    """Test GET /api/reviews/users/{username}/reviews/ endpoint."""
+
+    def test_returns_user_reviews(self, api_client, test_user, test_cafe):
+        api_client.force_authenticate(user=test_user)
+        Review.objects.create(
+            cafe=test_cafe, user=test_user, wfc_rating=4,
+            wifi_quality=4, power_outlets_rating=4,
+            seating_comfort=4, noise_level=4, comment='Great spot',
+        )
+
+        response = api_client.get(f'/api/reviews/users/{test_user.username}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 1
+        assert results[0]['cafe']['id'] == test_cafe.id
+        assert results[0]['wfc_rating'] == 4
+
+    def test_returns_empty_for_nonexistent_username(self, api_client):
+        response = api_client.get('/api/reviews/users/nonexistentuser/reviews/')
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_excludes_hidden_reviews(self, api_client, test_user, test_cafe):
+        from apps.cafes.models import Cafe
+        api_client.force_authenticate(user=test_user)
+        other_cafe = Cafe.objects.create(
+            name='Other Cafe', address='Other Addr',
+            latitude=Decimal('-6.21'), longitude=Decimal('106.81'),
+        )
+        Review.objects.create(
+            cafe=test_cafe, user=test_user, wfc_rating=5,
+            wifi_quality=5, power_outlets_rating=5,
+            seating_comfort=5, noise_level=5,
+        )
+        Review.objects.create(
+            cafe=other_cafe, user=test_user, wfc_rating=1,
+            wifi_quality=1, power_outlets_rating=1,
+            seating_comfort=1, noise_level=1,
+            is_hidden=True,
+        )
+
+        response = api_client.get(f'/api/reviews/users/{test_user.username}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data['results']
+        assert len(results) == 1
+        assert results[0]['wfc_rating'] == 5
+
+    def test_returns_empty_for_private_profile(self, api_client, test_user, db):
+        from apps.accounts.models import UserSettings
+        settings = UserSettings.objects.get(user=test_user)
+        settings.activity_visibility = 'private'
+        settings.save()
+
+        other_user = User.objects.create_user(
+            username='otheruser', email='other@example.com', password='pass123'
+        )
+        cafe = Cafe.objects.create(
+            name='Cafe', address='Addr',
+            latitude=Decimal('-6.2'), longitude=Decimal('106.8'),
+            google_place_id='place_x', created_by=test_user,
+        )
+        Review.objects.create(
+            cafe=cafe, user=test_user, wfc_rating=4,
+            wifi_quality=4, power_outlets_rating=4,
+            seating_comfort=4, noise_level=4,
+        )
+
+        api_client.force_authenticate(user=other_user)
+        response = api_client.get(f'/api/reviews/users/{test_user.username}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 0
+
+    def test_returns_own_reviews_even_for_private_profile(self, api_client, test_user, test_cafe):
+        from apps.accounts.models import UserSettings
+        settings = UserSettings.objects.get(user=test_user)
+        settings.activity_visibility = 'private'
+        settings.save()
+
+        api_client.force_authenticate(user=test_user)
+        Review.objects.create(
+            cafe=test_cafe, user=test_user, wfc_rating=4,
+            wifi_quality=4, power_outlets_rating=4,
+            seating_comfort=4, noise_level=4,
+        )
+
+        response = api_client.get(f'/api/reviews/users/{test_user.username}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 1
+
+    def test_unauthenticated_can_view_public_reviews(self, api_client, test_user, test_cafe):
+        Review.objects.create(
+            cafe=test_cafe, user=test_user, wfc_rating=4,
+            wifi_quality=4, power_outlets_rating=4,
+            seating_comfort=4, noise_level=4,
+        )
+
+        response = api_client.get(f'/api/reviews/users/{test_user.username}/reviews/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 1

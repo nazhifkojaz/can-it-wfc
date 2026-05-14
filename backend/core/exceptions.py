@@ -127,3 +127,17 @@ class TooManyCafeIds(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = 'Maximum 100 cafe IDs per request'
     default_code = 'too_many_cafe_ids'
+
+
+class FollowRequestAlreadySent(APIException):
+    """Raised when a follow request was already sent."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = 'Follow request already sent'
+    default_code = 'follow_request_already_sent'
+
+
+class FollowRequestNotFound(APIException):
+    """Raised when a follow request doesn't exist."""
+    status_code = status.HTTP_404_NOT_FOUND
+    default_detail = 'Follow request not found'
+    default_code = 'follow_request_not_found'

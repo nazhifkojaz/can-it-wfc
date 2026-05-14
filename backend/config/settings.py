@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.cafes',
     'apps.reviews',
     'apps.activity',  # Activity stream for feeds
+    'apps.discover',  # Discover panel
 ]
 
 MIDDLEWARE = [
@@ -89,6 +90,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': env.db('DATABASE_URL', default='postgresql://localhost/canitfwc'),
 }
+DATABASES['default']['TEST'] = {'NAME': 'test_can_it_wfc'}
 
 # Password validation
 # Minimal validation for Django admin superusers only (OAuth-only auth for users)

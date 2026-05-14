@@ -24,8 +24,19 @@ def is_own_profile(request, user) -> bool:
 
 def check_is_following(request, user) -> bool:
     if request and hasattr(request, 'user') and request.user.is_authenticated:
-        return Follow.objects.filter(follower=request.user, followed=user).exists()
+        return Follow.objects.filter(follower=request.user, followed=user, status='active').exists()
     return False
+
+
+def check_follow_status(request, user) -> str:
+    """Returns follow status: 'none', 'active', 'pending', or 'rejected'."""
+    if request and hasattr(request, 'user') and request.user.is_authenticated:
+        follow = Follow.objects.filter(
+            follower=request.user, followed=user
+        ).first()
+        if follow:
+            return follow.status
+    return 'none'
 
 
 def can_view_user_activity(viewer: User, target_user: User) -> bool:

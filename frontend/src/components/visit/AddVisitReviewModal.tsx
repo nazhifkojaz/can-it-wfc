@@ -417,12 +417,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       const apiError = extractApiError(error);
       logger.error('Error logging visit', apiError, 'AddVisitReviewModal');
 
-      // Log full error details for debugging (use raw error, not extracted ApiError)
-      const rawError = error as { response?: { data?: unknown } };
-      if (rawError.response?.data) {
-        console.log('Full error response:', rawError.response.data);
-      }
-
       let errorTitle = 'Failed to Log Visit';
       let errorDetails = null;
 
@@ -599,16 +593,6 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
             How much did you spend? (Optional)
           </label>
           <div className={styles.currencyInputGroup}>
-            <input
-              id="amount-spent"
-              type="number"
-              value={amountSpent}
-              onChange={(e) => setAmountSpent(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              className={styles.currencyInput}
-            />
             <select
               id="currency"
               value={currency}
@@ -621,6 +605,16 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
                 </option>
               ))}
             </select>
+            <input
+              id="amount-spent"
+              type="number"
+              value={amountSpent}
+              onChange={(e) => setAmountSpent(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              className={styles.currencyInput}
+            />
           </div>
         </div>
 

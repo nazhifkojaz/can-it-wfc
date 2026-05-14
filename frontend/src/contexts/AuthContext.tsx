@@ -48,7 +48,7 @@ function identifyUserInPostHog(user: User, authMethod?: AuthMethod) {
     username: user.username,
     auth_method: method || undefined,
     created_at: user.date_joined,
-    is_private_profile: user.is_anonymous_display,
+    is_private_profile: user.settings?.profile_visibility === 'private',
     total_reviews: user.total_reviews,
     total_visits: user.total_visits,
     followers_count: user.followers_count,

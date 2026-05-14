@@ -46,3 +46,16 @@
   color: var(--neo-danger);
   border-color: var(--neo-danger);
 }
+
+.followButton.pending {
+  background: var(--neo-gray-light, #e0e0e0);
+  color: var(--neo-gray, #888);
+  cursor: not-allowed;
+}
+
+.followButton.pending:hover {
+  transform: none;
+  box-shadow: 3px 3px 0 var(--neo-black);
+  background: var(--neo-gray-light, #e0e0e0);
+  color: var(--neo-gray, #888);
+}
