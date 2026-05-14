@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 import UsernameSetupModal from '../components/auth/UsernameSetupModal';
@@ -13,10 +13,20 @@ import styles from './LandingPage.module.css';
  */
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading } = useAuth();
   const didCheckAuth = useRef(false);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
   const [newUser, setNewUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const listId = searchParams.get('list');
+    if (listId) {
+      const token = searchParams.get('token');
+      const path = token ? `/list/${listId}?token=${token}` : `/list/${listId}`;
+      navigate(path, { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   useEffect(() => {
     if (!loading && !didCheckAuth.current) {
