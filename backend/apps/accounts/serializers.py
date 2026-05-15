@@ -274,7 +274,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return {
                 'id': ret['id'],
                 'username': ret['username'],
-                'display_name': ret['display_name'],
+                'display_name': ret['effective_display_name'],
                 'effective_display_name': ret['effective_display_name'],
                 'settings': ret['settings'],
                 'is_own_profile': ret['is_own_profile'],

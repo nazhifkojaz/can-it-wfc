@@ -2,11 +2,18 @@
 Authentication and User Management Tests
 """
 import pytest
+from datetime import date
+from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.models import Follow
+from apps.accounts.utils import can_view_user_activity
+from apps.cafes.models import Cafe
+from apps.reviews.models import Review, Visit
 
 User = get_user_model()
 
@@ -172,6 +179,163 @@ class TestLogout:
 
 
 @pytest.mark.django_db
+class TestJWTCookieCSRF:
+    """Cookie-authenticated unsafe requests must pass CSRF validation."""
+
+    def _access_token_for(self, user):
+        return str(RefreshToken.for_user(user).access_token)
+
+    def test_cookie_auth_post_without_csrf_is_rejected(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.patch('/api/auth/me/', {'bio': 'Blocked'}, format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cookie_auth_post_with_csrf_succeeds(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        csrf_response = client.get('/api/auth/csrf/')
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.patch(
+            '/api/auth/me/',
+            {'bio': 'Allowed'},
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_response.data['csrfToken'],
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['bio'] == 'Allowed'
+
+    def test_bearer_auth_post_without_csrf_succeeds(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {self._access_token_for(test_user)}')
+
+        response = client.patch('/api/auth/me/', {'bio': 'Bearer'}, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['bio'] == 'Bearer'
+
+
+@pytest.mark.django_db
+class TestUserActivityPrivacy:
+    """Activity privacy should not expose private visits to non-owners."""
+
+    def _make_activity(self, user):
+        cafe = Cafe.objects.create(
+            name='Privacy Cafe',
+            address='123 Privacy St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='privacy_place',
+            created_by=user,
+        )
+        Visit.objects.create(
+            cafe=cafe,
+            user=user,
+            visit_date=date.today(),
+            amount_spent=Decimal('42.00'),
+            currency='USD',
+        )
+        Review.objects.create(
+            cafe=cafe,
+            user=user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+            comment='Public review',
+        )
+        return cafe
+
+    def test_anonymous_public_activity_shows_reviews_not_visits(self, api_client, test_user):
+        self._make_activity(test_user)
+        test_user.settings.activity_visibility = 'public'
+        test_user.settings.save()
+
+        response = api_client.get(f'/api/auth/users/{test_user.username}/activity/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['type'] for item in response.data['activity']] == ['review']
+        assert response.data['activity'][0]['amount_spent'] is None
+
+    def test_active_follower_activity_shows_reviews_not_visits(self, api_client, test_user):
+        follower = User.objects.create_user(
+            username='activefollower',
+            email='active@example.com',
+            password='pass123',
+        )
+        Follow.objects.create(follower=follower, followed=test_user, status='active')
+        self._make_activity(test_user)
+        test_user.settings.activity_visibility = 'followers'
+        test_user.settings.save()
+        api_client.force_authenticate(user=follower)
+
+        response = api_client.get(f'/api/auth/users/{test_user.username}/activity/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['type'] for item in response.data['activity']] == ['review']
+
+    def test_owner_activity_includes_visits_with_private_fields(self, api_client, test_user):
+        self._make_activity(test_user)
+        test_user.settings.activity_visibility = 'private'
+        test_user.settings.save()
+        api_client.force_authenticate(user=test_user)
+
+        response = api_client.get(f'/api/auth/users/{test_user.username}/activity/')
+
+        assert response.status_code == status.HTTP_200_OK
+        visits = [item for item in response.data['activity'] if item['type'] == 'visit']
+        assert len(visits) == 1
+        assert visits[0]['amount_spent'] == '42.00'
+        assert visits[0]['currency'] == 'USD'
+
+
+@pytest.mark.django_db
+class TestCanViewUserActivity:
+    """Followers-only activity visibility requires active follows."""
+
+    def test_followers_only_rejects_anonymous_pending_and_rejected(self, test_user):
+        target = User.objects.create_user(
+            username='privateactivity',
+            email='privateactivity@example.com',
+            password='pass123',
+        )
+        target.settings.activity_visibility = 'followers'
+        target.settings.save()
+        pending = User.objects.create_user(
+            username='pendingfollower',
+            email='pending@example.com',
+            password='pass123',
+        )
+        rejected = User.objects.create_user(
+            username='rejectedfollower',
+            email='rejected@example.com',
+            password='pass123',
+        )
+        Follow.objects.create(follower=pending, followed=target, status='pending')
+        Follow.objects.create(follower=rejected, followed=target, status='rejected')
+
+        assert can_view_user_activity(AnonymousUser(), target) is False
+        assert can_view_user_activity(pending, target) is False
+        assert can_view_user_activity(rejected, target) is False
+
+    def test_followers_only_allows_active_follower(self, test_user):
+        target = User.objects.create_user(
+            username='activeactivity',
+            email='activeactivity@example.com',
+            password='pass123',
+        )
+        target.settings.activity_visibility = 'followers'
+        target.settings.save()
+        Follow.objects.create(follower=test_user, followed=target, status='active')
+
+        assert can_view_user_activity(test_user, target) is True
+
+
+@pytest.mark.django_db
 class TestUnfollowUpdatesCounts:
     """Test that unfollowing updates denormalized follower/following counts."""
 
@@ -296,5 +460,4 @@ class TestSavedLists:
         response = api_client.get('/api/auth/me/saved-lists/?limit=2')
         assert len(response.data['results']) == 2
         assert response.data['count'] == 5
-
 

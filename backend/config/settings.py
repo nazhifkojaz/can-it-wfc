@@ -206,6 +206,12 @@ CORS_ALLOWED_ORIGINS = env.list(
 
 CORS_ALLOW_CREDENTIALS = True  # Required for cookie-based authentication
 
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=CORS_ALLOWED_ORIGINS,
+)
+CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
+
 # API Documentation (Spectacular)
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Can-It-WFC API',

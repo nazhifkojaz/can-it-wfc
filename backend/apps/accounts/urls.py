@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     OAuthLoginView,
+    CsrfTokenView,
     UserDetailView,
     UserPublicProfileView,
     LogoutView,
@@ -20,6 +21,7 @@ from .views import (
 
 urlpatterns = [
     # OAuth Authentication
+    path('csrf/', CsrfTokenView.as_view(), name='csrf-token'),
     path('oauth/<str:provider>/', OAuthLoginView.as_view(), name='oauth-login'),
 
     # Session Management

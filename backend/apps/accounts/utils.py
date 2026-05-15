@@ -67,9 +67,14 @@ def can_view_user_activity(viewer: User, target_user: User) -> bool:
 
     # Followers-only: check if viewer follows target
     if settings.activity_visibility == 'followers':
-        return Follow.objects.filter(
-            follower=viewer,
-            followed=target_user
-        ).exists()
+        return bool(
+            viewer and
+            getattr(viewer, 'is_authenticated', False) and
+            Follow.objects.filter(
+                follower=viewer,
+                followed=target_user,
+                status='active',
+            ).exists()
+        )
 
     return False

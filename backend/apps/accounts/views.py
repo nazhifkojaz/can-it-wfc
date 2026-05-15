@@ -7,6 +7,9 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.db.models import Prefetch
 from django.http import Http404
+from django.middleware.csrf import get_token
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from core.exceptions import (
     UserNotFound,
     SelfFollowNotAllowed,
@@ -173,6 +176,19 @@ class OAuthLoginView(APIView):
         return response
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CsrfTokenView(APIView):
+    """
+    Issue a CSRF cookie and return the matching token for API clients.
+
+    GET /api/auth/csrf/
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response({'csrfToken': get_token(request)})
+
+
 class LogoutView(APIView):
     """
     Logout endpoint - clears authentication cookies.
@@ -241,7 +257,8 @@ class UserActivityView(APIView):
             raise UserNotFound()
 
         # Check privacy settings
-        if not is_own_profile(request, user):
+        own_profile = is_own_profile(request, user)
+        if not own_profile:
             from apps.accounts.utils import can_view_user_activity
             if not can_view_user_activity(request.user, user):
                 return Response({
@@ -257,8 +274,10 @@ class UserActivityView(APIView):
         except (ValueError, TypeError):
             limit = 20  # Default fallback for invalid input
 
-        # Fetch visits and reviews
-        visits = Visit.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
+        # Visits can include movement and spending data, so only owners see them.
+        visits = []
+        if own_profile:
+            visits = Visit.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
         reviews = Review.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
 
         # Combine and transform into unified format

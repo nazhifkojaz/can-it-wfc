@@ -10,6 +10,32 @@ from apps.cafes.models import Cafe
 logger = get_logger(__name__)
 
 
+def validate_review_creation_allowed(user, cafe):
+    if not user.can_review():
+        raise serializers.ValidationError({
+            'non_field_errors': [
+                'Your account must be at least 24 hours old to post reviews.'
+            ]
+        })
+
+    if cafe is not None:
+        existing_review = Review.objects.filter(
+            user=user,
+            cafe=cafe,
+        ).first()
+        if existing_review:
+            raise serializers.ValidationError({
+                'cafe_id': f'You have already reviewed this cafe. Use PATCH /api/reviews/{existing_review.id}/ to update your review.'
+            })
+
+    temp_review = Review(user=user, cafe=cafe)
+    is_spam, reason = temp_review.check_spam()
+    if is_spam:
+        raise serializers.ValidationError({
+            'non_field_errors': [f'Review blocked: {reason}']
+        })
+
+
 class CafeVisitValidationMixin:
     def _resolve_cafe(self, data):
         if 'cafe_id' in data:
@@ -360,35 +386,7 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
                 attrs.get('power_outlets_rating'),
             )
 
-        # Check if user can review (account age)
-        if not request.user.can_review():
-            raise serializers.ValidationError({
-                'non_field_errors': [
-                    'Your account must be at least 24 hours old to post reviews.'
-                ]
-            })
-
-        # IMPORTANT: Check if user already has a review for this cafe
-        existing_review = Review.objects.filter(
-            user=request.user,
-            cafe=cafe
-        ).first()
-
-        if existing_review:
-            raise serializers.ValidationError({
-                'cafe_id': f'You have already reviewed this cafe. Use PATCH /api/reviews/{existing_review.id}/ to update your review.'
-            })
-
-        # Check spam
-        temp_review = Review(
-            user=request.user,
-            cafe=cafe
-        )
-        is_spam, reason = temp_review.check_spam()
-        if is_spam:
-            raise serializers.ValidationError({
-                'non_field_errors': [f'Review blocked: {reason}']
-            })
+        validate_review_creation_allowed(request.user, cafe)
 
         return attrs
 
@@ -615,6 +613,7 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
                     data['seating_comfort'],
                     data.get('power_outlets_rating'),
                 )
+            validate_review_creation_allowed(user, cafe)
         return data
 
     def create(self, validated_data):
@@ -680,29 +679,16 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
             message = None
 
             if include_review and review_data.get('wfc_rating'):
-                # Check if user already has a review for this cafe
-                existing_review = Review.objects.filter(
+                review_data['visit_time'] = visit.visit_time
+
+                review = Review.objects.create(
                     user=user,
-                    cafe=cafe
-                ).first()
+                    cafe=cafe,
+                    **review_data
+                )
 
-                if existing_review:
-                    # User already has a review - don't create duplicate
-                    review = existing_review
-                    message = 'Visit created. You already have a review for this cafe.'
-                else:
-                    # Create new review
-                    # Set visit_time on the review from the visit
-                    review_data['visit_time'] = visit.visit_time
-
-                    review = Review.objects.create(
-                        user=user,
-                        cafe=cafe,
-                        **review_data
-                    )
-
-                    cafe.update_stats()
-                    user.update_stats()
+                cafe.update_stats()
+                user.update_stats()
 
         return {
             'visit': visit,

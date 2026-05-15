@@ -6,9 +6,16 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework import serializers
-from apps.accounts.serializers import UserUpdateSerializer
+from apps.accounts.serializers import UserProfileSerializer, UserUpdateSerializer
 
 User = get_user_model()
+
+
+class MockAnonymousRequest:
+    class Anonymous:
+        is_authenticated = False
+
+    user = Anonymous()
 
 
 @pytest.mark.django_db
@@ -472,3 +479,27 @@ class TestUserUpdateSerializer:
         assert user.display_name == 'Coffee Enthusiast'
         assert user.bio == 'Love trying new cafes'
         assert user.avatar_url == 'https://res.cloudinary.com/demo/avatar.jpg'
+
+
+@pytest.mark.django_db
+class TestUserProfileSerializer:
+    """Test public profile privacy behavior."""
+
+    def test_private_profile_limited_payload_masks_display_name(self):
+        user = User.objects.create_user(
+            username='privateuser',
+            email='private@example.com',
+            password='testpass123',
+            display_name='Jane Doe',
+        )
+        user.settings.profile_visibility = 'private'
+        user.settings.save()
+
+        serializer = UserProfileSerializer(
+            user,
+            context={'request': MockAnonymousRequest()},
+        )
+
+        assert serializer.data['display_name'] == user.effective_display_name
+        assert serializer.data['display_name'] != 'Jane Doe'
+        assert serializer.data['profile_visibility'] == 'private'

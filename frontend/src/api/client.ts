@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import {
   User,
   UserUpdate,
@@ -50,6 +50,39 @@ const api: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
+});
+
+let csrfToken: string | null = null;
+let csrfTokenRequest: Promise<string> | null = null;
+const unsafeMethods = new Set(['post', 'put', 'patch', 'delete']);
+
+const ensureCsrfToken = async (): Promise<string> => {
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = api.get<{ csrfToken: string }>('/auth/csrf/')
+      .then(response => {
+        csrfToken = response.data.csrfToken;
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfTokenRequest = null;
+      });
+  }
+
+  return csrfTokenRequest;
+};
+
+api.interceptors.request.use(async config => {
+  const method = config.method?.toLowerCase();
+  if (method && unsafeMethods.has(method)) {
+    const headers = AxiosHeaders.from(config.headers);
+    headers.set('X-CSRFToken', await ensureCsrfToken());
+    config.headers = headers;
+  }
+  return config;
 });
 
 /** Generic GET request helper */

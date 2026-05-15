@@ -234,6 +234,94 @@ class TestCombinedVisitReview:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    @override_settings(MIN_ACCOUNT_AGE_HOURS=24)
+    def test_combined_review_rejects_new_account(self, authenticated_client, test_cafe):
+        """Combined visit+review must enforce account-age review limits."""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wfc_rating': 4,
+            'wifi_quality': 4,
+            'seating_comfort': 4,
+            'noise_level': 4,
+        }
+
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Review.objects.filter(cafe=test_cafe).count() == 0
+        assert Visit.objects.filter(cafe=test_cafe).count() == 0
+
+    @override_settings(MAX_REVIEWS_PER_DAY=1)
+    def test_combined_review_rejects_daily_review_limit(self, authenticated_client, test_cafe, test_user):
+        """Combined visit+review must enforce the same daily spam limit as reviews."""
+        reviewed_cafe = Cafe.objects.create(
+            name='Already Reviewed Cafe',
+            address='456 Limit St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='already_reviewed_place',
+            created_by=test_user,
+        )
+        Review.objects.create(
+            cafe=reviewed_cafe,
+            user=test_user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+        )
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wfc_rating': 4,
+            'wifi_quality': 4,
+            'seating_comfort': 4,
+            'noise_level': 4,
+        }
+
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Review.objects.filter(cafe=test_cafe, user=test_user).exists()
+        assert not Visit.objects.filter(cafe=test_cafe, user=test_user).exists()
+
+    def test_combined_review_rejects_duplicate_review(self, authenticated_client, test_cafe, test_user):
+        """Combined visit+review must not turn duplicate reviews into visits."""
+        Review.objects.create(
+            cafe=test_cafe,
+            user=test_user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+        )
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wfc_rating': 4,
+            'wifi_quality': 4,
+            'seating_comfort': 4,
+            'noise_level': 4,
+        }
+
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Review.objects.filter(cafe=test_cafe, user=test_user).count() == 1
+        assert not Visit.objects.filter(cafe=test_cafe, user=test_user).exists()
+
     def test_combined_visit_far_location_rejected(self, authenticated_client, test_cafe):
         """Test combined visit+review from >1km away is rejected"""
         data = {
