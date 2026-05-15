@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
 import App from './App';
@@ -12,6 +12,10 @@ vi.mock('./contexts/AuthContext', () => ({
 
 vi.mock('./lib/posthog', () => ({
   posthog: { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), reset: vi.fn() },
+}));
+
+vi.mock('./components/auth/GoogleLoginButton', () => ({
+  default: () => <button>Continue with Google</button>,
 }));
 
 // Mock useGeolocation so MapPage doesn't fail
@@ -27,7 +31,7 @@ vi.mock('./hooks/useGoogleMap', () => ({
 describe('App', () => {
   it('should render without crashing', () => {
     render(<App />);
-    // App renders the ErrorBoundary wrapper — no crash means success
-    expect(document.querySelector('div')).toBeInTheDocument();
+    expect(screen.queryByText('Application Error')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'CAN-IT-WFC' })).toBeInTheDocument();
   });
 });

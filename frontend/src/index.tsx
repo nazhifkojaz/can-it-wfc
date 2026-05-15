@@ -34,7 +34,7 @@ const appTree = (
     <AuthProvider>
       <App />
     </AuthProvider>
-    <ReactQueryDevtools initialIsOpen={false} />
+    {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
   </QueryClientProvider>
 );
 
