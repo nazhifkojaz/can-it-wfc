@@ -35,7 +35,15 @@ jobs:
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
-      
+
+      - name: Audit dependencies
+        working-directory: ./frontend
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        working-directory: ./frontend
+        run: npm test -- --run
+       
       - name: Build
         working-directory: ./frontend
         env:

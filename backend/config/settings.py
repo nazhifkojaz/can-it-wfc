@@ -303,8 +303,8 @@ LOGGING = {
 }
 
 # Anti-spam settings
-MAX_REVIEWS_PER_DAY = 10
-MIN_ACCOUNT_AGE_HOURS = 0
+MAX_REVIEWS_PER_DAY = env.int('MAX_REVIEWS_PER_DAY', default=10)
+MIN_ACCOUNT_AGE_HOURS = env.int('MIN_ACCOUNT_AGE_HOURS', default=0)
 DUPLICATE_CAFE_DISTANCE_METERS = 50  # Distance threshold for duplicate detection
 
 # Google OAuth credentials
