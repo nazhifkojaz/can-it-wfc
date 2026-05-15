@@ -6,7 +6,7 @@ import ReviewForm from '../review/ReviewForm';
 import { useVisits, useGeolocation, useResultModal, useReviewForm } from '../../hooks';
 import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
-import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP, REVIEW_CONFIG } from '../../config/constants';
+import { VISIT_TIME_OPTIONS, REVIEW_CONFIG } from '../../config/constants';
 import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
@@ -123,11 +123,11 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
   // Check for duplicate visit and existing review when modal opens
   useEffect(() => {
-    const checkDuplicate = async () => {
-      if (isOpen && selectedCafe?.is_registered) {
+    const checkDuplicate = async (cafe?: Cafe) => {
+      if (isOpen && cafe?.is_registered) {
         try {
           const today = new Date().toISOString().split('T')[0];
-          const response = await visitApi.getVisits({ cafe: selectedCafe.id, visit_date: today });
+          const response = await visitApi.getVisits({ cafe: cafe.id, visit_date: today });
 
           if (response.results && response.results.length > 0) {
             setExistingVisit(response.results[0]);
@@ -146,12 +146,12 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
     };
 
-    const checkExistingReview = async () => {
-      if (isOpen && selectedCafe?.is_registered) {
+    const checkExistingReview = async (cafe?: Cafe) => {
+      if (isOpen && cafe?.is_registered) {
         setExistingReviewLoading(true);
         setReviewCheckFailed(false);
         try {
-          const review = await reviewApi.getUserCafeReview(selectedCafe.id);
+          const review = await reviewApi.getUserCafeReview(cafe.id);
           setHasExistingReview(!!review);
           setExistingReviewData(review);
         } catch (error) {
@@ -195,8 +195,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
 
       refetch();
-      checkDuplicate();
-      checkExistingReview();
+      checkDuplicate(preselectedCafe);
+      checkExistingReview(preselectedCafe);
     }
   }, [isOpen, preselectedCafe, refetch]);
 

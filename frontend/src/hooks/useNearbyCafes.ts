@@ -26,8 +26,8 @@ export const useNearbyCafes = ({
 }: UseNearbyCafesParams) => {
   const roundedLat = Number(latitude.toFixed(8));
   const roundedLng = Number(longitude.toFixed(8));
-  const roundedUserLat = userLatitude ? Number(userLatitude.toFixed(8)) : undefined;
-  const roundedUserLng = userLongitude ? Number(userLongitude.toFixed(8)) : undefined;
+  const roundedUserLat = userLatitude != null ? Number(userLatitude.toFixed(8)) : undefined;
+  const roundedUserLng = userLongitude != null ? Number(userLongitude.toFixed(8)) : undefined;
 
   const {
     data,
@@ -35,7 +35,14 @@ export const useNearbyCafes = ({
     error: fetchError,
     refetch,
   } = useQuery<NearbyCafesResponse>({
-    queryKey: queryKeys.cafesNearby(roundedLat, roundedLng, radius_km, filters),
+    queryKey: queryKeys.cafesNearby(
+      roundedLat,
+      roundedLng,
+      radius_km,
+      filters,
+      roundedUserLat,
+      roundedUserLng,
+    ),
     queryFn: async () => {
       const filterParams = filters ? filtersToApiParams(filters) : {};
       const response = await cafeApi.getAllNearby({
@@ -50,7 +57,7 @@ export const useNearbyCafes = ({
 
       return response;
     },
-    enabled: enabled && !!latitude && !!longitude,
+    enabled: enabled && Number.isFinite(latitude) && Number.isFinite(longitude),
     staleTime: 2 * 60 * 1000,
     retry: 1,
   });
@@ -62,6 +69,6 @@ export const useNearbyCafes = ({
     loading,
     error: fetchError ? String(fetchError) : null,
     refetch,
-    searchCenter: latitude && longitude ? { lat: roundedLat, lng: roundedLng } : null,
+    searchCenter: Number.isFinite(latitude) && Number.isFinite(longitude) ? { lat: roundedLat, lng: roundedLng } : null,
   };
 };

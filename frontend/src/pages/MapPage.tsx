@@ -103,13 +103,18 @@ const MapPage: React.FC = () => {
     refetch: refetchCafes,
     searchCenter: activeSearchCenter,
   } = useNearbyCafes({
-    latitude: searchCenter?.lat || 0,
-    longitude: searchCenter?.lng || 0,
-    enabled: !!searchCenter,
+    latitude: searchCenter?.lat ?? 0,
+    longitude: searchCenter?.lng ?? 0,
+    enabled: searchCenter != null,
     userLatitude: location?.lat,
     userLongitude: location?.lng,
     filters: appliedFilters,
   });
+
+  const searchOverlayCenter = useMemo(
+    () => activeSearchCenter ?? searchCenter ?? DEFAULT_SEARCH_CENTER,
+    [activeSearchCenter?.lat, activeSearchCenter?.lng, searchCenter?.lat, searchCenter?.lng]
+  );
 
   // Sync selectedCafe with cafes array when data refreshes (e.g. after registration)
   React.useEffect(() => {
@@ -332,6 +337,7 @@ const MapPage: React.FC = () => {
           onClose={() => setShowSearchOverlay(false)}
           onSelectResult={handleSearchSelect}
           userLocation={searchUserLocation}
+          searchCenter={searchOverlayCenter}
         />
       </div>
       {activePanel && <PanelManager />}

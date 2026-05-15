@@ -311,7 +311,7 @@ const SharedProfilePage: React.FC = () => {
                     <ListCard
                       key={list.id}
                       list={list}
-                      onClick={() => {}}
+                      onClick={() => navigate(`/list/${list.id}`)}
                     />
                   ))
                 )}

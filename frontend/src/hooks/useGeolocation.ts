@@ -142,7 +142,7 @@ export const useGeolocation = (options?: GeolocationOptions) => {
 
   // Memoize location object to prevent unnecessary re-renders
   const location = useMemo(() => {
-    return state.latitude && state.longitude
+    return state.latitude != null && state.longitude != null
       ? { lat: state.latitude, lng: state.longitude }
       : null;
   }, [state.latitude, state.longitude]);

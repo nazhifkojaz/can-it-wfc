@@ -18,16 +18,19 @@ interface SearchOverlayProps {
   onClose: () => void;
   onSelectResult: (result: SearchResult) => void;
   userLocation?: { lat: number; lon: number };
+  searchCenter?: { lat: number; lng: number };
 }
 
 export function SearchOverlay({
   isOpen,
   onClose,
   onSelectResult,
-  userLocation
+  userLocation,
+  searchCenter
 }: SearchOverlayProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,6 +46,7 @@ export function SearchOverlay({
   useEffect(() => {
     if (query.length < 3) {
       setResults(null);
+      setErrorMessage(null);
       return;
     }
 
@@ -57,12 +61,24 @@ export function SearchOverlay({
     // Set new timeout (500ms debounce)
     searchTimeoutRef.current = setTimeout(async () => {
       setIsLoading(true);
+      setErrorMessage(null);
       try {
-        const params: { q: string; lat?: number; lon?: number } = { q: query };
-        if (userLocation) {
-          params.lat = userLocation.lat;
-          params.lon = userLocation.lon;
+        const locationForSearch = userLocation || (searchCenter ? {
+          lat: searchCenter.lat,
+          lon: searchCenter.lng,
+        } : undefined);
+
+        if (!locationForSearch) {
+          setResults(null);
+          setErrorMessage('Search needs a map location. Enable location access or move the map and try again.');
+          return;
         }
+
+        const params = {
+          q: query,
+          lat: locationForSearch.lat,
+          lon: locationForSearch.lon,
+        };
 
         const response = await api.get<SearchResponse>('/cafes/search/', {
           params,
@@ -70,12 +86,9 @@ export function SearchOverlay({
         });
         setResults(response.data);
 
-        // Track search analytics
-        const wfcResults = response.data.results.filter(r => r.is_registered);
         trackSearchPerformed({
           query,
-          resultCountWfc: wfcResults.length,
-          resultCountGoogle: response.data.results.length - wfcResults.length,
+          resultCount: response.data.results.length,
         });
       } catch (error) {
         // Ignore abort errors (expected when user types quickly or unmounts)
@@ -83,6 +96,9 @@ export function SearchOverlay({
           return;
         }
         logger.error('Search error', error as Error, 'SearchOverlay');
+        const apiMessage = (error as { response?: { data?: { error?: string } } }).response?.data?.error;
+        setResults(null);
+        setErrorMessage(apiMessage || 'Search failed. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -95,17 +111,9 @@ export function SearchOverlay({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [query, userLocation]);
+  }, [query, userLocation, searchCenter]);
 
   const handleSelectResult = (result: SearchResult) => {
-    // Track search result click
-    trackSearchResultClicked({
-      query: results?.query || query,
-      resultType: result.is_registered ? 'wfc' : 'google',
-      resultPosition: results?.results.findIndex(r => r.google_place_id === result.google_place_id) ?? 0,
-      cafeName: result.name,
-    });
-
     onSelectResult(result);
     onClose();
     setQuery('');
@@ -169,7 +177,14 @@ export function SearchOverlay({
           </div>
         )}
 
-        {!isLoading && results && results.total_results === 0 && (
+        {!isLoading && errorMessage && (
+          <div className={styles.emptyState}>
+            <MapPin size={48} className={styles.emptyIcon} />
+            <p>{errorMessage}</p>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && results && results.total_results === 0 && (
           <div className={styles.emptyState}>
             <MapPin size={48} className={styles.emptyIcon} />
             <p>No cafes found for "{results.query}"</p>
@@ -177,7 +192,7 @@ export function SearchOverlay({
           </div>
         )}
 
-        {!isLoading && results && results.total_results > 0 && (
+        {!isLoading && !errorMessage && results && results.total_results > 0 && (
           <div className={styles.resultsContainer}>
             <div className={styles.sectionHeader}>
               Search Results ({results.total_results})
