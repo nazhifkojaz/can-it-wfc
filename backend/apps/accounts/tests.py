@@ -218,6 +218,56 @@ class TestJWTCookieCSRF:
         assert response.data['bio'] == 'Bearer'
 
 
+class TestGoogleOAuthProvider:
+    """Google OAuth email linking requires verified provider emails."""
+
+    def _patch_google_token(self, monkeypatch, idinfo):
+        monkeypatch.setattr(
+            'google.oauth2.id_token.verify_oauth2_token',
+            lambda *args, **kwargs: idinfo,
+        )
+
+    def test_unverified_google_email_is_rejected(self, monkeypatch):
+        from apps.accounts.services.oauth_service import GoogleOAuthProvider
+        from core.exceptions import OAuthTokenInvalid
+
+        self._patch_google_token(monkeypatch, {
+            'sub': 'google-123',
+            'email': 'user@example.com',
+            'email_verified': False,
+        })
+
+        with pytest.raises(OAuthTokenInvalid):
+            GoogleOAuthProvider().verify_token('token')
+
+    def test_missing_google_email_verified_is_rejected(self, monkeypatch):
+        from apps.accounts.services.oauth_service import GoogleOAuthProvider
+        from core.exceptions import OAuthTokenInvalid
+
+        self._patch_google_token(monkeypatch, {
+            'sub': 'google-123',
+            'email': 'user@example.com',
+        })
+
+        with pytest.raises(OAuthTokenInvalid):
+            GoogleOAuthProvider().verify_token('token')
+
+    def test_verified_google_email_succeeds(self, monkeypatch):
+        from apps.accounts.services.oauth_service import GoogleOAuthProvider
+
+        self._patch_google_token(monkeypatch, {
+            'sub': 'google-123',
+            'email': 'user@example.com',
+            'email_verified': True,
+            'picture': 'https://example.com/avatar.png',
+        })
+
+        user_info = GoogleOAuthProvider().verify_token('token')
+
+        assert user_info.provider_user_id == 'google-123'
+        assert user_info.email == 'user@example.com'
+
+
 @pytest.mark.django_db
 class TestUserActivityPrivacy:
     """Activity privacy should not expose private visits to non-owners."""
@@ -460,4 +510,3 @@ class TestSavedLists:
         response = api_client.get('/api/auth/me/saved-lists/?limit=2')
         assert len(response.data['results']) == 2
         assert response.data['count'] == 5
-
