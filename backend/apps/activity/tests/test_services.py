@@ -114,6 +114,30 @@ def test_create_follow_activity(users, follows):
 
 
 @pytest.mark.django_db
+def test_pending_follow_activity_created_only_when_accepted(users):
+    """Pending follow requests should not appear as follow activity."""
+    alice = users['alice']
+    bob = users['bob']
+
+    follow = Follow.objects.create(follower=alice, followed=bob, status='pending')
+
+    follow_activities = Activity.objects.filter(
+        activity_type=ActivityType.FOLLOW,
+        target_object_id=follow.id,
+    )
+    assert follow_activities.count() == 0
+
+    follow.status = 'active'
+    follow.save()
+
+    assert follow_activities.count() == 1
+
+    follow.save()
+
+    assert follow_activities.count() == 1
+
+
+@pytest.mark.django_db
 def test_get_user_feed(users, cafe, follows):
     """Test getting user's feed."""
     alice = users['alice']

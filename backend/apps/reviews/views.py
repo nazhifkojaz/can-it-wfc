@@ -444,6 +444,7 @@ class MarkReviewHelpfulView(APIView):
         if existing:
             # Unmark as helpful
             existing.delete()
+            review.refresh_from_db()
             return Response({
                 'message': 'Review unmarked as helpful',
                 'is_helpful': False,

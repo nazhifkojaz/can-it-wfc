@@ -704,6 +704,36 @@ class TestCafeListCRUD:
         response = authenticated_client.patch(f'/api/lists/{other_list.id}/', {'name': 'Taken name'})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_patch_to_go_list_public_returns_400(self, authenticated_client, test_user):
+        from apps.cafes.models import CafeList
+        to_go_list = CafeList.objects.get(owner=test_user, list_type='to_go')
+
+        response = authenticated_client.patch(f'/api/lists/{to_go_list.id}/', {'visibility': 'public'})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        to_go_list.refresh_from_db()
+        assert to_go_list.visibility == 'private'
+
+    def test_patch_favorites_list_shareable_returns_400(self, authenticated_client, test_user):
+        from apps.cafes.models import CafeList
+        favorites_list = CafeList.objects.get(owner=test_user, list_type='favorites')
+
+        response = authenticated_client.patch(f'/api/lists/{favorites_list.id}/', {'visibility': 'shareable'})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        favorites_list.refresh_from_db()
+        assert favorites_list.visibility == 'private'
+
+    def test_patch_custom_list_public_succeeds(self, authenticated_client, test_user):
+        from apps.cafes.models import CafeList
+        cafe_list = CafeList.objects.create(owner=test_user, name='Public custom')
+
+        response = authenticated_client.patch(f'/api/lists/{cafe_list.id}/', {'visibility': 'public'})
+
+        assert response.status_code == status.HTTP_200_OK
+        cafe_list.refresh_from_db()
+        assert cafe_list.visibility == 'public'
+
     def test_delete_non_default_list(self, authenticated_client, test_user):
         from apps.cafes.models import CafeList
         cafe_list = CafeList.objects.create(owner=test_user, name='Deletable')

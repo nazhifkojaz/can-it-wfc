@@ -131,6 +131,25 @@ class TestVisitCreation:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_zero_coordinate_check_in_is_verifiable(self, test_user):
+        """Latitude or longitude equal to zero is a valid coordinate."""
+        cafe = Cafe.objects.create(
+            name='Zero Coordinate Cafe',
+            address='Equator and Prime Meridian',
+            latitude=Decimal('0'),
+            longitude=Decimal('0'),
+            google_place_id='zero_coordinate_place',
+            created_by=test_user,
+        )
+        visit = Visit.objects.create(
+            cafe=cafe,
+            user=test_user,
+            check_in_latitude=Decimal('0'),
+            check_in_longitude=Decimal('0'),
+        )
+
+        assert visit.is_verified_location() is True
+
 
 @pytest.mark.django_db
 class TestCombinedVisitReview:
@@ -521,12 +540,14 @@ class TestReviewModeration:
         response = authenticated_client.post(f'/api/reviews/{review.id}/mark_helpful/')
 
         assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['helpful_count'] == 1
         review.refresh_from_db()
         assert review.helpful_count == 1
 
         # Toggle off
         response = authenticated_client.post(f'/api/reviews/{review.id}/mark_helpful/')
         assert response.status_code == status.HTTP_200_OK
+        assert response.data['helpful_count'] == 0
         review.refresh_from_db()
         assert review.helpful_count == 0
 

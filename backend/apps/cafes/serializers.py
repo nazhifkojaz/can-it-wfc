@@ -314,6 +314,21 @@ class CafeListUpdateSerializer(serializers.ModelSerializer):
         fields = ['name', 'description', 'icon', 'visibility']
         extra_kwargs = {'name': {'required': False}}
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        list_type = self.instance.list_type if self.instance else None
+        visibility = attrs.get(
+            'visibility',
+            self.instance.visibility if self.instance else None,
+        )
+
+        if list_type in ('to_go', 'favorites') and visibility in ('public', 'shareable'):
+            raise serializers.ValidationError({
+                'visibility': 'Special lists (to-go, favorites) cannot be made public or shareable.',
+            })
+
+        return attrs
+
 
 class SaveListResponseSerializer(serializers.Serializer):
     """Response for POST/DELETE /api/lists/<id>/save/."""

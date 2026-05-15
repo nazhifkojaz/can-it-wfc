@@ -662,8 +662,8 @@ class MergedNearbyCafesView(APIView):
             'radius_km': float(serializer.validated_data.get('radius_km', 1)),
             'limit': serializer.validated_data.get('limit', MAX_NEARBY_CAFES),
             # Use user location for distance if available, otherwise use search center
-            'distance_ref_lat': float(user_latitude) if user_latitude else float(latitude),
-            'distance_ref_lng': float(user_longitude) if user_longitude else float(longitude),
+            'distance_ref_lat': float(user_latitude) if user_latitude is not None else float(latitude),
+            'distance_ref_lng': float(user_longitude) if user_longitude is not None else float(longitude),
         }
 
     def _fetch_google_places(self, params):
@@ -901,7 +901,7 @@ class CafeSearchView(APIView):
         limit = validated_params['limit']
 
         # Require location for search
-        if not latitude or not longitude:
+        if latitude is None or longitude is None:
             return Response({
                 'results': [],
                 'error': 'Location (lat/lon) is required for search',

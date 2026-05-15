@@ -9,7 +9,7 @@ Activity records are a non-critical side-effect — a missing activity
 in the feed is acceptable; blocking the primary save/delete is not.
 Failures are logged at ERROR level with structured context for monitoring.
 """
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from apps.reviews.models import Review
 from apps.accounts.models import Follow
@@ -45,9 +45,17 @@ def create_review_activity(sender, instance, created, **kwargs):
         )
 
 
+@receiver(pre_save, sender=Follow)
+def capture_previous_follow_status(sender, instance, **kwargs):
+    instance._previous_status = None
+    if instance.pk:
+        instance._previous_status = Follow.objects.filter(pk=instance.pk).values_list('status', flat=True).first()
+
+
 @receiver(post_save, sender=Follow)
 def create_follow_activity(sender, instance, created, **kwargs):
-    if created:
+    previous_status = getattr(instance, '_previous_status', None)
+    if instance.status == 'active' and (created or previous_status != 'active'):
         _safe_activity_dispatch(
             ActivityService.create_follow_activity,
             instance,
