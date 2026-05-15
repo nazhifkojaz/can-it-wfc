@@ -3,7 +3,7 @@ import { Search, X, MapPin, Star, Navigation, Map } from 'lucide-react';
 import api from '../../api/client';
 import { formatDistance } from '../../utils/formatters';
 import { logger } from '../../utils/logger';
-import { trackSearchPerformed, trackSearchResultClicked } from '../../lib/analytics';
+import { trackSearchPerformed } from '../../lib/analytics';
 import { SearchResult } from '../../types';
 import styles from './SearchOverlay.module.css';
 

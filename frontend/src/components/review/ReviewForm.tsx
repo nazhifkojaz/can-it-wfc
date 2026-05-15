@@ -8,7 +8,7 @@ import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
 import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { logger } from '../../utils/logger';
-import { trackReviewCreated, trackReviewEdited } from '../../lib/analytics';
+import { trackReviewCreated } from '../../lib/analytics';
 import styles from './ReviewForm.module.css';
 
 /**
@@ -81,16 +81,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         };
         await reviewApi.update(existingReview.id, updateData);
 
-        // Track analytics for review edit
-        const fieldsChanged = Object.keys(updateData).filter(
-          key => updateData[key as keyof ReviewUpdate] !== existingReview[key as keyof Review]
-        );
-        trackReviewEdited({
-          cafeId,
-          cafeName,
-          fieldsChanged,
-        });
-
         resultModal.showResultModal({
           type: 'success',
           title: 'Review Updated!',
@@ -116,16 +106,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
         trackReviewCreated({
           cafeId,
-          cafeName,
           wfcRating: form.wfcRating || 3,
-          wifiQuality: form.wifi_quality,
-          hasComment: !!form.comment?.trim(),
-          commentLength: form.comment?.length || 0,
           source: 'standalone',
-          hasSmokingArea: form.hasSmokingArea ? true : null,
-          hasPrayerRoom: form.hasPrayerRoom ? true : null,
-          hasIndoorSeating: form.hasIndoorSeating ? true : null,
-          hasOutdoorSeating: form.hasOutdoorSeating ? true : null,
         });
 
         resultModal.showResultModal({

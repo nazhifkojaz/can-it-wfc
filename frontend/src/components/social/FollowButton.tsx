@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserPlus, UserMinus, Clock } from 'lucide-react';
 import { userApi } from '../../api/client';
 import { extractApiError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
-import { trackUserFollowed, trackUserUnfollowed } from '../../lib/analytics';
 import styles from './FollowButton.module.css';
-
-type FollowSource = 'review_card';
 
 interface FollowButtonProps {
   username: string;

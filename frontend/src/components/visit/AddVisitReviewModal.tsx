@@ -346,28 +346,14 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       // Track analytics
       trackVisitLogged({
         cafeId: selectedCafe.id,
-        cafeName: selectedCafe.name,
         includesReview: includeReview,
-        visitTime: visitTime !== null ? VISIT_TIME_ANALYTICS_MAP[visitTime] : null,
-        amountSpent: amountSpent ? parseFloat(amountSpent) : null,
-        currency: amountSpent ? currency : null,
-        isDuplicateVisit: showDuplicateInfo && !!existingVisit,
       });
 
-      // Track review creation if review was included
       if (includeReview) {
         trackReviewCreated({
           cafeId: selectedCafe.id,
-          cafeName: selectedCafe.name,
           wfcRating: form.wfcRating,
-          wifiQuality: form.wifi_quality,
-          hasComment: !!form.comment.trim(),
-          commentLength: form.comment.length,
           source: 'visit_modal',
-          hasSmokingArea: form.hasSmokingArea ? true : null,
-          hasPrayerRoom: form.hasPrayerRoom ? true : null,
-          hasIndoorSeating: form.hasIndoorSeating ? true : null,
-          hasOutdoorSeating: form.hasOutdoorSeating ? true : null,
         });
       }
 

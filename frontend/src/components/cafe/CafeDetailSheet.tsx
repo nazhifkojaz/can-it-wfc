@@ -14,9 +14,8 @@ import CafeInsightsCard from './CafeInsightsCard';
 import ActionButtons from './ActionButtons';
 
 import { formatDistance } from '../../utils/formatters';
-import { calculateDistance } from '../../utils';
 import { ListIcon } from '../../utils/listIcons';
-import { trackCafeViewed, trackDirectionsClicked, trackGoogleRatingRefreshed } from '../../lib/analytics';
+import { trackCafeViewed, trackDirectionsClicked } from '../../lib/analytics';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -48,30 +47,16 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
 
   useEffect(() => {
     if (isOpen && !hasTrackedViewRef.current) {
-      const distanceKm = location
-        ? calculateDistance(
-            location.lat,
-            location.lng,
-            parseFloat(cafe.latitude),
-            parseFloat(cafe.longitude)
-          )
-        : null;
-
       trackCafeViewed({
         cafeId: cafe.id,
-        cafeName: cafe.name,
-        isRegistered: cafe.is_registered,
-        hasWfcRating: !!cafe.average_wfc_rating,
         source,
-        distanceKm,
       });
       hasTrackedViewRef.current = true;
     }
-    // Reset tracking when sheet closes
     if (!isOpen) {
       hasTrackedViewRef.current = false;
     }
-  }, [isOpen, cafe.id, cafe.name, cafe.is_registered, cafe.average_wfc_rating, cafe.latitude, cafe.longitude, source, location]);
+  }, [isOpen, cafe.id, source]);
 
   const {
     reviews,
@@ -130,25 +115,13 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       return;
     }
 
-    const distanceKm = calculateDistance(
-      location.lat,
-      location.lng,
-      parseFloat(cafe.latitude),
-      parseFloat(cafe.longitude)
-    );
-
-    trackDirectionsClicked({
-      cafeId: cafe.id,
-      cafeName: cafe.name,
-      distanceKm,
-    });
+    trackDirectionsClicked({ cafeId: cafe.id });
 
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${location.lat},${location.lng}&destination=${cafe.latitude},${cafe.longitude}&travelmode=driving`;
     window.open(mapsUrl, '_blank');
   };
 
   const handleRefreshGoogleRating = () => {
-    trackGoogleRatingRefreshed({ cafeId: cafe.id });
     refreshGoogleRating();
   };
 

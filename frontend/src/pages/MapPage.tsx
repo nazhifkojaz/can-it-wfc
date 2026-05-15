@@ -17,14 +17,16 @@ import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
-import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
+
 import { getActiveChips } from '../lib/filterEncoding';
 import './MapPage.css';
+
+const DEFAULT_SEARCH_CENTER = { lat: -6.2088, lng: 106.8456 };
 
 const MapPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('map');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
@@ -147,11 +149,6 @@ const MapPage: React.FC = () => {
   }, [cafes, selectedCafe]);
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
-    // Track analytics
-    trackMapAreaSearched({
-      latitude: center.lat,
-      longitude: center.lng,
-    });
     setManualSearchCenter(center);
   };
 
@@ -184,11 +181,7 @@ const MapPage: React.FC = () => {
   };
 
   const toggleViewMode = () => {
-    setViewMode(prev => {
-      const newMode = prev === 'map' ? 'list' : 'map';
-      trackViewModeToggled({ switchedTo: newMode });
-      return newMode;
-    });
+    setViewMode(prev => prev === 'map' ? 'list' : 'map');
   };
 
   const handleSearchSelect = (result: SearchResult) => {

@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { trackPanelOpened } from '../lib/analytics';
 
 type Panel = 'discover' | 'profile' | 'userProfile';
 type PanelData = { username: string } | null;
@@ -48,14 +47,6 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const showPanel = (panel: Panel, data?: PanelData) => {
-    if (activePanel !== panel) {
-      const analyticsPanel: 'discover' | 'profile' | 'user_profile' =
-        panel === 'userProfile' ? 'user_profile' :
-        panel as 'discover' | 'profile';
-
-      trackPanelOpened({ panel: analyticsPanel });
-    }
-
     if (panel === 'userProfile' && data?.username) {
       window.location.hash = `${panel}:${encodeURIComponent(data.username)}`;
     } else {
