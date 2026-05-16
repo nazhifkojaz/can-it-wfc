@@ -113,3 +113,5 @@ export function useReviewForm(options: UseReviewFormOptions = {}) {
     ratingPayload,
   };
 }
+
+export type ReviewFormController = ReturnType<typeof useReviewForm>;

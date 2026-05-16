@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { ReviewCreate, Review, ReviewUpdate } from '../../types';
-import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
+import { Modal, SharedResultModal } from '../common';
 import { useReviews, useResultModal, useReviewForm } from '../../hooks';
 import { reviewApi } from '../../api/client';
 import { isValidReviewComment } from '../../utils';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { REVIEW_CONFIG } from '../../config/constants';
-import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { logger } from '../../utils/logger';
 import { trackReviewCreated } from '../../lib/analytics';
+import ReviewFields from './ReviewFields';
 import styles from './ReviewForm.module.css';
 
 /**
@@ -136,15 +136,6 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     }
   };
 
-  const ratingCategories = RATING_DIMENSIONS
-    .filter(d => d.key !== 'wfc_rating')
-    .map(d => ({
-      field: d.key as keyof ReviewCreate,
-      label: d.label,
-      icon: d.icon,
-      description: d.description,
-    }));
-
   const getModalTitle = () => {
     if (isViewMode) return "Your Review";
     if (isEditMode) return "Edit Your Review";
@@ -164,102 +155,33 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className={styles.formBody}>
-        {/* WFC Rating Categories */}
-        <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Key WFC Criteria</h3>
-          <p className={styles.sectionDescription}>
-            Rate the most important aspects for working from this cafe
-          </p>
-
-          <div className={styles.ratingCategories}>
-            {ratingCategories.map((category) => (
-              <div key={category.field} className={styles.ratingCategory}>
-                <div className={styles.categoryHeader}>
-                  <div className={styles.categoryIcon}>{category.icon}</div>
-                  <div className={styles.categoryInfo}>
-                    <h4 className={styles.categoryLabel}>{category.label}</h4>
-                    <p className={styles.categoryDescription}>{category.description}</p>
-                  </div>
-                </div>
-                <StarRating
-                  value={form[category.field as keyof typeof form] as number}
-                  onChange={(val) => {
-                    const map: Record<string, (v: number) => void> = {
-                      wifi_quality: form.setWifiQuality,
-                      power_outlets_rating: form.setPowerOutlets,
-                      seating_comfort: form.setSeatingComfort,
-                      noise_level: form.setNoiseLevel,
-                    };
-                    map[category.field]?.(val);
-                  }}
-                  disabled={isViewMode}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Overall WFC Rating — Auto-computed */}
-        <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Overall WFC Suitability</h3>
-          <p className={styles.sectionDescription}>
-            Auto-calculated from your ratings above
-          </p>
-          <div className={styles.ratingCategory}>
-            <StarRating value={form.wfcRating || 3} disabled />
-          </div>
-        </div>
-
-        {/* Additional Facilities */}
-        <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Additional Facilities</h3>
-          <p className={styles.sectionDescription}>
-            Does the cafe have these amenities?
-          </p>
-
-          <div className={styles.checkboxGrid}>
-            {FACILITY_CONFIG.map((f) => {
-              const setter = form.facilitySetters[f.key];
-              const checked = form.facilityValues[f.key] ?? false;
-              if (!setter) return null;
-              return (
-                <FacilityCheckbox
-                  key={f.key}
-                  label={f.label}
-                  icon={f.icon}
-                  checked={checked}
-                  onChange={setter}
-                  disabled={isViewMode}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Review Text */}
-        <div className={styles.section}>
-          <label htmlFor="review-text" className={styles.sectionTitle}>
-            Your Review {!isViewMode && '(Optional)'}
-          </label>
-          <div className={styles.textareaContainer}>
-            <textarea
-              id="review-text"
-              className={styles.reviewTextarea}
-              placeholder={isViewMode ? '' : "Share your experience working from this cafe..."}
-              value={form.comment}
-              onChange={(e) => form.setComment(e.target.value)}
-              rows={4}
-              maxLength={REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-              disabled={isViewMode}
-              readOnly={isViewMode}
-            />
-            {!isViewMode && (
-              <p className={styles.characterCount}>
-                {form.comment?.length || 0} / {REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-              </p>
-            )}
-          </div>
-        </div>
+        <ReviewFields
+          form={form}
+          variant="detailed"
+          disabled={isViewMode}
+          readOnly={isViewMode}
+          textareaId="review-text"
+          commentRows={4}
+          commentPlaceholder={isViewMode ? '' : 'Share your experience working from this cafe...'}
+          commentLabel={<>Your Review {!isViewMode && '(Optional)'}</>}
+          showCommentCount={!isViewMode}
+          classes={{
+            section: styles.section,
+            sectionTitle: styles.sectionTitle,
+            sectionDescription: styles.sectionDescription,
+            ratingCategories: styles.ratingCategories,
+            ratingCategory: styles.ratingCategory,
+            categoryHeader: styles.categoryHeader,
+            categoryIcon: styles.categoryIcon,
+            categoryInfo: styles.categoryInfo,
+            categoryLabel: styles.categoryLabel,
+            categoryDescription: styles.categoryDescription,
+            checkboxGrid: styles.checkboxGrid,
+            textareaContainer: styles.textareaContainer,
+            reviewTextarea: styles.reviewTextarea,
+            characterCount: styles.characterCount,
+          }}
+        />
 
         {/* Error Message */}
         {error && (

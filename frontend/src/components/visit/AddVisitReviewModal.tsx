@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned, DollarSign, Star, CheckCircle } from 'lucide-react';
 import { Cafe, CombinedVisitReviewCreate, Review, Visit } from '../../types';
-import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
+import { Modal, SharedResultModal } from '../common';
 import ReviewForm from '../review/ReviewForm';
+import ReviewFields from '../review/ReviewFields';
 import { useVisits, useGeolocation, useResultModal, useReviewForm } from '../../hooks';
 import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
 import { VISIT_TIME_OPTIONS, REVIEW_CONFIG } from '../../config/constants';
-import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
@@ -59,8 +59,8 @@ const visitReviewValidation = {
   },
 
   validateComment: (comment: string): string | null => {
-    if (comment.length > 160) {
-      return 'Comment must be 160 characters or less';
+    if (comment.length > REVIEW_CONFIG.MAX_COMMENT_LENGTH) {
+      return `Comment must be ${REVIEW_CONFIG.MAX_COMMENT_LENGTH} characters or less`;
     }
     return null;
   },
@@ -663,68 +663,21 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         {includeReview && !hasExistingReview && (
           <div className={styles.reviewSection}>
             <h4 className={styles.reviewSectionTitle}>Work From Cafe Review</h4>
-
-            {(() => {
-              const subRatings = RATING_DIMENSIONS.filter(d => d.key !== 'wfc_rating');
-              return (
-                <>
-                  <div className={styles.ratingField}>
-                    <label className={styles.ratingLabel}>
-                      <Star size={18} />
-                      Overall WFC Rating
-                      <span className={styles.optional}>(Auto)</span>
-                    </label>
-                    <StarRating value={form.wfcRating} disabled />
-                  </div>
-                  {subRatings.map(d => {
-                    const value = form.ratingValues[d.key];
-                    const setter = form.ratingSetters[d.key];
-                    if (value === undefined || !setter) return null;
-                    return (
-                      <div key={d.key} className={styles.ratingField}>
-                        <label className={styles.ratingLabel}>
-                          {d.icon}
-                          {d.label}
-                        </label>
-                        <StarRating value={value} onChange={setter} />
-                      </div>
-                    );
-                  })}
-                  <div className={styles.checkboxGrid}>
-                    {FACILITY_CONFIG.map(f => {
-                      const checked = form.facilityValues[f.key];
-                      const setter = form.facilitySetters[f.key];
-                      if (checked === undefined || !setter) return null;
-                      return (
-                        <FacilityCheckbox
-                          key={f.key}
-                          label={f.label}
-                          icon={f.icon}
-                          checked={checked}
-                          onChange={setter}
-                        />
-                      );
-                    })}
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label htmlFor="comment">
-                      Comment (Optional, max {REVIEW_CONFIG.MAX_COMMENT_LENGTH} chars)
-                    </label>
-                    <textarea
-                      id="comment"
-                      value={form.comment}
-                      onChange={(e) => form.setComment(e.target.value.slice(0, REVIEW_CONFIG.MAX_COMMENT_LENGTH))}
-                      placeholder="Share your experience..."
-                      maxLength={REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-                      rows={3}
-                    />
-                    <div className={styles.charCount}>
-                      {form.comment.length}/{REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
+            <ReviewFields
+              form={form}
+              variant="compact"
+              textareaId="comment"
+              commentRows={3}
+              commentPlaceholder="Share your experience..."
+              classes={{
+                ratingField: styles.ratingField,
+                ratingLabel: styles.ratingLabel,
+                checkboxGrid: styles.checkboxGrid,
+                formGroup: styles.formGroup,
+                charCount: styles.charCount,
+                optional: styles.optional,
+              }}
+            />
           </div>
         )}
 
