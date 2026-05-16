@@ -37,6 +37,7 @@ from .serializers import (
     CafeListDetailSerializer,
     CafeListItemCreateSerializer,
     CafeListItemNoteSerializer,
+    CafeListItemSerializer,
     CafeListMembershipSerializer,
     CafeListSerializer,
     CafeListUpdateSerializer,
@@ -422,6 +423,21 @@ def _get_or_create_cafe_from_request(serializer, user):
     return cafe
 
 
+def _add_cafe_to_list(cafe_list, cafe, note=''):
+    """Idempotently add a cafe to a list and enforce the per-list item cap."""
+    item, created = CafeListItem.objects.get_or_create(
+        cafe_list=cafe_list,
+        cafe=cafe,
+        defaults={'note': note},
+    )
+
+    if created and cafe_list.items.count() > MAX_ITEMS_PER_LIST:
+        item.delete()
+        raise ListItemLimitReached()
+
+    return item, created
+
+
 class CafeListItemCreateView(APIView):
     """POST /api/lists/<pk>/items/ — add a cafe to a list."""
 
@@ -439,19 +455,7 @@ class CafeListItemCreateView(APIView):
         cafe = _get_or_create_cafe_from_request(serializer, request.user)
         note = serializer.validated_data.get('note', '')
 
-        # Idempotent: if already in list, return the existing item
-        item, created = CafeListItem.objects.get_or_create(
-            cafe_list=cafe_list,
-            cafe=cafe,
-            defaults={'note': note},
-        )
-
-        if created and cafe_list.items.count() > MAX_ITEMS_PER_LIST:
-            # Roll back if we just exceeded the limit
-            item.delete()
-            raise ListItemLimitReached()
-
-        from .serializers import CafeListItemSerializer
+        item, created = _add_cafe_to_list(cafe_list, cafe, note=note)
         return Response(
             CafeListItemSerializer(item).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
@@ -481,7 +485,6 @@ class CafeListItemDetailView(APIView):
         serializer = CafeListItemNoteSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        from .serializers import CafeListItemSerializer
         return Response(CafeListItemSerializer(item).data)
 
     def delete(self, request, pk, cafe_id):
@@ -588,16 +591,7 @@ class SpecialListItemView(APIView):
         cafe = _get_or_create_cafe_from_request(serializer, request.user)
         cafe_list = self._get_special_list(request.user)
 
-        item, created = CafeListItem.objects.get_or_create(
-            cafe_list=cafe_list,
-            cafe=cafe,
-        )
-
-        if created and cafe_list.items.count() > MAX_ITEMS_PER_LIST:
-            item.delete()
-            raise ListItemLimitReached()
-
-        from .serializers import CafeListItemSerializer
+        item, created = _add_cafe_to_list(cafe_list, cafe)
         return Response(
             CafeListItemSerializer(item).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
