@@ -23,7 +23,7 @@ interface CafeDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onLogVisit: () => void;
-  source?: 'map_marker' | 'list_item' | 'search_result' | 'activity_feed' | 'favorite' | 'direct' | 'discover';
+  source?: 'map_marker' | 'list_item' | 'search_result' | 'favorite' | 'direct' | 'discover';
 }
 
 const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({

@@ -4,9 +4,7 @@ import {
   UserUpdate,
   UserProfile,
   UserSettings,
-  UserActivityResponse,
   FollowUser,
-  ActivityFeedResponse,
   PaginatedResponse,
   Cafe,
   CafeCreate,
@@ -209,10 +207,6 @@ export const userApi = {
   getUserProfile: (usernameOrId: string | number) =>
     get<UserProfile>(`/auth/users/${usernameOrId}/profile/`),
 
-  // Get user activity by username or ID (Phase 1: Social Features)
-  getUserActivity: (usernameOrId: string | number, limit: number = 20) =>
-    get<UserActivityResponse>(`/auth/users/${usernameOrId}/activity/`, { limit }),
-
   // Get current user's settings (Phase 1: Social Features)
   getSettings: () => get<UserSettings>('/auth/me/settings/'),
 
@@ -244,9 +238,6 @@ export const userApi = {
 
   handleFollowRequest: (userId: number, action: 'accept' | 'reject') =>
     post<{ message: string }>(`/auth/follow-requests/${userId}/handle/`, { action }),
-
-  // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
-  getActivityFeed: (limit: number = 50) => get<ActivityFeedResponse>('/activity/feed/', { limit }),
 
   // Get user's public lists
   getUserLists: (username: string) => get<CafeList[]>(`/auth/users/${username}/lists/`),

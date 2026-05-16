@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.cafes',
     'apps.reviews',
-    'apps.activity',  # Activity stream for feeds
     'apps.discover',  # Discover panel
 ]
 

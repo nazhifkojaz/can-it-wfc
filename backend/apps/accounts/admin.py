@@ -59,15 +59,12 @@ class UserSettingsAdmin(admin.ModelAdmin):
     list_display = [
         'user',
         'profile_visibility',
-        'activity_visibility',
         'show_followers',
         'show_following',
-        'show_activity_dates'
     ]
 
     list_filter = [
         'profile_visibility',
-        'activity_visibility',
         'show_followers',
         'show_following'
     ]

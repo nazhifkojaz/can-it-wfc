@@ -105,7 +105,7 @@ describe('Analytics - cafe_viewed', () => {
   });
 
   it('should capture all valid sources', () => {
-    const sources = ['map_marker', 'list_item', 'search_result', 'activity_feed', 'favorite', 'direct', 'discover'] as const;
+    const sources = ['map_marker', 'list_item', 'search_result', 'favorite', 'direct', 'discover'] as const;
     sources.forEach((source) => {
       trackCafeViewed({ cafeId: 42, source });
     });

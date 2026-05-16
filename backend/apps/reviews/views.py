@@ -27,7 +27,7 @@ from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
-from apps.accounts.utils import is_own_profile, can_view_user_activity, get_user_by_username_or_id
+from apps.accounts.utils import is_own_profile, check_is_following, get_user_by_username_or_id
 
 
 def _build_review_queryset(request, base_qs=None):
@@ -228,7 +228,7 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         """
         Delete review (hard delete).
         Allowed at any time (no time restrictions).
-        Stats and activity soft-deletion are handled automatically via signals.
+        Stats are handled automatically via signals.
         Uses @transaction.atomic to ensure all-or-nothing deletion.
         """
         instance.delete()
@@ -269,7 +269,7 @@ class UserReviewsView(generics.ListAPIView):
 
         request = self.request
         if not is_own_profile(request, user):
-            if not can_view_user_activity(request.user, user):
+            if user.settings.profile_visibility == 'private' and not check_is_following(request, user):
                 return Review.objects.none()
 
         return _build_review_queryset(request, Review.objects.filter(user=user, is_hidden=False))

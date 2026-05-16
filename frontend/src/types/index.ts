@@ -34,10 +34,8 @@ export interface PaginatedResponse<T> {
 
 export interface UserSettings {
   profile_visibility: 'public' | 'private';
-  show_activity_dates: boolean;
   show_followers: boolean;
   show_following: boolean;
-  activity_visibility: 'public' | 'followers' | 'private';
 }
 
 export interface UserProfile extends UserBase {
@@ -54,71 +52,6 @@ export interface UserProfile extends UserBase {
   follow_status?: 'none' | 'active' | 'pending' | 'rejected';
   profile_visibility?: 'private';
   message?: string;
-}
-
-export interface UserActivityItem {
-  id: number;
-  type: 'visit' | 'review';
-  cafe_id: number;
-  cafe_name: string;
-  cafe_google_place_id: string | null;
-  date: string | null; // Hidden if show_activity_dates=false
-  created_at: string;
-  // Review-specific fields (null for visits)
-  wfc_rating?: number | null;
-  comment?: string | null;
-  // Visit-specific fields (null for reviews)
-  visit_time?: number | null;
-  amount_spent?: number | null;
-  currency?: string | null;
-}
-
-export interface UserActivityResponse {
-  user_id: number;
-  username: string;
-  activity: UserActivityItem[];
-  message?: string; // For private profiles
-}
-
-export type ActivityType =
-  | 'own_visit'
-  | 'own_review'
-  | 'following_visit'
-  | 'following_review'
-  | 'new_follower'
-  | 'following_followed';
-
-export interface ActivityItem {
-  id: string;
-  type: ActivityType;
-  created_at: string;
-
-  // Actor (who did the action)
-  actor_username?: string;
-  actor_display_name?: string;
-  actor_avatar_url?: string;
-
-  // Target (for follows)
-  target_username?: string;
-  target_display_name?: string;
-  target_avatar_url?: string;
-
-  // Cafe (for cafe activities)
-  cafe_id?: number;
-  cafe_name?: string;
-  cafe_google_place_id?: string | null;
-
-  // Activity details
-  wfc_rating?: number | null;
-  comment?: string | null;
-  visit_time?: number | null;
-  amount_spent?: number | null;
-  currency?: string | null;
-}
-
-export interface ActivityFeedResponse {
-  activities: ActivityItem[];
-  count: number;
 }
 
 export interface FollowUser extends UserBase {
@@ -371,4 +304,3 @@ export interface SearchResult {
   source: 'google';
   result_type: 'cafe' | 'location';
 }
-

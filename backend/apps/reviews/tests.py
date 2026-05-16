@@ -932,7 +932,7 @@ class TestUserReviewsView:
     def test_returns_empty_for_private_profile(self, api_client, test_user, db):
         from apps.accounts.models import UserSettings
         settings = UserSettings.objects.get(user=test_user)
-        settings.activity_visibility = 'private'
+        settings.profile_visibility = 'private'
         settings.save()
 
         other_user = User.objects.create_user(
@@ -958,7 +958,7 @@ class TestUserReviewsView:
     def test_returns_own_reviews_even_for_private_profile(self, api_client, test_user, test_cafe):
         from apps.accounts.models import UserSettings
         settings = UserSettings.objects.get(user=test_user)
-        settings.activity_visibility = 'private'
+        settings.profile_visibility = 'private'
         settings.save()
 
         api_client.force_authenticate(user=test_user)

@@ -3,6 +3,20 @@
 from django.db import migrations
 
 
+def drop_unused_postgres_tables(apps, schema_editor):
+    if schema_editor.connection.vendor != 'postgresql':
+        return
+
+    statements = [
+        "DROP EXTENSION IF EXISTS postgis CASCADE;",
+        "DROP TABLE IF EXISTS authtoken_token CASCADE;",
+        "DROP TABLE IF EXISTS account_emailconfirmation CASCADE;",
+        "DROP TABLE IF EXISTS account_emailaddress CASCADE;",
+    ]
+    for statement in statements:
+        schema_editor.execute(statement)
+
+
 class Migration(migrations.Migration):
     """
     Drop unused database tables to clean up the database.
@@ -19,25 +33,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Drop PostGIS extension (which will automatically drop spatial_ref_sys table - 7.1 MB!)
-        migrations.RunSQL(
-            sql="DROP EXTENSION IF EXISTS postgis CASCADE;",
-            reverse_sql="-- Cannot reverse: PostGIS extension"
-        ),
-
-        # Drop DRF token authentication (using JWT instead)
-        migrations.RunSQL(
-            sql="DROP TABLE IF EXISTS authtoken_token CASCADE;",
-            reverse_sql="-- Cannot reverse: DRF authtoken table"
-        ),
-
-        # Drop email verification tables (not enforcing email verification)
-        migrations.RunSQL(
-            sql="DROP TABLE IF EXISTS account_emailconfirmation CASCADE;",
-            reverse_sql="-- Cannot reverse: django-allauth table"
-        ),
-        migrations.RunSQL(
-            sql="DROP TABLE IF EXISTS account_emailaddress CASCADE;",
-            reverse_sql="-- Cannot reverse: django-allauth table"
+        migrations.RunPython(
+            drop_unused_postgres_tables,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]

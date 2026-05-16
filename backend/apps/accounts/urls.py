@@ -5,7 +5,6 @@ from .views import (
     UserDetailView,
     UserPublicProfileView,
     LogoutView,
-    UserActivityView,
     UserSettingsUpdateView,
     FollowUserView,
     UnfollowUserView,
@@ -44,8 +43,7 @@ urlpatterns = [
     path('users/<str:username>/followers/', UserFollowersListView.as_view(), name='user-followers'),
     path('users/<str:username>/following/', UserFollowingListView.as_view(), name='user-following'),
 
-    # Public profiles and activity
+    # Public profiles
     path('users/<str:username>/profile/', UserPublicProfileView.as_view(), name='user-public-profile'),
-    path('users/<str:username>/activity/', UserActivityView.as_view(), name='user-activity'),
     path('users/<str:username>/lists/', UserPublicListsView.as_view(), name='user-public-lists'),
 ]

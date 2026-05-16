@@ -162,10 +162,6 @@
   color: var(--neo-gray-600);
   margin: 0;
 }
-
-
-/* Activity styles are inherited from shared-panel-styles.css */
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

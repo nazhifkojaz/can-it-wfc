@@ -39,10 +39,8 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         model = UserSettings
         fields = [
             'profile_visibility',
-            'show_activity_dates',
             'show_followers',
             'show_following',
-            'activity_visibility'
         ]
 
 
@@ -320,30 +318,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_follow_status(self, obj):
         return self._follow_info_val['follow_status']
-
-
-class UserActivityItemSerializer(serializers.Serializer):
-    """
-    Serializer for user activity items (visits and reviews).
-    Returns a unified format for both activity types.
-    """
-    id = serializers.IntegerField()
-    type = serializers.CharField()  # 'visit' or 'review'
-    cafe_id = serializers.IntegerField()
-    cafe_name = serializers.CharField()
-    cafe_google_place_id = serializers.CharField(allow_null=True)
-    date = serializers.DateField(allow_null=True)  # Hidden if show_activity_dates=False
-    created_at = serializers.DateTimeField()
-
-    # Review-specific fields (null for visits)
-    wfc_rating = serializers.IntegerField(allow_null=True)
-    comment = serializers.CharField(allow_null=True)
-
-    # Visit-specific fields (null for reviews)
-    visit_time = serializers.IntegerField(allow_null=True)
-    amount_spent = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
-    currency = serializers.CharField(allow_null=True)
-    visit_id = serializers.IntegerField(allow_null=True)  # For merging reviews with visits
 
 
 class FollowUserSerializer(serializers.ModelSerializer):

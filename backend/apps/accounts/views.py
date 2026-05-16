@@ -38,13 +38,11 @@ from .serializers import (
     UserUpdateSerializer,
     UserProfileSerializer,
     UserSettingsSerializer,
-    UserActivityItemSerializer,
     FollowUserSerializer,
 )
 from .utils import get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
-from apps.reviews.models import Visit, Review
 from apps.cafes.models import CafeList, CafeListItem, SavedCafeList
 from apps.cafes.serializers import CafeListSerializer
 
@@ -237,102 +235,6 @@ class LogoutView(APIView):
         )
 
         return response
-
-
-class UserActivityView(APIView):
-    """
-    Get recent activity (visits and reviews) for a user.
-
-    GET /api/users/{username}/activity/
-    GET /api/users/{id}/activity/
-    """
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [PublicApiThrottle]
-
-    def get(self, request, username=None):
-        """Fetch recent activity combining visits and reviews."""
-        try:
-            user = get_user_by_username_or_id(username)
-        except User.DoesNotExist:
-            raise UserNotFound()
-
-        # Check privacy settings
-        own_profile = is_own_profile(request, user)
-        if not own_profile:
-            from apps.accounts.utils import can_view_user_activity
-            if not can_view_user_activity(request.user, user):
-                return Response({
-                    'message': 'This activity is private',
-                    'activity': []
-                })
-
-        user_settings = user.settings
-
-        # Get limit from query params (default 20, max 50)
-        try:
-            limit = min(int(request.query_params.get('limit', 20)), 50)
-        except (ValueError, TypeError):
-            limit = 20  # Default fallback for invalid input
-
-        # Visits can include movement and spending data, so only owners see them.
-        visits = []
-        if own_profile:
-            visits = Visit.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
-        reviews = Review.objects.filter(user=user).select_related('cafe').order_by('-created_at')[:limit]
-
-        # Combine and transform into unified format
-        activity = []
-
-        # Add visits
-        for visit in visits:
-            activity.append({
-                'id': visit.id,
-                'type': 'visit',
-                'cafe_id': visit.cafe.id,
-                'cafe_name': visit.cafe.name,
-                'cafe_google_place_id': visit.cafe.google_place_id,
-                'date': visit.visit_date if user_settings.show_activity_dates else None,
-                'created_at': visit.created_at,
-                'wfc_rating': None,
-                'comment': None,
-                'visit_time': visit.visit_time,
-                'amount_spent': visit.amount_spent,
-                'currency': visit.currency,
-                'visit_id': visit.id,
-            })
-
-        # Add reviews
-        for review in reviews:
-            activity.append({
-                'id': review.id,
-                'type': 'review',
-                'cafe_id': review.cafe.id,
-                'cafe_name': review.cafe.name,
-                'cafe_google_place_id': review.cafe.google_place_id,
-                'date': review.created_at.date() if user_settings.show_activity_dates else None,
-                'created_at': review.created_at,
-                'wfc_rating': review.wfc_rating,
-                'comment': review.comment,
-                'visit_time': None,
-                'amount_spent': None,
-                'currency': None,
-                'visit_id': None,
-            })
-
-        # Sort by created_at descending
-        activity.sort(key=lambda x: x['created_at'], reverse=True)
-
-        # Limit to requested amount
-        activity = activity[:limit]
-
-        # Serialize
-        serializer = UserActivityItemSerializer(activity, many=True)
-
-        return Response({
-            'user_id': user.id,
-            'username': user.username,
-            'activity': serializer.data
-        })
 
 
 class UserSettingsUpdateView(generics.RetrieveUpdateAPIView):

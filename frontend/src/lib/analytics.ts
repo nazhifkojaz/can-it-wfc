@@ -39,7 +39,6 @@ type CafeViewSource =
   | 'map_marker'
   | 'list_item'
   | 'search_result'
-  | 'activity_feed'
   | 'favorite'
   | 'direct'
   | 'discover';

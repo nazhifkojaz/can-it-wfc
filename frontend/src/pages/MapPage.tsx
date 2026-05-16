@@ -39,7 +39,7 @@ const MapPage: React.FC = () => {
   const { activePanel } = usePanel();
   const { filters, appliedFilters, setFilter, applyFilters, resetAll, clearOne, syncPending } = useMapFilters();
 
-  const { location, error: locationError, loading: locationLoading } = useGeolocation();
+  const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation();
 
   const searchUserLocation = useMemo(
     () => location ? { lat: location.lat, lon: location.lng } : undefined,
@@ -53,7 +53,7 @@ const MapPage: React.FC = () => {
     }
   }, [activePanel]);
 
-  // Handle cafe query parameter (from activity clicks)
+  // Handle cafe query parameter from profile/list/deep links.
   React.useEffect(() => {
     const cafeId = searchParams.get('cafe');
     if (cafeId && !activePanel) {
@@ -84,7 +84,7 @@ const MapPage: React.FC = () => {
           // Clear only the cafe param, preserve filter params
           setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('cafe'); return n; }, { replace: true });
         } catch (error) {
-          logger.error('Failed to jump to cafe from activity', error, 'MapPage');
+          logger.error('Failed to jump to selected cafe', error, 'MapPage');
           resultModal.showResultModal({
             type: 'error',
             title: 'Cafe Not Found',
@@ -284,6 +284,7 @@ const MapPage: React.FC = () => {
               jumpToLocation={jumpToLocation}
               tempSearchMarker={tempSearchMarker}
               onSearchClick={() => setShowSearchOverlay(true)}
+              onRetryLocation={refetch}
             />
           </div>
         )}
