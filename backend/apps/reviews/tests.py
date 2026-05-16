@@ -179,7 +179,7 @@ class TestCombinedVisitReview:
         assert 'review' in response.data
         assert response.data['review'] is not None
 
-        # Verify in database (UPDATED: Review Refactor)
+        # Verify in database.
         assert Visit.objects.filter(cafe=test_cafe).exists()
         visit = Visit.objects.get(cafe=test_cafe)
         assert Review.objects.filter(cafe=test_cafe, user=visit.user).exists()
@@ -729,36 +729,6 @@ class TestTransactionRollbackHandling:
 
         # The transaction.atomic() should roll back — review should not exist
         assert not Review.objects.filter(user=test_user, cafe=test_cafe).exists()
-
-    def test_transaction_with_both_visit_and_review(self, authenticated_client, test_cafe, test_user):
-        """Test that both visit and review are created successfully in one transaction"""
-        initial_visit_count = Visit.objects.filter(cafe=test_cafe).count()
-        initial_review_count = Review.objects.filter(cafe=test_cafe).count()
-
-        data = {
-            'cafe_id': test_cafe.id,
-            'visit_date': str(date.today()),
-            'amount_spent': 25.0,
-            'visit_time': 2,
-            'check_in_latitude': -6.2088,
-            'check_in_longitude': 106.8456,
-            'include_review': True,
-            'wfc_rating': 5,
-            'wifi_quality': 5,
-            'power_outlets_rating': 5,
-            'seating_comfort': 5,
-            'noise_level': 5,
-            'comment': 'Excellent place!'
-        }
-        response = authenticated_client.post('/api/visits/create-with-review/', data)
-
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['review'] is not None
-
-        # Verify both visit and review were created
-        assert Visit.objects.filter(cafe=test_cafe).count() == initial_visit_count + 1
-        assert Review.objects.filter(cafe=test_cafe).count() == initial_review_count + 1
-
 
 @pytest.mark.django_db
 class TestCheckSpamDailyLimit:

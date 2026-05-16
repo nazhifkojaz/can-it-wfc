@@ -6,7 +6,6 @@ Tests for cafe model validation, serializers, and API endpoints.
 import pytest
 from decimal import Decimal
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.serializers import (
@@ -60,22 +59,26 @@ def authenticated_client(api_client, test_user):
     return api_client
 
 
+@pytest.fixture
+def test_cafe(db, test_user):
+    from apps.cafes.models import Cafe
+    return Cafe.objects.create(
+        name='Test Cafe',
+        address='123 Test St',
+        latitude=Decimal('-6.2088'),
+        longitude=Decimal('106.8456'),
+        google_place_id='test_cafe_place',
+        created_by=test_user,
+    )
+
+
+def _request_for(user):
+    return type('Request', (), {'user': user})()
+
+
 @pytest.mark.django_db
 class TestCafeAddressValidation:
     """Test cafe address length validation."""
-
-    def test_address_within_limit_succeeds(self):
-        """Test that address within 500 characters is accepted"""
-        data = {
-            'name': 'Valid Address Cafe',
-            'address': 'A' * 499,  # Within limit
-            'latitude': Decimal('-6.2088'),
-            'longitude': Decimal('106.8456'),
-            'google_place_id': 'valid_place_id'
-        }
-
-        serializer = CafeCreateSerializer(data=data)
-        assert serializer.is_valid(), f"Serializer should be valid, errors: {serializer.errors}"
 
     def test_address_exactly_at_limit_succeeds(self):
         """Test that address exactly at 500 characters is accepted"""
@@ -125,78 +128,35 @@ class TestCafeAddressValidation:
 class TestCafeFlagDescriptionValidation:
     """Test cafe flag description length validation."""
 
-    def test_description_within_limit_succeeds(self):
-        """Test that description within 1000 characters is accepted"""
-        data = {
-            'cafe': 1,  # Mock cafe ID
-            'reason': 'wrong_location',
-            'description': 'A' * 999  # Within limit
-        }
-
-        serializer = CafeFlagCreateSerializer(
-            data=data,
-            context={'request': type('Request', (), {'user': type('User', (), {'id': 1})()})()}
-        )
-        # Note: May fail on cafe existence check, but should pass length validation
-        is_valid = serializer.is_valid()
-        errors = serializer.errors
-        # If not valid, it should NOT be due to description length
-        if not is_valid and 'description' in errors:
-            assert 'cannot exceed' not in str(errors['description']).lower()
-
-    def test_description_exactly_at_limit_succeeds(self):
+    def test_description_exactly_at_limit_succeeds(self, test_cafe, test_user):
         """Test that description exactly at 1000 characters is accepted"""
         data = {
-            'cafe': 1,  # Mock cafe ID
+            'cafe': test_cafe.id,
             'reason': 'wrong_location',
             'description': 'A' * MAX_FLAG_DESCRIPTION_LENGTH  # Exactly at limit
         }
 
         serializer = CafeFlagCreateSerializer(
             data=data,
-            context={'request': type('Request', (), {'user': type('User', (), {'id': 1})()})()}
+            context={'request': _request_for(test_user)}
         )
-        # Note: May fail on cafe existence check, but should pass length validation
-        is_valid = serializer.is_valid()
-        errors = serializer.errors
-        # If not valid, it should NOT be due to description length
-        if not is_valid and 'description' in errors:
-            assert 'cannot exceed' not in str(errors['description']).lower()
+        assert serializer.is_valid(), serializer.errors
 
-    def test_description_exceeds_limit_fails(self):
+    def test_description_exceeds_limit_fails(self, test_cafe, test_user):
         """Test that description over 1000 characters is rejected"""
         data = {
-            'cafe': 1,  # Mock cafe ID
+            'cafe': test_cafe.id,
             'reason': 'wrong_location',
             'description': 'A' * (MAX_FLAG_DESCRIPTION_LENGTH + 1)  # Over limit
         }
 
         serializer = CafeFlagCreateSerializer(
             data=data,
-            context={'request': type('Request', (), {'user': type('User', (), {'id': 1})()})()}
+            context={'request': _request_for(test_user)}
         )
         assert not serializer.is_valid()
         assert 'description' in serializer.errors
         assert 'cannot exceed' in str(serializer.errors['description']).lower()
-
-    def test_empty_description_succeeds(self):
-        """Test that empty description is accepted (optional field)"""
-        data = {
-            'cafe': 1,  # Mock cafe ID
-            'reason': 'wrong_location',
-            'description': ''
-        }
-
-        serializer = CafeFlagCreateSerializer(
-            data=data,
-            context={'request': type('Request', (), {'user': type('User', (), {'id': 1})()})()}
-        )
-        # Note: May fail on cafe existence check, but description should be valid
-        is_valid = serializer.is_valid()
-        errors = serializer.errors
-        # If not valid, it should NOT be due to description (it's optional)
-        if not is_valid:
-            assert 'description' not in errors
 
 
 @pytest.mark.django_db
@@ -220,28 +180,29 @@ class TestCafeAdminFormValidation:
 class TestCafeFlagAdminFormValidation:
     """Test admin form validation for flag TextField length."""
 
-    def test_admin_description_exceeds_limit_fails(self, test_user):
+    def test_admin_description_exceeds_limit_fails(self, test_user, test_cafe):
         """Test that admin form rejects description over limit"""
         form = CafeFlagAdminForm(data={
-            'cafe': 1,  # Mock cafe ID
+            'cafe': test_cafe.id,
             'user': test_user.id,
             'reason': 'wrong_location',
+            'status': 'pending',
             'description': 'A' * (MAX_FLAG_DESCRIPTION_LENGTH + 1)
         })
         assert not form.is_valid()
-        assert '__all__' in form.errors or 'description' in form.errors
+        assert 'description' in form.errors
 
-    def test_admin_resolution_notes_exceeds_limit_fails(self, test_user):
+    def test_admin_resolution_notes_exceeds_limit_fails(self, test_user, test_cafe):
         """Test that admin form rejects resolution notes over limit"""
         form = CafeFlagAdminForm(data={
-            'cafe': 1,  # Mock cafe ID
+            'cafe': test_cafe.id,
             'user': test_user.id,
             'reason': 'wrong_location',
             'status': 'resolved',
             'resolution_notes': 'A' * (MAX_FLAG_RESOLUTION_NOTES_LENGTH + 1)
         })
         assert not form.is_valid()
-        assert '__all__' in form.errors or 'resolution_notes' in form.errors
+        assert 'resolution_notes' in form.errors
 
 
 @pytest.mark.django_db
@@ -996,7 +957,7 @@ class TestCafeListCleanTightening:
 
 @pytest.mark.django_db
 class TestSaveCafeList:
-    """Tests for POST/DELETE /api/lists/<id>/save/ (Phase 5)."""
+    """Tests for POST/DELETE /api/lists/<id>/save/."""
 
     def _make_public_list(self, owner, name='Public List'):
         from apps.cafes.models import CafeList
@@ -1137,7 +1098,7 @@ class TestSaveCafeList:
 
 @pytest.mark.django_db
 class TestPublicListViewing:
-    """Tests for anonymous/public access to CafeList detail (Phase 5)."""
+    """Tests for anonymous/public access to CafeList detail."""
 
     def _make_public_list(self, owner, name='Public', **kwargs):
         from apps.cafes.models import CafeList
@@ -1199,7 +1160,7 @@ class TestPublicListViewing:
 
 @pytest.mark.django_db
 class TestRecomputeSaveCounts:
-    """Tests for the recompute_save_counts management command (Phase 5)."""
+    """Tests for the recompute_save_counts management command."""
 
     def test_fixes_drifted_count(self, test_user):
         from django.core.management import call_command

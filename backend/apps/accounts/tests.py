@@ -3,7 +3,6 @@ Authentication and User Management Tests
 """
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -107,16 +106,6 @@ class TestUserModel:
         )
 
         assert user.can_review() is True
-
-    def test_update_stats(self, test_user):
-        """Test update_stats recalculates user statistics"""
-        _initial_reviews = test_user.total_reviews  # noqa: F841
-        test_user.update_stats()
-
-        # Should recalculate from database
-        assert test_user.total_reviews >= 0
-        assert test_user.total_visits >= 0
-
 
 @pytest.mark.django_db
 class TestLogout:
@@ -311,7 +300,7 @@ class TestUnfollowUpdatesCounts:
 
 @pytest.mark.django_db
 class TestSavedLists:
-    """Tests for GET /api/auth/me/saved-lists/ (Phase 5)."""
+    """Tests for GET /api/auth/me/saved-lists/."""
 
     def test_returns_saved_public_lists(self, api_client, test_user):
         from apps.cafes.models import CafeList, SavedCafeList

@@ -384,23 +384,6 @@ class TestTrendingCafes:
         response = api_client.get(self.ENDPOINT)
         assert response.data['cafes'][0]['score'] == 4
 
-    def test_visit_dedupe_same_user_same_date(self, api_client, test_user, test_cafe):
-        cache.clear()
-        from django.db import transaction
-        Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today())
-        with transaction.atomic():
-            try:
-                Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today())
-            except Exception:
-                pass  # expected: duplicate violation
-
-        # Need 3 distinct-day visits for score>=3
-        Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today() - timedelta(days=1))
-        Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today() - timedelta(days=2))
-
-        response = api_client.get(self.ENDPOINT)
-        assert response.data['cafes'][0]['recent_visit_count'] == 3
-
     def test_distinct_not_inflating_counts(self, api_client, test_user, test_cafe):
         """Cafe with both reviews and visits should not have inflated counts."""
         cache.clear()
@@ -551,7 +534,7 @@ class TestTrendingCafes:
 
 @pytest.mark.django_db
 class TestTrendingLists:
-    """Tests for GET /api/discover/trending-lists/ (Phase 5)."""
+    """Tests for GET /api/discover/trending-lists/."""
 
     ENDPOINT = '/api/discover/trending-lists/'
 

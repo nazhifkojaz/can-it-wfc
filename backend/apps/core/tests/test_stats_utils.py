@@ -202,11 +202,15 @@ class TestComputeDayOfWeek:
 @pytest.mark.django_db
 class TestComputeRecentActivity:
     def test_counts_recent_visits(self, cafe, user):
-        today = timezone.now().date()
-        _make_visit(cafe, user, visit_date=today)
+        _make_visit(cafe, user)
+        stale = _make_visit(cafe, user, visit_date=timezone.now().date() - timedelta(days=31))
+        Visit.objects.filter(pk=stale.pk).update(
+            created_at=timezone.now() - timedelta(days=31),
+        )
+
         result = _compute_recent_activity(cafe)
-        assert result is not None
-        assert result['visits_last_30d'] >= 0
+
+        assert result['visits_last_30d'] == 1
         assert 'as_of' in result
 
 

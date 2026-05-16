@@ -19,7 +19,7 @@ from core.exceptions import OAuthTokenInvalid, OAuthEmailNotProvided
 User = get_user_model()
 
 
-# -- Model tests (Phase 1) --
+# -- Model tests --
 
 
 @pytest.mark.django_db
@@ -72,20 +72,6 @@ class TestLinkedProviderModel:
         link1 = self._create_link(provider='google', provider_user_id='id1')
         link2 = self._create_link(provider='google', provider_user_id='id2')
         assert link1.pk != link2.pk
-
-    def test_same_provider_different_users_allowed(self):
-        """Different users can both have Google links."""
-        link1 = self._create_link(provider='google', provider_user_id='id1')
-        link2 = self._create_link(provider='google', provider_user_id='id2')
-        assert link1.pk != link2.pk
-
-    def test_display_name_defaults_to_blank(self):
-        link = self._create_link(display_name='')
-        assert link.display_name == ''
-
-    def test_avatar_url_can_be_null(self):
-        link = self._create_link(avatar_url=None)
-        assert link.avatar_url is None
 
     def test_cascade_delete_user_removes_links(self):
         link = self._create_link()

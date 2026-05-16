@@ -42,8 +42,8 @@ class TestOAuthLoginView:
             assert 'access_token' in response.cookies
             assert 'refresh_token' in response.cookies
 
-    def test_oauth_login_creates_new_user(self, api_client, disable_throttle, django_user_model):
-        """Test OAuth login creates new user when email doesn't exist."""
+    def test_oauth_login_returns_created_flag_from_service(self, api_client, disable_throttle, django_user_model):
+        """Test OAuth login response preserves the service-created flag."""
         new_user = django_user_model.objects.create_user(
             username='newuser',
             email='new@example.com',
