@@ -11,22 +11,6 @@ from apps.accounts.models import Follow
 User = get_user_model()
 
 
-@pytest.fixture
-def api_client():
-    """Create API client for tests"""
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    """Create a test user"""
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123'
-    )
-
-
 @pytest.mark.django_db
 class TestUserProfile:
     """Test user profile endpoints"""

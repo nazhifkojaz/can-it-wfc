@@ -6,7 +6,6 @@ Tests for cafe model validation, serializers, and API endpoints.
 import pytest
 from decimal import Decimal
 from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.serializers import (
     CafeCreateSerializer,
@@ -22,54 +21,6 @@ User = get_user_model()
 MAX_CAFE_ADDRESS_LENGTH = 500
 MAX_FLAG_DESCRIPTION_LENGTH = 1000
 MAX_FLAG_RESOLUTION_NOTES_LENGTH = 1000
-
-
-@pytest.fixture
-def api_client():
-    """Create API client for tests"""
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    """Create a test user"""
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123'
-    )
-
-
-@pytest.fixture
-def test_admin(db):
-    """Create a test admin user"""
-    admin = User.objects.create_user(
-        username='adminuser',
-        email='admin@example.com',
-        password='adminpass123',
-        is_staff=True
-    )
-    return admin
-
-
-@pytest.fixture
-def authenticated_client(api_client, test_user):
-    """Create authenticated API client"""
-    api_client.force_authenticate(user=test_user)
-    return api_client
-
-
-@pytest.fixture
-def test_cafe(db, test_user):
-    from apps.cafes.models import Cafe
-    return Cafe.objects.create(
-        name='Test Cafe',
-        address='123 Test St',
-        latitude=Decimal('-6.2088'),
-        longitude=Decimal('106.8456'),
-        google_place_id='test_cafe_place',
-        created_by=test_user,
-    )
 
 
 def _request_for(user):

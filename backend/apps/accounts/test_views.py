@@ -5,14 +5,7 @@ Tests mock the external OAuth service.
 """
 import pytest
 from unittest.mock import patch
-from rest_framework.test import APIClient
 from rest_framework import status
-
-
-@pytest.fixture
-def api_client():
-    """Create API client for tests"""
-    return APIClient()
 
 
 @pytest.mark.django_db

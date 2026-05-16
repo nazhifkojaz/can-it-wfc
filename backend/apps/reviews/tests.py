@@ -6,48 +6,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import override_settings
-from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.models import Cafe
 from apps.reviews.models import Visit, Review
 
 User = get_user_model()
-
-
-@pytest.fixture
-def api_client():
-    """Create API client for tests"""
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    """Create a test user"""
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123'
-    )
-
-
-@pytest.fixture
-def test_cafe(db, test_user):
-    """Create a test cafe"""
-    return Cafe.objects.create(
-        name='Test Cafe',
-        address='123 Test St, Jakarta',
-        latitude=Decimal('-6.2088'),
-        longitude=Decimal('106.8456'),
-        google_place_id='test_place_123',
-        created_by=test_user
-    )
-
-
-@pytest.fixture
-def authenticated_client(api_client, test_user):
-    """Create authenticated API client"""
-    api_client.force_authenticate(user=test_user)
-    return api_client
 
 
 @pytest.mark.django_db

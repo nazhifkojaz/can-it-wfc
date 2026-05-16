@@ -4,44 +4,11 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.cache import cache
-from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.models import Cafe, CafeList, CafeListItem
 from apps.reviews.models import Review, Visit
 
 User = get_user_model()
-
-
-@pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123',
-    )
-
-
-@pytest.fixture
-def test_cafe(db, test_user):
-    return Cafe.objects.create(
-        name='Coffee Lab',
-        address='Jl. Senopati, Jakarta Selatan',
-        latitude=Decimal('-6.2088'),
-        longitude=Decimal('106.8456'),
-        google_place_id='place_1',
-        created_by=test_user,
-    )
-
-
-@pytest.fixture
-def authenticated_client(api_client, test_user):
-    api_client.force_authenticate(user=test_user)
-    return api_client
 
 
 def _make_review(user, cafe, wfc_rating=4, comment='Great place', visit_time=None):
