@@ -250,6 +250,42 @@
   background: var(--neo-gray-400);
 }
 
+.legendSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legendSectionTitle {
+  font-size: 10px;
+  font-weight: var(--neo-font-black);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--neo-gray-500);
+}
+
+.legendDivider {
+  height: 1px;
+  background: var(--neo-gray-200);
+  margin: 8px 0;
+}
+
+.legendTypeCircle {
+  background: var(--neo-gray-300);
+  border-radius: 50%;
+}
+
+.legendTypeSquare {
+  background: var(--neo-gray-300);
+  border-radius: 1px;
+}
+
+.legendTypeBook {
+  background: var(--neo-gray-300);
+  border-radius: 1px;
+  box-shadow: -4px 0 0 var(--neo-black), 4px 0 0 var(--neo-black);
+}
+
 /* ================================
    Map Loading and Error - Neobrutalism
    ================================ */

@@ -1,5 +1,6 @@
 import { X, RotateCcw } from 'lucide-react';
 import { CafeFilters } from '../../types/filters';
+import { PlaceCategory } from '../../types';
 import { PRICE_RANGE_LABELS } from '../../config/constants';
 import styles from './FilterPanel.module.css';
 
@@ -21,6 +22,12 @@ const MIN_REVIEWS_OPTIONS = [
 
 const PRICE_OPTIONS = Object.entries(PRICE_RANGE_LABELS).map(([v, l]) => ({ value: Number(v), label: l }));
 
+const PLACE_TYPE_OPTIONS: { value: PlaceCategory; label: string }[] = [
+  { value: 'cafe', label: 'Cafes' },
+  { value: 'coworking_space', label: 'Coworking spaces' },
+  { value: 'library', label: 'Libraries' },
+];
+
 export function FilterPanel({
   filters,
   setFilter,
@@ -32,6 +39,14 @@ export function FilterPanel({
     const current = filters.price ?? [];
     const next = current.includes(p) ? current.filter(v => v !== p) : [...current, p];
     setFilter('price', next.length > 0 ? next : undefined);
+  };
+
+  const togglePlaceCategory = (cat: PlaceCategory) => {
+    const current = filters.place_categories ?? ['cafe'];
+    const next = current.includes(cat)
+      ? current.filter(c => c !== cat)
+      : [...current, cat];
+    setFilter('place_categories', next.length > 0 ? next : ['cafe']);
   };
 
   return (
@@ -144,6 +159,27 @@ export function FilterPanel({
               checked={filters.include_unregistered}
               onChange={v => setFilter('include_unregistered', v)}
             />
+          </section>
+
+          <div className={styles.divider} />
+
+          {/* Place Types */}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Place Types</h3>
+            <div className={styles.pillRow}>
+              {PLACE_TYPE_OPTIONS.map(opt => {
+                const selected = (filters.place_categories ?? ['cafe']).includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    className={`${styles.pill} ${selected ? styles.pillSelected : ''}`}
+                    onClick={() => togglePlaceCategory(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </section>
         </div>
 

@@ -64,11 +64,6 @@ const visitReviewValidation = {
     }
     return null;
   },
-
-    validateReviewFields: (_includeReview: boolean, _wfcRating: number): string | null => {
-      // wfcRating is auto-computed, so this check is no longer needed
-      return null;
-    }
 };
 
 interface AddVisitReviewModalProps {
@@ -261,24 +256,21 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     if (amountError) validationErrors.push(amountError);
 
     // Validate review fields if review is included
-      if (includeReview) {
-        const reviewError = visitReviewValidation.validateReviewFields(includeReview, form.wfcRating);
-        if (reviewError) validationErrors.push(reviewError);
+    if (includeReview) {
+      const commentError = visitReviewValidation.validateComment(form.comment);
+      if (commentError) validationErrors.push(commentError);
 
-        const commentError = visitReviewValidation.validateComment(form.comment);
-        if (commentError) validationErrors.push(commentError);
-
-        const ratingErrors = [
-          visitReviewValidation.validateRating(form.wifi_quality, 'WiFi quality'),
-          visitReviewValidation.validateRating(form.seating_comfort, 'Seating comfort'),
-          visitReviewValidation.validateRating(form.noise_level, 'Noise level'),
-        ];
-        if (form.power_outlets_rating !== undefined) {
-          ratingErrors.push(visitReviewValidation.validateRating(form.power_outlets_rating, 'Power outlets'));
-        }
-
-        validationErrors.push(...ratingErrors.filter(Boolean) as string[]);
+      const ratingErrors = [
+        visitReviewValidation.validateRating(form.wifi_quality, 'WiFi quality'),
+        visitReviewValidation.validateRating(form.seating_comfort, 'Seating comfort'),
+        visitReviewValidation.validateRating(form.noise_level, 'Noise level'),
+      ];
+      if (form.power_outlets_rating !== undefined) {
+        ratingErrors.push(visitReviewValidation.validateRating(form.power_outlets_rating, 'Power outlets'));
       }
+
+      validationErrors.push(...ratingErrors.filter(Boolean) as string[]);
+    }
 
     // Show validation errors if any
     if (validationErrors.length > 0) {
@@ -332,6 +324,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         visitReviewData.cafe_address = selectedCafe.address;
         visitReviewData.cafe_latitude = lat.toFixed(8);
         visitReviewData.cafe_longitude = lng.toFixed(8);
+        visitReviewData.place_category = selectedCafe.place_category;
       }
 
       if (includeReview) {

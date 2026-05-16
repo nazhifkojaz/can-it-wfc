@@ -234,6 +234,11 @@
   color: #059669;
 }
 
+.resultBadgeCategory {
+  background-color: #ffedd5;
+  color: #9a3412;
+}
+
 .resultAddress {
   font-size: 13px;
   color: #6b7280;

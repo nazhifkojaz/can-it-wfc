@@ -7,6 +7,34 @@
   margin-bottom: 12px;
 }
 
+.categoryBadge {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  background: var(--neo-primary-light, #FFEDD5);
+  color: var(--neo-black);
+  border: var(--neo-border-width-thin, 2px) solid var(--neo-black);
+  border-radius: var(--neo-border-radius, 4px);
+  font-size: 12px;
+  font-weight: var(--neo-font-bold, 700);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
+.disclaimer {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--neo-accent-light, #FEF9C3);
+  border: var(--neo-border-width-thin, 2px) solid var(--neo-black);
+  border-radius: var(--neo-border-radius, 4px);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neo-gray-800);
+  line-height: 1.5;
+  box-shadow: 2px 2px 0 var(--neo-black);
+}
+
 .cafeName {
   font-size: 24px;
   font-weight: var(--neo-font-black);

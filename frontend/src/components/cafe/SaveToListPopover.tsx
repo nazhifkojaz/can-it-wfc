@@ -6,6 +6,7 @@ import type { Cafe } from '../../types';
 import { listApi } from '../../api/client';
 import { extractApiError } from '../../utils/errorUtils';
 import { ListIcon, AVAILABLE_LIST_ICONS as AVAILABLE_ICONS } from '../../utils/listIcons';
+import { logger } from '../../utils/logger';
 import styles from './SaveToListPopover.module.css';
 
 interface SaveToListPopoverProps {
@@ -31,6 +32,20 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
     setTimeout(() => setErrorMessage(null), 4000);
   };
 
+  const buildRegistrationPayload = () => ({
+    google_place_id: cafe.google_place_id || '',
+    cafe_name: cafe.name,
+    cafe_address: cafe.address,
+    cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
+    cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
+    place_category: cafe.place_category,
+  });
+
+  const invalidateAfterRegistration = () => {
+    queryClient.invalidateQueries({ queryKey: ['cafes'] });
+    queryClient.invalidateQueries({ queryKey: ['lists'] });
+  };
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
@@ -44,52 +59,53 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
   const handleToggle = async (listId: number, inList: boolean) => {
     setPendingListId(listId);
     try {
-        if (!cafe.is_registered) {
-          // Auto-register and add to list
-          await listApi.addItemWithRegistration(listId, {
-            google_place_id: cafe.google_place_id || '',
-            cafe_name: cafe.name,
-            cafe_address: cafe.address,
-            cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
-            cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
-          });
-          // After registration, invalidate queries so nearby cafes/markers update
-          queryClient.invalidateQueries({ queryKey: ['cafes'] });
-          queryClient.invalidateQueries({ queryKey: ['lists'] });
-          onClose();
+      if (!cafe.is_registered) {
+        await listApi.addItemWithRegistration(listId, buildRegistrationPayload());
+        invalidateAfterRegistration();
+        onClose();
       } else {
         await toggleInList(listId, inList);
       }
     } catch (error) {
       const apiError = extractApiError(error);
       showError(apiError.message || 'Failed to update list');
-      console.error('Failed to toggle list:', apiError.message);
+      logger.error('Failed to toggle list', apiError, 'SaveToListPopover');
     } finally {
       setPendingListId(null);
     }
   };
 
   const handleToggleFavorites = async () => {
-      if (!cafe.is_registered) {
-        try {
-          await listApi.addToFavoritesWithRegistration({
-            google_place_id: cafe.google_place_id || '',
-            cafe_name: cafe.name,
-            cafe_address: cafe.address,
-            cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
-            cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
-          });
-          queryClient.invalidateQueries({ queryKey: ['cafes'] });
-          queryClient.invalidateQueries({ queryKey: ['lists'] });
-          onClose();
-        } catch (error) {
-          const apiError = extractApiError(error);
-          showError(apiError.message || 'Failed to add to favorites');
-          console.error('Failed to add to favorites:', apiError.message);
-        }
-        return;
+    if (!cafe.is_registered) {
+      try {
+        await listApi.addToFavoritesWithRegistration(buildRegistrationPayload());
+        invalidateAfterRegistration();
+        onClose();
+      } catch (error) {
+        const apiError = extractApiError(error);
+        showError(apiError.message || 'Failed to add to favorites');
+        logger.error('Failed to add to favorites', apiError, 'SaveToListPopover');
       }
+      return;
+    }
     await toggleFavorites();
+  };
+
+  const handleToggleToGo = async () => {
+    if (!cafe.is_registered) {
+      try {
+        await listApi.addToToGoWithRegistration(buildRegistrationPayload());
+        invalidateAfterRegistration();
+        onClose();
+      } catch (error) {
+        const apiError = extractApiError(error);
+        showError(apiError.message || 'Failed to add to to-go');
+        logger.error('Failed to add to to-go', apiError, 'SaveToListPopover');
+      }
+      return;
+    }
+    await toggleToGo();
+    onClose();
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -145,25 +161,7 @@ const SaveToListPopover: React.FC<SaveToListPopoverProps> = ({ cafe, onClose }) 
               className={`${styles.listRow} ${pendingListId === toGoMembership.id ? styles.saving : ''}`}
               onClick={async () => {
                 if (isToggling) return;
-                if (!cafe.is_registered) {
-                  try {
-                    await listApi.addToToGoWithRegistration({
-                      google_place_id: cafe.google_place_id || '',
-                      cafe_name: cafe.name,
-                      cafe_address: cafe.address,
-                      cafe_latitude: parseFloat(cafe.latitude).toFixed(8),
-                      cafe_longitude: parseFloat(cafe.longitude).toFixed(8),
-                    });
-                    queryClient.invalidateQueries({ queryKey: ['cafes'] });
-                    queryClient.invalidateQueries({ queryKey: ['lists'] });
-                  } catch (err) {
-                    showError(extractApiError(err).message || 'Failed to add to to-go');
-                    console.error('Failed to add to to-go:', extractApiError(err).message);
-                  }
-                } else {
-                  await toggleToGo();
-                }
-                onClose();
+                await handleToggleToGo();
               }}
             >
               <div className={`${styles.checkbox} ${toGoMembership.in_list ? styles.checked : ''}`}>

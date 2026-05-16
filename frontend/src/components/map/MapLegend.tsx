@@ -25,18 +25,42 @@ const MapLegend: React.FC = () => {
               <ChevronDown size={20} />
             </button>
           </div>
-          <div className={styles.legendItems}>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendMarker} ${styles.markerGreen}`}></div>
-              <span>Visited & Reviewed</span>
+
+          <div className={styles.legendSection}>
+            <span className={styles.legendSectionTitle}>Status</span>
+            <div className={styles.legendItems}>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendMarker} ${styles.markerGreen}`}></div>
+                <span>Reviewed on WFC</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendMarker} ${styles.markerBlue}`}></div>
+                <span>Added to WFC, no reviews</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendMarker} ${styles.markerGray}`}></div>
+                <span>From Google, not verified</span>
+              </div>
             </div>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendMarker} ${styles.markerBlue}`}></div>
-              <span>Visited (No review)</span>
-            </div>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendMarker} ${styles.markerGray}`}></div>
-              <span>Not visited yet</span>
+          </div>
+
+          <div className={styles.legendDivider} />
+
+          <div className={styles.legendSection}>
+            <span className={styles.legendSectionTitle}>Place type</span>
+            <div className={styles.legendItems}>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendMarker} ${styles.legendTypeCircle}`}></div>
+                <span>Cafe</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendMarker} ${styles.legendTypeSquare}`}></div>
+                <span>Coworking space</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendMarker} ${styles.legendTypeBook}`}></div>
+                <span>Library</span>
+              </div>
             </div>
           </div>
         </div>

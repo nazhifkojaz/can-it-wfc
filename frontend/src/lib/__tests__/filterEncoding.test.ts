@@ -54,6 +54,27 @@ describe('filtersToApiParams', () => {
     ).toBe(false);
   });
 
+  it('omits categories when default (cafe only)', () => {
+    expect(filtersToApiParams(DEFAULT_FILTERS).categories).toBeUndefined();
+    expect(filtersToApiParams({ ...DEFAULT_FILTERS, place_categories: ['cafe'] }).categories).toBeUndefined();
+  });
+
+  it('includes categories when non-default', () => {
+    const result = filtersToApiParams({
+      ...DEFAULT_FILTERS,
+      place_categories: ['cafe', 'coworking_space', 'library'],
+    });
+    expect(result.categories).toBe('cafe,coworking_space,library');
+  });
+
+  it('includes categories when cafe is deselected', () => {
+    const result = filtersToApiParams({
+      ...DEFAULT_FILTERS,
+      place_categories: ['library'],
+    });
+    expect(result.categories).toBe('library');
+  });
+
   it('handles multiple filters together', () => {
     const result = filtersToApiParams({
       ...DEFAULT_FILTERS,
@@ -128,6 +149,32 @@ describe('paramsToFilters', () => {
     const decoded = paramsToFilters(new URLSearchParams(params));
     expect(decoded).toEqual(original);
   });
+
+  it('parses categories comma-separated string', () => {
+    const params = new URLSearchParams('categories=cafe,coworking_space,library');
+    expect(paramsToFilters(params).place_categories).toEqual(['cafe', 'coworking_space', 'library']);
+  });
+
+  it('filters out invalid category values', () => {
+    const params = new URLSearchParams('categories=cafe,bakery,library');
+    expect(paramsToFilters(params).place_categories).toEqual(['cafe', 'library']);
+  });
+
+  it('defaults categories to cafe when param absent', () => {
+    expect(paramsToFilters(new URLSearchParams()).place_categories).toEqual(['cafe']);
+  });
+
+  it('round-trips categories encode then decode', () => {
+    const original = { ...DEFAULT_FILTERS, place_categories: ['cafe', 'library'] };
+    const params = filtersToParams(original);
+    const decoded = paramsToFilters(new URLSearchParams(params));
+    expect(decoded.place_categories).toEqual(['cafe', 'library']);
+  });
+
+  it('deduplicates parsed categories', () => {
+    const params = new URLSearchParams('categories=cafe,cafe,library');
+    expect(paramsToFilters(params).place_categories).toEqual(['cafe', 'library']);
+  });
 });
 
 describe('getActiveChips', () => {
@@ -164,6 +211,24 @@ describe('getActiveChips', () => {
     expect(priceChip).toBeDefined();
     expect(priceChip!.label).toContain('$');
     expect(priceChip!.label).toContain('$$$');
+  });
+
+  it('does not show category chip for default cafe-only', () => {
+    const chips = getActiveChips({ ...DEFAULT_FILTERS, place_categories: ['cafe'] });
+    expect(chips.find(c => c.key === 'place_categories')).toBeUndefined();
+  });
+
+  it('shows category chip when multiple place types selected', () => {
+    const chips = getActiveChips({ ...DEFAULT_FILTERS, place_categories: ['cafe', 'coworking_space'] });
+    const chip = chips.find(c => c.key === 'place_categories');
+    expect(chip).toBeDefined();
+    expect(chip!.label).toContain('Cafe');
+    expect(chip!.label).toContain('Coworking');
+  });
+
+  it('shows category chip when cafe is deselected', () => {
+    const chips = getActiveChips({ ...DEFAULT_FILTERS, place_categories: ['library'] });
+    expect(chips).toContainEqual({ key: 'place_categories', label: 'Types: Library' });
   });
 
   it('includes all categories together', () => {

@@ -25,6 +25,7 @@ import {
   CafeListUpdate,
   SaveListResponse,
   SavedListsResponse,
+  PlaceCategory,
 } from '../types';
 import { CafeInsightsResponse } from '../types/insights';
 import type {
@@ -332,6 +333,7 @@ export const listApi = {
       cafe_address: string;
       cafe_latitude: string;
       cafe_longitude: string;
+      place_category?: PlaceCategory;
       note?: string;
     }
   ) => post<CafeListItem>(`/lists/${listId}/items/`, data),
@@ -342,6 +344,7 @@ export const listApi = {
     cafe_address: string;
     cafe_latitude: string;
     cafe_longitude: string;
+    place_category?: PlaceCategory;
   }) => post<CafeListItem>('/lists/to-go/items/', data),
   addToFavoritesWithRegistration: (data: {
     google_place_id: string;
@@ -349,6 +352,7 @@ export const listApi = {
     cafe_address: string;
     cafe_latitude: string;
     cafe_longitude: string;
+    place_category?: PlaceCategory;
   }) => post<CafeListItem>('/lists/favorites/items/', data),
 
   // Membership — powers the save-to-list popover state

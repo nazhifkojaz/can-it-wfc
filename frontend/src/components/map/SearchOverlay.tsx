@@ -220,7 +220,7 @@ function SearchResultItem({
   onSelect: (result: SearchResult) => void;
 }) {
   const isLocation = result.result_type === 'location';
-  const isCafe = result.result_type === 'cafe';
+  const isPlace = !isLocation;
   const iconColor = isLocation
     ? styles.resultIconLocation
     : (result.is_registered ? styles.resultIconRegistered : styles.resultIconNew);
@@ -241,10 +241,15 @@ function SearchResultItem({
       <div className={styles.resultContent}>
         <div className={styles.resultHeader}>
           <h3 className={styles.resultName}>{result.name}</h3>
-          {!result.is_registered && isCafe && (
+          {isPlace && result.place_category_label && (
+            <span className={`${styles.resultBadge} ${styles.resultBadgeCategory}`}>
+              {result.place_category_label}
+            </span>
+          )}
+          {!result.is_registered && isPlace && (
             <span className={styles.resultBadge}>NEW</span>
           )}
-          {result.is_registered && isCafe && (
+          {result.is_registered && isPlace && (
             <span className={`${styles.resultBadge} ${styles.resultBadgeRegistered}`}>
               REGISTERED
             </span>

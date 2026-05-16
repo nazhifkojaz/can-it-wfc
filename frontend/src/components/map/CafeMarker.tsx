@@ -1,7 +1,7 @@
 import React from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import { Icon, LatLngExpression } from 'leaflet';
-import { Cafe } from '../../types';
+import { Cafe, PlaceCategory } from '../../types';
 import { formatDistance } from '../../utils/formatters';
 
 interface CafeMarkerProps {
@@ -10,12 +10,26 @@ interface CafeMarkerProps {
 }
 
 // Create custom brutalist markers with thick borders
-const createMarkerIcon = (color: string) => {
+// Category shape inside the pin center circle → distinct visual per place type
+const CATEGORY_SHAPES: Record<PlaceCategory, string> = {
+  cafe: `<circle cx="12" cy="8" r="4" fill="white" stroke="black" stroke-width="2"/>`,
+  coworking_space: `<rect x="8.5" y="6" width="7" height="6" rx="0.5" fill="white" stroke="black" stroke-width="2"/>`,
+  library: `<rect x="8.5" y="6" width="3" height="6" rx="0.5" fill="white" stroke="black" stroke-width="2"/><rect x="12.5" y="6" width="3" height="6" rx="0.5" fill="white" stroke="black" stroke-width="2"/>`,
+};
+
+const CATEGORY_LABELS: Record<PlaceCategory, string> = {
+  cafe: 'Cafe',
+  coworking_space: 'Coworking space',
+  library: 'Library',
+};
+
+const createMarkerIcon = (color: string, category: PlaceCategory = 'cafe') => {
+  const shape = CATEGORY_SHAPES[category] || CATEGORY_SHAPES.cafe;
   return new Icon({
     iconUrl: `data:image/svg+xml;utf8,${encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 28 40" width="32" height="48">
         <path fill="${color}" stroke="black" stroke-width="3" d="M12 0C7.589 0 4 3.589 4 8c0 7 8 20 8 20s8-13 8-20c0-4.411-3.589-8-8-8z"/>
-        <circle cx="12" cy="8" r="4" fill="white" stroke="black" stroke-width="2"/>
+        ${shape}
       </svg>
     `)}`,
     iconSize: [32, 48],
@@ -47,7 +61,8 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
   ];
 
   const markerColor = getMarkerColor(cafe);
-  const icon = createMarkerIcon(markerColor);
+  const category = (cafe.place_category as PlaceCategory) || 'cafe';
+  const icon = createMarkerIcon(markerColor, category);
 
   const getRatingDisplay = () => {
     if (cafe.is_registered && cafe.average_wfc_rating) {
@@ -68,6 +83,10 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
       <Popup>
         <div className="cafe-popup">
           <h3 className="popup-title">{cafe.name}</h3>
+
+          <span className="popup-badge popup-category-badge">
+            {CATEGORY_LABELS[category]}
+          </span>
 
           {!cafe.is_registered && (
             <span className="popup-badge">Not yet in WFC</span>
@@ -193,6 +212,11 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
             box-shadow: 2px 2px 0 var(--neo-black, #000);
           }
 
+          .popup-category-badge {
+            background: var(--neo-primary-light, #FFEDD5);
+            color: var(--neo-black, #000);
+          }
+
           .status-open {
             color: var(--neo-success, #10B981);
             font-weight: var(--neo-font-bold, 700);
@@ -232,7 +256,8 @@ const CafeMarker: React.FC<CafeMarkerProps> = React.memo(({ cafe, onClick }) => 
     prevProps.cafe.updated_at === nextProps.cafe.updated_at &&
     prevProps.cafe.total_reviews === nextProps.cafe.total_reviews &&
     prevProps.cafe.average_wfc_rating === nextProps.cafe.average_wfc_rating &&
-    prevProps.cafe.is_registered === nextProps.cafe.is_registered
+    prevProps.cafe.is_registered === nextProps.cafe.is_registered &&
+    prevProps.cafe.place_category === nextProps.cafe.place_category
   );
 });
 

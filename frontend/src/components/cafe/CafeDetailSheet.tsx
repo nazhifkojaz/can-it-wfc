@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapPin, Bookmark, Star, Flag, ChevronDown } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
-import { Cafe, Review } from '../../types';
+import { Cafe, Review, PlaceCategory } from '../../types';
 import { Sheet, Loading, EmptyState, SharedResultModal } from '../common';
 import { useReviews, useCafeLists, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,6 +26,17 @@ interface CafeDetailSheetProps {
   source?: 'map_marker' | 'list_item' | 'search_result' | 'favorite' | 'direct' | 'discover';
 }
 
+const CATEGORY_LABELS: Record<PlaceCategory, string> = {
+  cafe: 'Cafe',
+  coworking_space: 'Coworking space',
+  library: 'Library',
+};
+
+const NON_CAFE_DISCLAIMERS: Record<string, string> = {
+  coworking_space: 'This is a work-friendly place, not a cafe. Amenities like coffee, food, seating, and power may vary.',
+  library: 'This is a work-friendly place, not a cafe. Amenities like coffee, food, seating, and power may vary.',
+};
+
 const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   cafe: initialCafe,
   isOpen,
@@ -41,6 +52,9 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     isOpen,
     userLocation: location,
   });
+
+  const placeCategory: PlaceCategory = (cafe.place_category as PlaceCategory) || 'cafe';
+  const isNonCafe = placeCategory !== 'cafe';
 
   // Track cafe view once when sheet opens
   const hasTrackedViewRef = useRef(false);
@@ -211,6 +225,25 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Category badge */}
+      <span className={styles.categoryBadge}>
+        {CATEGORY_LABELS[placeCategory]}
+      </span>
+
+      {/* Non-cafe disclaimer */}
+      {isNonCafe && (
+        <div className={styles.disclaimer}>
+          {NON_CAFE_DISCLAIMERS[placeCategory]}
+        </div>
+      )}
+
+      {/* Unregistered Google result disclaimer */}
+      {!cafe.is_registered && (
+        <div className={styles.disclaimer}>
+          This place comes from Google Places and has not been verified by the WFC community yet.
+        </div>
+      )}
 
       {/* Address & Distance */}
       <div className={styles.cafeMeta}>

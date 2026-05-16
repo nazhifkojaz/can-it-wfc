@@ -1,3 +1,5 @@
+import { PlaceCategory } from './index';
+
 export interface CafeFilters {
   min_wifi?: number;           // 1–5, undefined = no filter
   max_noise?: number;          // 1–5, undefined = no filter
@@ -9,6 +11,7 @@ export interface CafeFilters {
   verified: boolean;           // default false
   min_reviews: number;         // default 0
   include_unregistered: boolean; // default true
+  place_categories: PlaceCategory[]; // default: ['cafe']
 }
 
 export const DEFAULT_FILTERS: CafeFilters = {
@@ -16,4 +19,5 @@ export const DEFAULT_FILTERS: CafeFilters = {
   verified: false,
   min_reviews: 0,
   include_unregistered: true,
+  place_categories: ['cafe'],
 };
