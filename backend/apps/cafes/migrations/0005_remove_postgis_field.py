@@ -4,6 +4,14 @@
 from django.db import migrations
 
 
+def remove_postgis_location(apps, schema_editor):
+    if schema_editor.connection.vendor != 'postgresql':
+        return
+
+    schema_editor.execute('DROP INDEX IF EXISTS cafes_location_gist_idx;')
+    schema_editor.execute('ALTER TABLE cafes DROP COLUMN IF EXISTS location;')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,16 +19,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Use raw SQL to remove the PostGIS field and index
-        # This avoids Django trying to interpret the PostGIS field type
-        # when we've already switched to regular PostgreSQL backend
-        migrations.RunSQL(
-            # Forward: Drop index and column
-            sql="""
-                DROP INDEX IF EXISTS cafes_location_gist_idx;
-                ALTER TABLE cafes DROP COLUMN IF EXISTS location;
-            """,
-            # Reverse: Cannot reverse - would require PostGIS
-            reverse_sql=migrations.RunSQL.noop,
+        migrations.RunPython(
+            remove_postgis_location,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]
