@@ -6,6 +6,7 @@ import {
   getActiveChips,
 } from '../filterEncoding';
 import { DEFAULT_FILTERS } from '../../types/filters';
+import type { CafeFilters } from '../../types/filters';
 
 describe('filtersToApiParams', () => {
   it('returns empty object for default filters', () => {
@@ -165,7 +166,7 @@ describe('paramsToFilters', () => {
   });
 
   it('round-trips categories encode then decode', () => {
-    const original = { ...DEFAULT_FILTERS, place_categories: ['cafe', 'library'] };
+    const original: CafeFilters = { ...DEFAULT_FILTERS, place_categories: ['cafe', 'library'] };
     const params = filtersToParams(original);
     const decoded = paramsToFilters(new URLSearchParams(params));
     expect(decoded.place_categories).toEqual(['cafe', 'library']);
