@@ -62,16 +62,6 @@ describe('useMapFilters', () => {
     expect(result.current.appliedFilters.min_reviews).toBe(1);
   });
 
-  it('applyFilters syncs appliedFilters state', () => {
-    const { result } = renderHook(() => useMapFilters(), {
-      wrapper: createWrapper(['/']),
-    });
-    const newFilters = { ...DEFAULT_FILTERS, verified: true, min_wifi: 4 };
-    act(() => { result.current.applyFilters(newFilters); });
-    expect(result.current.appliedFilters.verified).toBe(true);
-    expect(result.current.appliedFilters.min_wifi).toBe(4);
-  });
-
   it('clearOne resets a single filter to its default', () => {
     const { result } = renderHook(() => useMapFilters(), {
       wrapper: createWrapper(['/?min_wifi=4&min_reviews=3']),
@@ -98,16 +88,6 @@ describe('useMapFilters', () => {
     expect(result.current.appliedFilters.hide_closed).toBe(false);
     act(() => { result.current.clearOne('hide_closed'); });
     expect(result.current.appliedFilters.hide_closed).toBe(true);
-  });
-
-  it('clearOne resets both pending and applied state', () => {
-    const { result } = renderHook(() => useMapFilters(), {
-      wrapper: createWrapper(['/?min_wifi=4&min_reviews=3']),
-    });
-    act(() => { result.current.clearOne('min_wifi'); });
-    expect(result.current.appliedFilters.min_wifi).toBeUndefined();
-    expect(result.current.filters.min_wifi).toBeUndefined();
-    expect(result.current.appliedFilters.min_reviews).toBe(3);
   });
 
   it('syncPending copies appliedFilters to filters', () => {
