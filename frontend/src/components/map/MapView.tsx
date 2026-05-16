@@ -30,6 +30,7 @@ interface MapViewProps {
   jumpToLocation?: { lat: number; lng: number } | null;
   tempSearchMarker?: SearchResult | null;
   onSearchClick?: () => void;
+  onRetryLocation?: () => void;
 }
 
 // Component to fly to a location when explicitly requested
@@ -55,7 +56,8 @@ const MapView: React.FC<MapViewProps> = ({
   userLocation,
   jumpToLocation,
   tempSearchMarker,
-  onSearchClick
+  onSearchClick,
+  onRetryLocation
 }) => {
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
@@ -141,8 +143,10 @@ const MapView: React.FC<MapViewProps> = ({
       setFlyTarget([userLocation.lat, userLocation.lng]);
       setFlyTrigger(prev => prev + 1);
       onSearchArea(userLocation);
+    } else if (onRetryLocation) {
+      onRetryLocation();
     }
-  }, [userLocation, onSearchArea]);
+  }, [userLocation, onSearchArea, onRetryLocation]);
 
   const MapResizer = () => {
     const map = useMap();
@@ -226,7 +230,7 @@ const MapView: React.FC<MapViewProps> = ({
           <SearchButton onClick={() => onSearchClick?.()} />
           <FindMyLocationButton
             onClick={handleFindMyLocation}
-            disabled={!userLocation}
+            disabled={!userLocation && !onRetryLocation}
           />
           <ZoomInButton /> {/* Custom Zoom In Button */}
           <ZoomOutButton /> {/* Custom Zoom Out Button */}

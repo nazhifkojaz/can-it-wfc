@@ -92,17 +92,48 @@ export const useGeolocation = (options?: GeolocationOptions) => {
       timeout: 30000, // 30 second timeout to avoid permanently blocking on some browsers
     };
 
+    // Safety timeout: browsers with tracker/ad blocking can silently
+    // suppress the Geolocation API so neither callback ever fires.
+    // This timeout detects that case without waiting forever.
+    let resolved = false;
+    const safetyTimeoutId = setTimeout(() => {
+      if (!resolved) {
+        setState({
+          latitude: null,
+          longitude: null,
+          error: 'Location not available. Your browser may be blocking location access. Check your tracker/ad-blocker settings.',
+          loading: false,
+        });
+      }
+    }, 12000);
+
+    const onResolved = () => {
+      resolved = true;
+      clearTimeout(safetyTimeoutId);
+    };
+
+    const wrappedOnSuccess = (position: GeolocationPosition) => {
+      onResolved();
+      onSuccess(position);
+    };
+
+    const wrappedOnError = (error: GeolocationPositionError) => {
+      onResolved();
+      onError(error);
+    };
+
     // Use watchPosition to automatically handle late permission grants
     // This solves the problem where users click "Allow" after a delay
     const watchId = navigator.geolocation.watchPosition(
-      onSuccess,
-      onError,
+      wrappedOnSuccess,
+      wrappedOnError,
       geoOptions
     );
 
-    // Cleanup - clear watch on unmount
+    // Cleanup - clear watch and safety timeout on unmount
     return () => {
       navigator.geolocation.clearWatch(watchId);
+      clearTimeout(safetyTimeoutId);
     };
   }, [
     options?.enableHighAccuracy,
