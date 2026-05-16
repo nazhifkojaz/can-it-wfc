@@ -17,9 +17,21 @@ class Cafe(models.Model):
     """
     Cafe/Coffee shop model with location and statistics.
     """
+    class PlaceCategory(models.TextChoices):
+        CAFE = 'cafe', 'Cafe'
+        COWORKING_SPACE = 'coworking_space', 'Coworking space'
+        LIBRARY = 'library', 'Library'
+
     # Basic information
     name = models.CharField(max_length=200)
     address = models.TextField()
+    place_category = models.CharField(
+        max_length=32,
+        choices=PlaceCategory.choices,
+        default=PlaceCategory.CAFE,
+        db_index=True,
+        help_text="WFC place category used for discovery and map labeling"
+    )
     
     # Location coordinates
     latitude = models.DecimalField(

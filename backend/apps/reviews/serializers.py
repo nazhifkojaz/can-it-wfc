@@ -120,6 +120,11 @@ class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
     cafe_longitude = serializers.DecimalField(
         max_digits=11, decimal_places=8, write_only=True, required=False
     )
+    place_category = serializers.ChoiceField(
+        choices=Cafe.PlaceCategory.choices,
+        write_only=True,
+        required=False,
+    )
 
     class Meta:
         model = Visit
@@ -140,6 +145,7 @@ class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
             'cafe_address',
             'cafe_latitude',
             'cafe_longitude',
+            'place_category',
         ]
         read_only_fields = ['id', 'user', 'created_at']
     
@@ -160,6 +166,8 @@ class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
                 'latitude': attrs['cafe_latitude'],
                 'longitude': attrs['cafe_longitude'],
             }
+            if attrs.get('place_category'):
+                cafe_data['place_category'] = attrs['place_category']
 
             try:
                 cafe, created = CafeService.get_or_create_from_google(
@@ -191,6 +199,7 @@ class VisitSerializer(CafeVisitValidationMixin, serializers.ModelSerializer):
         validated_data.pop('cafe_address', None)
         validated_data.pop('cafe_latitude', None)
         validated_data.pop('cafe_longitude', None)
+        validated_data.pop('place_category', None)
 
         cafe = validated_data.pop('cafe_id')
         validated_data['cafe'] = cafe
@@ -502,6 +511,10 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
     cafe_longitude = serializers.DecimalField(
         max_digits=11, decimal_places=8, required=False
     )
+    place_category = serializers.ChoiceField(
+        choices=Cafe.PlaceCategory.choices,
+        required=False,
+    )
 
     visit_date = serializers.DateField()
     amount_spent = serializers.DecimalField(
@@ -631,6 +644,7 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
         request = self.context['request']
         user = request.user
         include_review = validated_data.pop('include_review', False)
+        place_category = validated_data.pop('place_category', None)
 
         review_fields = [
             'wfc_rating', 'wifi_quality', 'power_outlets_rating',
@@ -659,6 +673,8 @@ class CombinedVisitReviewSerializer(CafeVisitValidationMixin, serializers.Serial
                 'latitude': validated_data.pop('cafe_latitude'),
                 'longitude': validated_data.pop('cafe_longitude'),
             }
+            if place_category:
+                cafe_data['place_category'] = place_category
 
             cafe, created = CafeService.get_or_create_from_google(
                 google_place_id=google_place_id,

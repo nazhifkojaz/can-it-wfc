@@ -22,6 +22,13 @@ from core.logging import get_logger
 from core.permissions import IsOwnerOrReadOnly
 
 from .models import Cafe, CafeFlag, CafeList, CafeListItem, SavedCafeList
+from .place_classification import (
+    PLACE_CATEGORY_CAFE,
+    PLACE_CATEGORY_LABELS,
+    PLACE_CONFIDENCE_HIGH,
+    SUPPORTED_PLACE_CATEGORIES,
+    classify_place,
+)
 from .serializers import (
     CafeDetailSerializer,
     CafeFilterSerializer,
@@ -48,6 +55,18 @@ from django.conf import settings
 logger = get_logger(__name__)
 
 
+def get_google_place_filter_config():
+    """Get fallback keyword/type filters for Google place classification."""
+    allowed_keywords = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
+        'coffee', 'coffee shop', 'roastery', 'roaster', 'kopi', 'koffie'
+    ])
+    fallback_types = getattr(settings, 'GOOGLE_PLACES_ALLOWED_TYPES', {
+        'bakery', 'cafe', 'coffee_shop', 'establishment', 'food',
+        'point_of_interest', 'restaurant', 'store'
+    })
+    return allowed_keywords, fallback_types
+
+
 def apply_cafe_filters(qs, filter_data):
     """Apply WFC filter conditions to a Cafe queryset."""
     if filter_data.get('hide_closed', True):
@@ -70,6 +89,9 @@ def apply_cafe_filters(qs, filter_data):
     min_reviews = filter_data.get('min_reviews', 0)
     if min_reviews and min_reviews > 0:
         qs = qs.filter(total_reviews__gte=min_reviews)
+    place_categories = filter_data.get('categories') or ['cafe']
+    if place_categories and len(place_categories) < len(SUPPORTED_PLACE_CATEGORIES):
+        qs = qs.filter(place_category__in=place_categories)
     return qs
 
 
@@ -389,6 +411,9 @@ def _get_or_create_cafe_from_request(serializer, user):
         'latitude': lat,
         'longitude': lng,
     }
+    if serializer.validated_data.get('place_category'):
+        cafe_data['place_category'] = serializer.validated_data['place_category']
+
     cafe, _ = CafeService.get_or_create_from_google(
         google_place_id=google_place_id,
         cafe_data=cafe_data,
@@ -635,7 +660,7 @@ class MergedNearbyCafesView(APIView):
         """Main endpoint handler - orchestrates the nearby cafes search."""
         params = self._validate_and_extract_params(request)
         filter_data = self._parse_filters(request)
-        google_places = self._fetch_google_places(params)
+        google_places = self._fetch_google_places(params, filter_data)
         registered_map, all_registered_ids = self._get_registered_cafes_map(google_places, filter_data)
         enriched = self._enrich_and_filter_results(google_places, registered_map, all_registered_ids, params, filter_data)
         sorted_results = self._sort_and_limit(enriched, params['limit'])
@@ -666,13 +691,18 @@ class MergedNearbyCafesView(APIView):
             'distance_ref_lng': float(user_longitude) if user_longitude is not None else float(longitude),
         }
 
-    def _fetch_google_places(self, params):
-        """Fetch coffee shops from Google Places API."""
+    def _fetch_google_places(self, params, filter_data):
+        """Fetch places from Google Places API for selected categories."""
+        selected_categories = filter_data.get('categories', ['cafe'])
+        additional = [c for c in selected_categories if c != 'cafe']
+        include_cafe = PLACE_CATEGORY_CAFE in selected_categories
         try:
             return GooglePlacesService.search_nearby_coffee_shops(
                 latitude=params['latitude'],
                 longitude=params['longitude'],
-                radius_meters=int(params['radius_km'] * 1000)
+                radius_meters=int(params['radius_km'] * 1000),
+                additional_categories=additional if additional else None,
+                include_cafe=include_cafe,
             )
         except Exception as e:
             logger.warning(f"Google Places API error: {e}")
@@ -704,28 +734,33 @@ class MergedNearbyCafesView(APIView):
         filtered_qs = filtered_qs.values(
             'id', 'google_place_id', 'name', 'latitude', 'longitude',
             'average_wfc_rating', 'total_reviews', 'total_visits', 'unique_visitors',
-            'average_ratings_cache', 'facility_stats_cache', 'is_verified'
+            'average_ratings_cache', 'facility_stats_cache', 'is_verified',
+            'place_category'
         )
 
         return {cafe['google_place_id']: cafe for cafe in filtered_qs}, all_registered_ids
 
     def _get_filter_config(self):
-        """Get keyword and type filters for unregistered cafes."""
-        allowed_keywords = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
-            'coffee', 'coffee shop', 'roastery', 'roaster', 'kopi', 'koffie'
-        ])
-        allowed_types = getattr(settings, 'GOOGLE_PLACES_ALLOWED_TYPES', {
-            'cafe', 'coffee_shop', 'bakery', 'restaurant', 'food'
-        })
-        return allowed_keywords, allowed_types
+        """Get fallback keyword/type filters for unregistered cafes."""
+        return get_google_place_filter_config()
 
     def _enrich_registered_place(self, place, wfc_data):
         """Enrich a registered cafe with WFC data."""
+        place_category = wfc_data.get('place_category') or PLACE_CATEGORY_CAFE
         place.update({
             'is_registered': True,
             'source': 'database',
+            'provider': 'google',
             'id': wfc_data['id'],
-            'average_wfc_rating': float(wfc_data['average_wfc_rating']) if wfc_data['average_wfc_rating'] else None,
+            'place_category': place_category,
+            'place_category_label': PLACE_CATEGORY_LABELS.get(place_category, 'Cafe'),
+            'place_category_confidence': PLACE_CONFIDENCE_HIGH,
+            'provider_types': place.get('types') or [],
+            'average_wfc_rating': (
+                float(wfc_data['average_wfc_rating'])
+                if wfc_data['average_wfc_rating']
+                else None
+            ),
             'total_reviews': wfc_data['total_reviews'],
             'unique_visitors': wfc_data['unique_visitors'],
             'total_visits': wfc_data['total_visits'],
@@ -735,24 +770,41 @@ class MergedNearbyCafesView(APIView):
         })
         return place
 
-    def _should_include_unregistered(self, place, allowed_keywords, allowed_types):
-        """Check if an unregistered place passes keyword/type filters."""
-        name_lower = (place.get('name') or '').lower()
-        if allowed_keywords and not any(kw in name_lower for kw in allowed_keywords):
-            return False
+    def _classify_unregistered(self, place, allowed_keywords, fallback_types):
+        return classify_place(
+            provider_types=place.get('types') or [],
+            place_name=place.get('name', ''),
+            cafe_keywords=allowed_keywords,
+            cafe_fallback_types=fallback_types,
+        )
 
-        place_types = set(place.get('types') or [])
-        if allowed_types and place_types and place_types.isdisjoint(allowed_types):
-            return False
+    def _should_include_unregistered(self, place, allowed_keywords, fallback_types, selected_categories=None):
+        """Check if an unregistered place matches a selected category.
 
-        return True
+        Google provider types are the primary signal. Keywords only rescue
+        generic food/place results, so localized cafe names are not rejected
+        just because they do not contain English coffee terms.
+        """
+        if selected_categories is None:
+            selected_categories = {'cafe'}
+        classification = self._classify_unregistered(
+            place,
+            allowed_keywords,
+            fallback_types,
+        )
+        return classification.category in selected_categories
 
-    def _enrich_unregistered_place(self, place):
+    def _enrich_unregistered_place(self, place, classification):
         """Add default values for an unregistered cafe."""
         place.update({
             'is_registered': False,
             'source': 'google_places',
+            'provider': 'google',
             'id': f"google_{place['google_place_id']}",
+            'place_category': classification.category,
+            'place_category_label': classification.label,
+            'place_category_confidence': classification.confidence,
+            'provider_types': place.get('types') or [],
             'average_wfc_rating': None,
             'total_reviews': 0,
             'unique_visitors': 0,
@@ -782,9 +834,11 @@ class MergedNearbyCafesView(APIView):
                 # Truly unregistered (Google Places only)
                 if not include_unregistered:
                     continue
-                if not self._should_include_unregistered(place, allowed_keywords, allowed_types):
+                classification = self._classify_unregistered(place, allowed_keywords, allowed_types)
+                selected_categories = set(filter_data.get('categories', ['cafe']))
+                if classification.category not in selected_categories:
                     continue
-                place = self._enrich_unregistered_place(place)
+                place = self._enrich_unregistered_place(place, classification)
 
             # Calculate distance and add Google rating fields
             place['distance'] = round(Cafe.calculate_distance(
@@ -909,7 +963,7 @@ class CafeSearchView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Check cache first (10 min TTL)
-        cache_key = f'search_v3:{query}:{latitude}:{longitude}'
+        cache_key = f'search_v5:{query}:{latitude}:{longitude}'
         cached = cache.get(cache_key)
 
         if cached:
@@ -947,17 +1001,32 @@ class CafeSearchView(APIView):
 
         # Process each result and check DB for registration status
         unified_results = []
+        allowed_keywords, fallback_types = get_google_place_filter_config()
 
         for place in autocomplete_results:
             place_id = place.get('place_id')
             place_types = place.get('types', [])
-
-            # Determine if it's a cafe or general location
-            is_cafe = any(t in place_types for t in ['cafe', 'restaurant', 'food', 'bakery'])
-            result_type = 'cafe' if is_cafe else 'location'
+            classification = classify_place(
+                provider_types=place.get('types', []),
+                place_name=place.get('name', ''),
+                cafe_keywords=allowed_keywords,
+                cafe_fallback_types=fallback_types,
+            )
 
             # Look up from batch-fetched map
             db_cafe = registered_cafes.get(place_id)
+            place_category = db_cafe.place_category if db_cafe else classification.category
+            result_type = 'cafe' if place_category else 'location'
+            place_category_label = (
+                PLACE_CATEGORY_LABELS.get(place_category, 'Unknown')
+                if db_cafe
+                else classification.label
+            )
+            place_category_confidence = (
+                PLACE_CONFIDENCE_HIGH
+                if db_cafe
+                else classification.confidence
+            )
 
             # Build result object
             result = {
@@ -971,6 +1040,11 @@ class CafeSearchView(APIView):
                 'rating': place.get('rating'),
                 'result_type': result_type,
                 'source': 'google',
+                'provider': 'google',
+                'place_category': place_category,
+                'place_category_label': place_category_label,
+                'place_category_confidence': place_category_confidence,
+                'provider_types': place_types,
             }
 
             # Add DB data if registered

@@ -76,6 +76,121 @@ def _request_for(user):
     return type('Request', (), {'user': user})()
 
 
+class TestGooglePlaceClassification:
+    """Test Google place classification before DB/API enrichment."""
+
+    KEYWORDS = ['coffee', 'coffee shop', 'roastery', 'roaster', 'kopi', 'koffie']
+    FALLBACK_TYPES = {'cafe', 'coffee_shop', 'bakery', 'restaurant', 'food'}
+
+    @pytest.mark.parametrize('name', ['星巴克臻选', 'Кофемания', '喫茶室ルノアール'])
+    def test_non_english_cafe_name_included_by_provider_type(self, name):
+        from apps.cafes.place_classification import (
+            PLACE_CATEGORY_CAFE,
+            PLACE_CONFIDENCE_HIGH,
+            classify_google_place,
+        )
+
+        classification = classify_google_place(
+            {'name': name, 'types': ['cafe', 'food', 'point_of_interest']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+        assert classification.category == PLACE_CATEGORY_CAFE
+        assert classification.confidence == PLACE_CONFIDENCE_HIGH
+
+    def test_generic_restaurant_without_keyword_is_not_cafe(self):
+        from apps.cafes.place_classification import (
+            PLACE_CONFIDENCE_LOW,
+            classify_google_place,
+        )
+
+        classification = classify_google_place(
+            {'name': 'Noodle House', 'types': ['restaurant', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+        assert classification.category is None
+        assert classification.confidence == PLACE_CONFIDENCE_LOW
+
+    def test_generic_food_place_with_keyword_is_cafe_fallback(self):
+        from apps.cafes.place_classification import (
+            PLACE_CATEGORY_CAFE,
+            PLACE_CONFIDENCE_MEDIUM,
+            classify_google_place,
+        )
+
+        classification = classify_google_place(
+            {'name': 'Warehouse Coffee', 'types': ['restaurant', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+        assert classification.category == PLACE_CATEGORY_CAFE
+        assert classification.confidence == PLACE_CONFIDENCE_MEDIUM
+
+    def test_coworking_and_library_are_classified_but_not_default_cafes(self):
+        from apps.cafes.place_classification import (
+            PLACE_CATEGORY_COWORKING_SPACE,
+            PLACE_CATEGORY_LIBRARY,
+            classify_google_place,
+        )
+        from apps.cafes.views import MergedNearbyCafesView
+
+        coworking = {
+            'name': 'Work Hub',
+            'types': ['coworking_space', 'point_of_interest'],
+        }
+        library = {
+            'name': 'Central Library',
+            'types': ['library', 'point_of_interest'],
+        }
+
+        assert (
+            classify_google_place(coworking, self.KEYWORDS, self.FALLBACK_TYPES).category
+            == PLACE_CATEGORY_COWORKING_SPACE
+        )
+        assert (
+            classify_google_place(library, self.KEYWORDS, self.FALLBACK_TYPES).category
+            == PLACE_CATEGORY_LIBRARY
+        )
+
+        view = MergedNearbyCafesView()
+        assert not view._should_include_unregistered(
+            coworking,
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+        assert not view._should_include_unregistered(
+            library,
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+    def test_view_includes_provider_typed_cafe_without_keyword(self):
+        from apps.cafes.views import MergedNearbyCafesView
+
+        view = MergedNearbyCafesView()
+
+        assert view._should_include_unregistered(
+            {'name': '星巴克臻选', 'types': ['cafe', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+    def test_view_excludes_generic_place_without_keyword(self):
+        from apps.cafes.views import MergedNearbyCafesView
+
+        view = MergedNearbyCafesView()
+
+        assert not view._should_include_unregistered(
+            {'name': 'Noodle House', 'types': ['restaurant', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+
 @pytest.mark.django_db
 class TestCafeAddressValidation:
     """Test cafe address length validation."""
@@ -585,6 +700,200 @@ class TestCafeServicePriceLevelClamping:
         )
         assert created
         assert cafe.price_range is None
+
+
+@pytest.mark.django_db
+class TestCafePlaceCategoryMetadata:
+    """Test persisted and response-level place category metadata."""
+
+    def _make_cafe_data(self, **overrides):
+        data = {
+            'name': 'Test Cafe',
+            'address': '123 Test St',
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+        }
+        data.update(overrides)
+        return data
+
+    def test_cafe_defaults_to_cafe_category(self, test_user):
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='Default Category Cafe',
+            address='123 Test St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='default_category_place',
+            created_by=test_user,
+        )
+
+        assert cafe.place_category == Cafe.PlaceCategory.CAFE
+
+    def test_service_persists_google_place_category(self, test_user, monkeypatch):
+        from apps.cafes.models import Cafe
+        from apps.cafes.services import CafeService
+
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'rating': 4.0, 'user_ratings_total': 5}
+        )
+
+        cafe, created = CafeService.get_or_create_from_google(
+            'library_place',
+            self._make_cafe_data(place_category=Cafe.PlaceCategory.LIBRARY),
+            created_by=test_user,
+        )
+
+        assert created
+        assert cafe.place_category == Cafe.PlaceCategory.LIBRARY
+
+    def test_service_defaults_google_creation_to_cafe_category(self, test_user, monkeypatch):
+        from apps.cafes.models import Cafe
+        from apps.cafes.services import CafeService
+
+        monkeypatch.setattr(
+            'apps.cafes.services.GooglePlacesService.get_place_details',
+            lambda pid: {'rating': 4.0, 'user_ratings_total': 5}
+        )
+
+        cafe, created = CafeService.get_or_create_from_google(
+            'default_google_category_place',
+            self._make_cafe_data(),
+            created_by=test_user,
+        )
+
+        assert created
+        assert cafe.place_category == Cafe.PlaceCategory.CAFE
+
+    def test_summary_serializer_returns_category_metadata(self, test_user):
+        from apps.cafes.models import Cafe
+        from apps.cafes.serializers import CafeSummarySerializer
+
+        cafe = Cafe.objects.create(
+            name='Library Workspace',
+            address='123 Library St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='library_workspace_place',
+            place_category=Cafe.PlaceCategory.LIBRARY,
+            created_by=test_user,
+        )
+
+        data = CafeSummarySerializer(cafe).data
+
+        assert data['place_category'] == Cafe.PlaceCategory.LIBRARY
+        assert data['place_category_label'] == 'Library'
+        assert data['place_category_confidence'] == 'high'
+        assert data['provider_types'] == []
+
+    def test_nearby_unregistered_result_returns_category_metadata(self, authenticated_client, monkeypatch):
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.search_nearby_coffee_shops',
+            lambda **kwargs: [{
+                'google_place_id': 'non_english_cafe_place',
+                'name': '星巴克臻选',
+                'address': 'Shanghai',
+                'latitude': '-6.20880000',
+                'longitude': '106.84560000',
+                'rating': 4.5,
+                'user_ratings_total': 120,
+                'types': ['cafe', 'food', 'point_of_interest'],
+                'distance_km': 0,
+            }]
+        )
+
+        response = authenticated_client.get('/api/cafes/nearby/all/', {
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        result = response.data['results'][0]
+        assert result['place_category'] == 'cafe'
+        assert result['place_category_label'] == 'Cafe'
+        assert result['place_category_confidence'] == 'high'
+        assert result['provider_types'] == ['cafe', 'food', 'point_of_interest']
+
+    def test_nearby_category_filter_excludes_library_by_default(self, authenticated_client, monkeypatch):
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.search_nearby_coffee_shops',
+            lambda **kwargs: [
+                {
+                    'google_place_id': 'cafe_place',
+                    'name': '星巴克臻选',
+                    'address': 'Shanghai',
+                    'latitude': '-6.20880000',
+                    'longitude': '106.84560000',
+                    'rating': 4.5,
+                    'user_ratings_total': 120,
+                    'types': ['cafe', 'food', 'point_of_interest'],
+                },
+                {
+                    'google_place_id': 'library_place',
+                    'name': 'Central Library',
+                    'address': 'Library St',
+                    'latitude': '-6.20880000',
+                    'longitude': '106.84560000',
+                    'rating': 4.8,
+                    'user_ratings_total': 80,
+                    'types': ['library', 'point_of_interest'],
+                },
+            ],
+        )
+
+        response = authenticated_client.get('/api/cafes/nearby/all/', {
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [r['google_place_id'] for r in response.data['results']] == ['cafe_place']
+
+    def test_nearby_category_filter_includes_selected_library(self, authenticated_client, monkeypatch):
+        captured_kwargs = []
+
+        def mock_search(**kwargs):
+            captured_kwargs.append(kwargs)
+            return [{
+                'google_place_id': 'library_place',
+                'name': 'Central Library',
+                'address': 'Library St',
+                'latitude': '-6.20880000',
+                'longitude': '106.84560000',
+                'rating': 4.8,
+                'user_ratings_total': 80,
+                'types': ['library', 'point_of_interest'],
+            }]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.search_nearby_coffee_shops',
+            mock_search,
+        )
+
+        response = authenticated_client.get('/api/cafes/nearby/all/', {
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+            'radius_km': 1,
+            'categories': 'library',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['place_category'] == 'library'
+        assert captured_kwargs[0]['include_cafe'] is False
+        assert captured_kwargs[0]['additional_categories'] == ['library']
+
+    def test_nearby_rejects_unknown_category(self, authenticated_client):
+        response = authenticated_client.get('/api/cafes/nearby/all/', {
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+            'radius_km': 1,
+            'categories': 'bakery',
+        })
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def _make_cafe(owner, name='Test Cafe', suffix=''):
