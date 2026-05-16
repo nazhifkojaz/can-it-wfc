@@ -32,6 +32,7 @@ export const queryKeys = {
 
   user: ['user'] as const,
   userProfile: () => [...queryKeys.user, 'profile'] as const,
+  userLists: (username: string) => [...queryKeys.user, 'lists', username] as const,
 
   discover: ['discover'] as const,
   discoverRecentReviews: (limit?: number) =>

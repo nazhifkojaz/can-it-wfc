@@ -3,11 +3,11 @@ import { Home, User as UserIcon, Star, MapPin, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePanel } from '../../contexts/PanelContext';
 import { userApi } from '../../api/client';
-import { UserProfile, CafeList, CafeListItem } from '../../types';
+import { UserProfile, CafeListItem } from '../../types';
 import { Loading, EmptyState } from '../common';
 import FollowButton from '../social/FollowButton';
 import FollowersModal from '../social/FollowersModal';
-import { useFollowersModal, useUserReviews } from '../../hooks';
+import { useFollowersModal, useUserLists, useUserReviews } from '../../hooks';
 import ListCard from '../lists/ListCard';
 import ListView from '../lists/ListView';
 import ReviewsTab from '../profile/ReviewsTab';
@@ -26,10 +26,6 @@ const UserProfilePanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'stats'>('reviews');
   const { openFollowersModal, followersModalProps } = useFollowersModal();
 
-  // Lists tab state
-  const [lists, setLists] = useState<CafeList[]>([]);
-  const [listsLoading, setListsLoading] = useState(false);
-  const [listsError, setListsError] = useState<string | null>(null);
   const [openListId, setOpenListId] = useState<number | null>(null);
 
   // Reviews tab state
@@ -41,13 +37,23 @@ const UserProfilePanel: React.FC = () => {
     isFetchingNextPage: isFetchingNextReviewsPage,
   } = useUserReviews(username);
 
+  const canLoadLists =
+    activeTab === 'lists' &&
+    !!profile &&
+    !(profile.profile_visibility === 'private' && !profile.is_own_profile);
+  const {
+    lists,
+    loading: listsLoading,
+    error: listsError,
+    refetch: refetchLists,
+  } = useUserLists(username, canLoadLists);
+
   // Reset state when panel changes away
   React.useEffect(() => {
     if (activePanel !== 'userProfile') {
       setProfile(null);
       setActiveTab('reviews');
-      setLists([]);
-      setListsError(null);
+      setOpenListId(null);
     }
   }, [activePanel]);
 
@@ -76,30 +82,6 @@ const UserProfilePanel: React.FC = () => {
 
     fetchProfile();
   }, [username]);
-
-  // Fetch public lists when Lists tab is active
-  useEffect(() => {
-    if (activeTab !== 'lists' || !username || !profile) return;
-    if (profile.profile_visibility === 'private' && !profile.is_own_profile) return;
-    if (lists.length > 0 || listsLoading || listsError) return;
-
-    const fetchLists = async () => {
-      try {
-        setListsLoading(true);
-        setListsError(null);
-        const data = await userApi.getUserLists(username);
-        setLists(data);
-      } catch (err: unknown) {
-        const apiError = extractApiError(err);
-        logger.error('Failed to load user lists', err, 'UserProfilePanel');
-        setListsError(apiError.message);
-      } finally {
-        setListsLoading(false);
-      }
-    };
-
-    fetchLists();
-  }, [activeTab, username, profile, lists.length, listsLoading, listsError]);
 
   if (loading) {
     return (
@@ -305,10 +287,7 @@ const UserProfilePanel: React.FC = () => {
                     <p>Couldn&apos;t load lists.</p>
                     <button
                       className="lists-retry-btn"
-                      onClick={() => {
-                        setListsError(null);
-                        setLists([]);
-                      }}
+                      onClick={() => refetchLists()}
                     >
                       Retry
                     </button>
