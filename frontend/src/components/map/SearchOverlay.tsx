@@ -4,14 +4,8 @@ import api from '../../api/client';
 import { formatDistance } from '../../utils/formatters';
 import { logger } from '../../utils/logger';
 import { trackSearchPerformed } from '../../lib/analytics';
-import { SearchResult } from '../../types';
+import { SearchResult, SearchResponse } from '../../types';
 import styles from './SearchOverlay.module.css';
-
-interface SearchResponse {
-  results: SearchResult[];
-  query: string;
-  total_results: number;
-}
 
 interface SearchOverlayProps {
   isOpen: boolean;

@@ -17,15 +17,16 @@ import {
   Review,
   ReviewCreate,
   ReviewUpdate,
+  UnregisteredCafeRegistrationPayload,
   CafeList,
   CafeListDetail,
   CafeListItem,
   CafeListMembership,
+  CafeListItemRegistrationCreate,
   CafeListCreate,
   CafeListUpdate,
   SaveListResponse,
   SavedListsResponse,
-  PlaceCategory,
 } from '../types';
 import { CafeInsightsResponse } from '../types/insights';
 import type {
@@ -327,33 +328,13 @@ export const listApi = {
   // Auto-register an unregistered cafe and add it to a list
   addItemWithRegistration: (
     listId: number,
-    data: {
-      google_place_id: string;
-      cafe_name: string;
-      cafe_address: string;
-      cafe_latitude: string;
-      cafe_longitude: string;
-      place_category?: PlaceCategory;
-      note?: string;
-    }
+    data: CafeListItemRegistrationCreate
   ) => post<CafeListItem>(`/lists/${listId}/items/`, data),
 
-  addToToGoWithRegistration: (data: {
-    google_place_id: string;
-    cafe_name: string;
-    cafe_address: string;
-    cafe_latitude: string;
-    cafe_longitude: string;
-    place_category?: PlaceCategory;
-  }) => post<CafeListItem>('/lists/to-go/items/', data),
-  addToFavoritesWithRegistration: (data: {
-    google_place_id: string;
-    cafe_name: string;
-    cafe_address: string;
-    cafe_latitude: string;
-    cafe_longitude: string;
-    place_category?: PlaceCategory;
-  }) => post<CafeListItem>('/lists/favorites/items/', data),
+  addToToGoWithRegistration: (data: UnregisteredCafeRegistrationPayload) =>
+    post<CafeListItem>('/lists/to-go/items/', data),
+  addToFavoritesWithRegistration: (data: UnregisteredCafeRegistrationPayload) =>
+    post<CafeListItem>('/lists/favorites/items/', data),
 
   // Membership — powers the save-to-list popover state
   getCafeMemberships: (cafeId: number) =>
@@ -380,21 +361,11 @@ export const visitApi = {
 
   // Get user's visits (backend filters by current user automatically)
   getMyVisits: (page: number = 1, filters?: { ordering?: string; visit_date__gte?: string; visit_date__lte?: string }) =>
-    get<{
-      count: number;
-      next: string | null;
-      previous: string | null;
-      results: Visit[];
-    }>('/visits/', { page, ...filters }),
+    get<PaginatedResponse<Visit>>('/visits/', { page, ...filters }),
 
   // Get visits with filters (for duplicate checking, etc.)
   getVisits: (filters?: { cafe?: number; visit_date?: string; page?: number }) =>
-    get<{
-      count: number;
-      next: string | null;
-      previous: string | null;
-      results: Visit[];
-    }>('/visits/', filters),
+    get<PaginatedResponse<Visit>>('/visits/', filters),
 
   // Get visit by ID
   getById: (id: number) => get<Visit>(`/visits/${id}/`),
@@ -419,12 +390,7 @@ export const reviewApi = {
 
   // Get reviews for a cafe
   getByCafe: (cafeId: number, page: number = 1) =>
-    get<{
-      count: number;
-      next: string | null;
-      previous: string | null;
-      results: Review[];
-    }>('/reviews/', { cafe: cafeId, page }),
+    get<PaginatedResponse<Review>>('/reviews/', { cafe: cafeId, page }),
 
   // Get review by ID
   getById: (id: number) => get<Review>(`/reviews/${id}/`),

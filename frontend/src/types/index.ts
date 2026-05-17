@@ -85,6 +85,19 @@ export interface FacilityStats {
 export type PlaceCategory = 'cafe' | 'coworking_space' | 'library';
 export type PlaceCategoryConfidence = 'high' | 'medium' | 'low';
 
+export interface UnregisteredCafeRegistrationPayload {
+  google_place_id: string;
+  cafe_name: string;
+  cafe_address: string;
+  cafe_latitude: string;
+  cafe_longitude: string;
+  place_category?: PlaceCategory;
+}
+
+export type CafeListItemRegistrationCreate = UnregisteredCafeRegistrationPayload & {
+  note?: string;
+};
+
 export interface Cafe {
   id: number;  // Backend uses integer ID (AutoField), not UUID
   name: string;
@@ -187,17 +200,11 @@ export interface Visit {
   updated_at: string;
 }
 
-export interface VisitCreate {
+export interface VisitCreate extends Partial<UnregisteredCafeRegistrationPayload> {
   // Scenario 1: Existing registered cafe
   cafe_id?: number; // Cafe integer ID
 
-  // Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
-  google_place_id?: string;
-  cafe_name?: string;
-  cafe_address?: string;
-  cafe_latitude?: string;
-  cafe_longitude?: string;
-  place_category?: PlaceCategory;
+  // Scenario 2: optional UnregisteredCafeRegistrationPayload fields auto-register Google Places cafes.
 
   // Common fields
   visit_date: string; // ISO date string
@@ -211,17 +218,11 @@ export interface VisitCreate {
 }
 
 // Combined Visit + Review Creation (new simplified flow)
-export interface CombinedVisitReviewCreate {
+export interface CombinedVisitReviewCreate extends Partial<UnregisteredCafeRegistrationPayload> {
   // Scenario 1: Existing registered cafe
   cafe_id?: number;
 
-  // Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
-  google_place_id?: string;
-  cafe_name?: string;
-  cafe_address?: string;
-  cafe_latitude?: string;
-  cafe_longitude?: string;
-  place_category?: PlaceCategory;
+  // Scenario 2: optional UnregisteredCafeRegistrationPayload fields auto-register Google Places cafes.
 
   // Common fields
   visit_date: string;
@@ -285,6 +286,8 @@ export type {
   CafeListItem,
   CafeListDetail,
   CafeListMembership,
+  CafeListOwnerSummary,
+  CafeListPreviewCafe,
   CafeListCreate,
   CafeListUpdate,
   SaveListResponse,
@@ -321,4 +324,10 @@ export interface SearchResult {
   source: 'google';
   provider?: string;  // e.g. 'google'
   result_type: 'cafe' | 'location';
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  query: string;
+  total_results: number;
 }
