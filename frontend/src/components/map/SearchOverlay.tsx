@@ -7,6 +7,8 @@ import { trackSearchPerformed } from '../../lib/analytics';
 import { SearchResult, SearchResponse } from '../../types';
 import styles from './SearchOverlay.module.css';
 
+type SearchLocation = { lat: number; lon: number };
+
 interface SearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +28,7 @@ export function SearchOverlay({
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchLocation, setSearchLocation] = useState<SearchLocation | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -36,8 +39,27 @@ export function SearchOverlay({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchLocation(null);
+      return;
+    }
+
+    setSearchLocation(prev => {
+      if (prev) return prev;
+      return userLocation || (searchCenter ? {
+        lat: searchCenter.lat,
+        lon: searchCenter.lng,
+      } : null);
+    });
+  }, [isOpen, userLocation, searchCenter]);
+
   // Debounced search with AbortController to prevent memory leaks
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     if (query.length < 3) {
       setResults(null);
       setErrorMessage(null);
@@ -57,10 +79,7 @@ export function SearchOverlay({
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const locationForSearch = userLocation || (searchCenter ? {
-          lat: searchCenter.lat,
-          lon: searchCenter.lng,
-        } : undefined);
+        const locationForSearch = searchLocation || undefined;
 
         if (!locationForSearch) {
           setResults(null);
@@ -105,7 +124,7 @@ export function SearchOverlay({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [query, userLocation, searchCenter]);
+  }, [isOpen, query, searchLocation]);
 
   const handleSelectResult = (result: SearchResult) => {
     onSelectResult(result);

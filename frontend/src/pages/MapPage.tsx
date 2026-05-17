@@ -33,13 +33,14 @@ const MapPage: React.FC = () => {
   const [tempSearchMarker, setTempSearchMarker] = useState<SearchResult | null>(null);
   const [jumpToLocation, setJumpToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbySearchCenter, setNearbySearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchAfterLocationRefetch, setSearchAfterLocationRefetch] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const resultModal = useResultModal();
   const { activePanel } = usePanel();
   const { filters, appliedFilters, setFilter, applyFilters, resetAll, clearOne, syncPending } = useMapFilters();
 
-  const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation();
+  const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation({ watch: false });
 
   const searchUserLocation = useMemo(
     () => location ? { lat: location.lat, lon: location.lng } : undefined,
@@ -52,6 +53,26 @@ const MapPage: React.FC = () => {
       setSelectedCafe(null);
     }
   }, [activePanel]);
+
+  React.useEffect(() => {
+    if (!nearbySearchCenter && location) {
+      setNearbySearchCenter(location);
+    }
+  }, [nearbySearchCenter, location]);
+
+  React.useEffect(() => {
+    if (!searchAfterLocationRefetch || locationLoading) return;
+
+    if (location) {
+      setNearbySearchCenter(location);
+    }
+    setSearchAfterLocationRefetch(false);
+  }, [searchAfterLocationRefetch, locationLoading, location]);
+
+  const handleRetryLocation = React.useCallback(() => {
+    setSearchAfterLocationRefetch(true);
+    refetch();
+  }, [refetch]);
 
   // Handle cafe query parameter from profile/list/deep links.
   React.useEffect(() => {
@@ -101,7 +122,7 @@ const MapPage: React.FC = () => {
     }
   }, [searchParams, activePanel, setSearchParams, resultModal]);
 
-  const searchCenter = manualSearchCenter || location;
+  const searchCenter = nearbySearchCenter;
   const {
     cafes,
     loading: loadingCafes,
@@ -153,7 +174,7 @@ const MapPage: React.FC = () => {
   }, [cafes, selectedCafe]);
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
-    setManualSearchCenter(center);
+    setNearbySearchCenter(center);
   };
 
   const handleCafeClick = React.useCallback((cafe: Cafe) => {
@@ -191,12 +212,14 @@ const MapPage: React.FC = () => {
   const handleSearchSelect = (result: SearchResult) => {
     const lat = parseFloat(result.latitude);
     const lng = parseFloat(result.longitude);
+    const selectedLocation = { lat, lng };
 
     // Jump map to selected location
-    setJumpToLocation({ lat, lng });
+    setJumpToLocation(selectedLocation);
 
     // If it's a location (not a cafe), just pan - no marker
     if (result.result_type === 'location') {
+      setNearbySearchCenter(selectedLocation);
       return;
     }
 
@@ -288,7 +311,7 @@ const MapPage: React.FC = () => {
               jumpToLocation={jumpToLocation}
               tempSearchMarker={tempSearchMarker}
               onSearchClick={() => setShowSearchOverlay(true)}
-              onRetryLocation={refetch}
+              onRetryLocation={handleRetryLocation}
             />
           </div>
         )}

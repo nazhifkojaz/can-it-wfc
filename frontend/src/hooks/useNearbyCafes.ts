@@ -3,7 +3,7 @@ import { cafeApi } from '../api/client';
 import { NearbyCafesResponse } from '../types';
 import { CafeFilters } from '../types/filters';
 import { filtersToApiParams } from '../lib/filterEncoding';
-import { queryKeys } from '../config/queryKeys';
+import { normalizeNearbyCoordinate, queryKeys } from '../config/queryKeys';
 
 interface UseNearbyCafesParams {
   latitude: number;
@@ -24,10 +24,10 @@ export const useNearbyCafes = ({
   userLongitude,
   filters,
 }: UseNearbyCafesParams) => {
-  const roundedLat = Number(latitude.toFixed(8));
-  const roundedLng = Number(longitude.toFixed(8));
-  const roundedUserLat = userLatitude != null ? Number(userLatitude.toFixed(8)) : undefined;
-  const roundedUserLng = userLongitude != null ? Number(userLongitude.toFixed(8)) : undefined;
+  const searchLat = normalizeNearbyCoordinate(latitude);
+  const searchLng = normalizeNearbyCoordinate(longitude);
+  const searchUserLat = userLatitude != null ? normalizeNearbyCoordinate(userLatitude) : undefined;
+  const searchUserLng = userLongitude != null ? normalizeNearbyCoordinate(userLongitude) : undefined;
 
   const {
     data,
@@ -36,22 +36,22 @@ export const useNearbyCafes = ({
     refetch,
   } = useQuery<NearbyCafesResponse>({
     queryKey: queryKeys.cafesNearby(
-      roundedLat,
-      roundedLng,
+      searchLat,
+      searchLng,
       radius_km,
       filters,
-      roundedUserLat,
-      roundedUserLng,
+      searchUserLat,
+      searchUserLng,
     ),
     queryFn: async () => {
       const filterParams = filters ? filtersToApiParams(filters) : {};
       const response = await cafeApi.getAllNearby({
-        latitude: roundedLat,
-        longitude: roundedLng,
+        latitude: searchLat,
+        longitude: searchLng,
         radius_km,
         limit: 100,
-        user_latitude: roundedUserLat,
-        user_longitude: roundedUserLng,
+        user_latitude: searchUserLat,
+        user_longitude: searchUserLng,
         ...filterParams,
       });
 
@@ -69,6 +69,6 @@ export const useNearbyCafes = ({
     loading,
     error: fetchError ? String(fetchError) : null,
     refetch,
-    searchCenter: Number.isFinite(latitude) && Number.isFinite(longitude) ? { lat: roundedLat, lng: roundedLng } : null,
+    searchCenter: enabled && Number.isFinite(latitude) && Number.isFinite(longitude) ? { lat: searchLat, lng: searchLng } : null,
   };
 };

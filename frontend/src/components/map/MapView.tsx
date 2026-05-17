@@ -139,12 +139,14 @@ const MapView: React.FC<MapViewProps> = ({
 
   // Handle find my location
   const handleFindMyLocation = useCallback(() => {
+    if (onRetryLocation) {
+      onRetryLocation();
+    }
+
     if (userLocation) {
       setFlyTarget([userLocation.lat, userLocation.lng]);
       setFlyTrigger(prev => prev + 1);
       onSearchArea(userLocation);
-    } else if (onRetryLocation) {
-      onRetryLocation();
     }
   }, [userLocation, onSearchArea, onRetryLocation]);
 

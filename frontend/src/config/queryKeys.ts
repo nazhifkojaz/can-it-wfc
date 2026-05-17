@@ -1,5 +1,11 @@
 import { CafeFilters } from '../types/filters';
 
+export const NEARBY_COORDINATE_DECIMALS = 3;
+
+export const normalizeNearbyCoordinate = (coordinate: number): number => {
+  return Number(coordinate.toFixed(NEARBY_COORDINATE_DECIMALS));
+};
+
 export const queryKeys = {
   cafes: ['cafes'] as const,
   cafesNearby: (
@@ -9,7 +15,14 @@ export const queryKeys = {
     cafeFilters?: CafeFilters,
     userLat?: number,
     userLng?: number,
-  ) => [...queryKeys.cafes, 'nearby', { lat, lng, radius, userLat, userLng, ...cafeFilters }] as const,
+  ) => [...queryKeys.cafes, 'nearby', {
+    lat: normalizeNearbyCoordinate(lat),
+    lng: normalizeNearbyCoordinate(lng),
+    radius,
+    userLat: userLat != null ? normalizeNearbyCoordinate(userLat) : undefined,
+    userLng: userLng != null ? normalizeNearbyCoordinate(userLng) : undefined,
+    ...cafeFilters,
+  }] as const,
   cafeDetail: (id: number) => [...queryKeys.cafes, 'detail', id] as const,
   cafeMemberships: (cafeId: number) => [...queryKeys.cafes, cafeId, 'my-lists'] as const,
   cafeInsights: (cafeId: number) => [...queryKeys.cafes, cafeId, 'insights'] as const,
