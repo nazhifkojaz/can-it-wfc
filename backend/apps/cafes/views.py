@@ -56,16 +56,61 @@ from django.conf import settings
 logger = get_logger(__name__)
 
 
+DEFAULT_GOOGLE_PLACES_ALLOWED_KEYWORDS = [
+    'coffee', 'coffee shop', 'coffeeshop', 'roastery', 'roaster',
+    'espresso', 'kopi', 'koffie', 'cafe', 'café', 'kafe', 'kaffee',
+    'kaffe', 'caffè', '咖啡', '咖啡馆', '咖啡店', 'кофе', 'кофейня',
+    'кафе', 'カフェ', 'コーヒー', '喫茶', '카페', '커피', 'กาแฟ',
+    'คาเฟ่', 'مقهى', 'قهوة', 'كافيه'
+]
+DEFAULT_GOOGLE_PLACES_ALLOWED_TYPES = {
+    'bakery', 'cafe', 'coffee_shop', 'food', 'restaurant'
+}
+DEFAULT_GOOGLE_PLACES_EXCLUDED_KEYWORDS = ['warteg', 'warkop']
+
+
 def get_google_place_filter_config():
     """Get fallback keyword/type filters for Google place classification."""
-    allowed_keywords = getattr(settings, 'GOOGLE_PLACES_ALLOWED_KEYWORDS', [
-        'coffee', 'coffee shop', 'roastery', 'roaster', 'kopi', 'koffie'
-    ])
-    fallback_types = getattr(settings, 'GOOGLE_PLACES_ALLOWED_TYPES', {
-        'bakery', 'cafe', 'coffee_shop', 'establishment', 'food',
-        'point_of_interest', 'restaurant', 'store'
-    })
+    allowed_keywords = getattr(
+        settings,
+        'GOOGLE_PLACES_ALLOWED_KEYWORDS',
+        DEFAULT_GOOGLE_PLACES_ALLOWED_KEYWORDS,
+    )
+    fallback_types = getattr(
+        settings,
+        'GOOGLE_PLACES_ALLOWED_TYPES',
+        DEFAULT_GOOGLE_PLACES_ALLOWED_TYPES,
+    )
     return allowed_keywords, fallback_types
+
+
+def get_google_place_excluded_keywords():
+    """Get name keywords that should never appear in cafe discovery."""
+    return getattr(
+        settings,
+        'GOOGLE_PLACES_EXCLUDED_KEYWORDS',
+        DEFAULT_GOOGLE_PLACES_EXCLUDED_KEYWORDS,
+    )
+
+
+def _normalise_config_values(values):
+    if not values:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    return [
+        str(value).casefold().strip()
+        for value in values
+        if value is not None and str(value).strip()
+    ]
+
+
+def _place_name_matches_any(name, keywords):
+    name_normalised = str(name or '').casefold()
+    return any(
+        keyword in name_normalised
+        for keyword in _normalise_config_values(keywords)
+    )
 
 
 def apply_cafe_filters(qs, filter_data):
@@ -738,6 +783,10 @@ class MergedNearbyCafesView(APIView):
         """Get fallback keyword/type filters for unregistered cafes."""
         return get_google_place_filter_config()
 
+    def _get_excluded_keywords(self):
+        """Get keywords that should always be excluded from cafe discovery."""
+        return get_google_place_excluded_keywords()
+
     def _enrich_registered_place(self, place, wfc_data):
         """Enrich a registered cafe with WFC data."""
         place_category = wfc_data.get('place_category') or PLACE_CATEGORY_CAFE
@@ -772,12 +821,42 @@ class MergedNearbyCafesView(APIView):
             cafe_fallback_types=fallback_types,
         )
 
-    def _should_include_unregistered(self, place, allowed_keywords, fallback_types, selected_categories=None):
+    def _passes_strict_unregistered_cafe_gate(
+        self,
+        place,
+        allowed_keywords,
+        allowed_types,
+        excluded_keywords=None,
+    ):
+        """Keep default Google-only cafe discovery strict and low-noise."""
+        name = place.get('name', '')
+        if _place_name_matches_any(name, excluded_keywords):
+            return False
+        if not _place_name_matches_any(name, allowed_keywords):
+            return False
+
+        allowed_type_set = set(_normalise_config_values(allowed_types))
+        if allowed_type_set:
+            place_types = set(_normalise_config_values(place.get('types') or []))
+            if not place_types or place_types.isdisjoint(allowed_type_set):
+                return False
+
+        return True
+
+    def _should_include_unregistered(
+        self,
+        place,
+        allowed_keywords,
+        fallback_types,
+        selected_categories=None,
+        excluded_keywords=None,
+    ):
         """Check if an unregistered place matches a selected category.
 
-        Google provider types are the primary signal. Keywords only rescue
-        generic food/place results, so localized cafe names are not rejected
-        just because they do not contain English coffee terms.
+        Cafe discovery remains strict by default: Google-only cafe results
+        need positive name evidence and allowed provider types. Non-cafe
+        work-friendly categories still rely on provider classification and
+        only appear when selected.
         """
         if selected_categories is None:
             selected_categories = {'cafe'}
@@ -786,7 +865,18 @@ class MergedNearbyCafesView(APIView):
             allowed_keywords,
             fallback_types,
         )
-        return classification.category in selected_categories
+        if classification.category not in selected_categories:
+            return False
+        if classification.category == PLACE_CATEGORY_CAFE:
+            if excluded_keywords is None:
+                excluded_keywords = self._get_excluded_keywords()
+            return self._passes_strict_unregistered_cafe_gate(
+                place,
+                allowed_keywords,
+                fallback_types,
+                excluded_keywords,
+            )
+        return True
 
     def _enrich_unregistered_place(self, place, classification):
         """Add default values for an unregistered cafe."""
@@ -812,6 +902,7 @@ class MergedNearbyCafesView(APIView):
     def _enrich_and_filter_results(self, google_places, registered_map, all_registered_ids, params, filter_data):
         """Filter unregistered cafes and enrich all results with WFC/distance data."""
         allowed_keywords, allowed_types = self._get_filter_config()
+        excluded_keywords = self._get_excluded_keywords()
         include_unregistered = filter_data.get('include_unregistered', True)
         enriched_results = []
 
@@ -831,6 +922,16 @@ class MergedNearbyCafesView(APIView):
                 classification = self._classify_unregistered(place, allowed_keywords, allowed_types)
                 selected_categories = set(filter_data.get('categories', ['cafe']))
                 if classification.category not in selected_categories:
+                    continue
+                if (
+                    classification.category == PLACE_CATEGORY_CAFE
+                    and not self._passes_strict_unregistered_cafe_gate(
+                        place,
+                        allowed_keywords,
+                        allowed_types,
+                        excluded_keywords,
+                    )
+                ):
                     continue
                 place = self._enrich_unregistered_place(place, classification)
 

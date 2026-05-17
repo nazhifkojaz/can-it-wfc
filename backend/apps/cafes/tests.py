@@ -30,7 +30,13 @@ def _request_for(user):
 class TestGooglePlaceClassification:
     """Test Google place classification before DB/API enrichment."""
 
-    KEYWORDS = ['coffee', 'coffee shop', 'roastery', 'roaster', 'kopi', 'koffie']
+    KEYWORDS = [
+        'coffee', 'coffee shop', 'coffeeshop', 'roastery', 'roaster',
+        'espresso', 'kopi', 'koffie', 'cafe', 'café', 'kafe', 'kaffee',
+        'kaffe', 'caffè', '咖啡', '咖啡馆', '咖啡店', 'кофе', 'кофейня',
+        'кафе', 'カフェ', 'コーヒー', '喫茶', '카페', '커피', 'กาแฟ',
+        'คาเฟ่', 'مقهى', 'قهوة', 'كافيه'
+    ]
     FALLBACK_TYPES = {'cafe', 'coffee_shop', 'bakery', 'restaurant', 'food'}
 
     @pytest.mark.parametrize('name', ['星巴克臻选', 'Кофемания', '喫茶室ルノアール'])
@@ -119,13 +125,61 @@ class TestGooglePlaceClassification:
             self.FALLBACK_TYPES,
         )
 
-    def test_view_includes_provider_typed_cafe_without_keyword(self):
+    def test_view_excludes_provider_typed_cafe_without_keyword(self):
+        from apps.cafes.views import MergedNearbyCafesView
+
+        view = MergedNearbyCafesView()
+
+        assert not view._should_include_unregistered(
+            {'name': '星巴克臻选', 'types': ['cafe', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+    @pytest.mark.parametrize('name', [
+        'Blue Bottle Coffee',
+        'Kafe Senja',
+        '蓝瓶咖啡',
+        'Кофейня №1',
+        '喫茶室ルノアール',
+        '좋은날 카페',
+        'ร้านกาแฟ',
+        'مقهى المدينة',
+    ])
+    def test_view_includes_international_keyword_cafe_names(self, name):
         from apps.cafes.views import MergedNearbyCafesView
 
         view = MergedNearbyCafesView()
 
         assert view._should_include_unregistered(
-            {'name': '星巴克臻选', 'types': ['cafe', 'food']},
+            {'name': name, 'types': ['cafe', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+    @pytest.mark.parametrize('name', [
+        'Warteg Bahari',
+        'Warkop Barokah',
+        'Warkop Kopi Mantap',
+    ])
+    def test_view_excludes_indonesian_non_wfc_keywords(self, name):
+        from apps.cafes.views import MergedNearbyCafesView
+
+        view = MergedNearbyCafesView()
+
+        assert not view._should_include_unregistered(
+            {'name': name, 'types': ['cafe', 'food']},
+            self.KEYWORDS,
+            self.FALLBACK_TYPES,
+        )
+
+    def test_view_includes_warung_kopi(self):
+        from apps.cafes.views import MergedNearbyCafesView
+
+        view = MergedNearbyCafesView()
+
+        assert view._should_include_unregistered(
+            {'name': 'Warung Kopi Pak Budi', 'types': ['restaurant', 'food']},
             self.KEYWORDS,
             self.FALLBACK_TYPES,
         )
@@ -743,7 +797,7 @@ class TestCafePlaceCategoryMetadata:
             'apps.cafes.views.GooglePlacesService.search_nearby_coffee_shops',
             lambda **kwargs: [{
                 'google_place_id': 'non_english_cafe_place',
-                'name': '星巴克臻选',
+                'name': '星巴克咖啡',
                 'address': 'Shanghai',
                 'latitude': '-6.20880000',
                 'longitude': '106.84560000',
@@ -767,13 +821,38 @@ class TestCafePlaceCategoryMetadata:
         assert result['place_category_confidence'] == 'high'
         assert result['provider_types'] == ['cafe', 'food', 'point_of_interest']
 
+    def test_nearby_excludes_unregistered_google_cafe_without_keyword(self, authenticated_client, monkeypatch):
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.search_nearby_coffee_shops',
+            lambda **kwargs: [{
+                'google_place_id': 'provider_typed_only_cafe_place',
+                'name': '星巴克臻选',
+                'address': 'Shanghai',
+                'latitude': '-6.20880000',
+                'longitude': '106.84560000',
+                'rating': 4.5,
+                'user_ratings_total': 120,
+                'types': ['cafe', 'food', 'point_of_interest'],
+                'distance_km': 0,
+            }]
+        )
+
+        response = authenticated_client.get('/api/cafes/nearby/all/', {
+            'latitude': Decimal('-6.2088'),
+            'longitude': Decimal('106.8456'),
+            'radius_km': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'] == []
+
     def test_nearby_category_filter_excludes_library_by_default(self, authenticated_client, monkeypatch):
         monkeypatch.setattr(
             'apps.cafes.views.GooglePlacesService.search_nearby_coffee_shops',
             lambda **kwargs: [
                 {
                     'google_place_id': 'cafe_place',
-                    'name': '星巴克臻选',
+                    'name': '星巴克咖啡',
                     'address': 'Shanghai',
                     'latitude': '-6.20880000',
                     'longitude': '106.84560000',
