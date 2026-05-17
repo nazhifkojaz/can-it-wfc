@@ -9,8 +9,11 @@ import {
   getApiError,
 } from './client';
 
+type ResponseErrorHandler = (error: unknown) => Promise<never>;
+type ResponseSuccessHandler = (value: unknown) => unknown;
+
 const { responseInterceptorHandlers, mockAxiosInstance } = vi.hoisted(() => {
-  const handlers: Array<(error: any) => any> = [];
+  const handlers: ResponseErrorHandler[] = [];
   const instance = {
     get: vi.fn(),
     post: vi.fn(),
@@ -20,7 +23,7 @@ const { responseInterceptorHandlers, mockAxiosInstance } = vi.hoisted(() => {
     interceptors: {
       request: { use: vi.fn() },
       response: {
-        use: vi.fn((_onSuccess: any, onError: any) => {
+        use: vi.fn((_onSuccess: ResponseSuccessHandler, onError: ResponseErrorHandler) => {
           handlers.push(onError);
         }),
       },

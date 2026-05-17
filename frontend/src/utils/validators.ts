@@ -51,7 +51,7 @@ export const isValidCoordinates = (lat: number, lng: number): boolean => {
 /**
  * Validate required field
  */
-export const isRequired = (value: any): boolean => {
+export const isRequired = (value: unknown): boolean => {
   if (value === null || value === undefined) {
     return false;
   }

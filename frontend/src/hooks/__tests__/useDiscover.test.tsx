@@ -8,11 +8,15 @@ const mockGetRecentReviews = vi.fn();
 const mockGetFeaturedLists = vi.fn();
 const mockGetTrendingCafes = vi.fn();
 
+type RecentReviewsArgs = [offset?: number, limit?: number];
+type FeaturedListsArgs = [limit?: number];
+type TrendingCafesArgs = [days?: number, limit?: number];
+
 vi.mock('../../api/client', () => ({
   discoverApi: {
-    getRecentReviews: (...args: unknown[]) => mockGetRecentReviews(...args),
-    getFeaturedLists: (...args: unknown[]) => mockGetFeaturedLists(...args),
-    getTrendingCafes: (...args: unknown[]) => mockGetTrendingCafes(...args),
+    getRecentReviews: (...args: RecentReviewsArgs) => mockGetRecentReviews(...args),
+    getFeaturedLists: (...args: FeaturedListsArgs) => mockGetFeaturedLists(...args),
+    getTrendingCafes: (...args: TrendingCafesArgs) => mockGetTrendingCafes(...args),
   },
 }));
 
