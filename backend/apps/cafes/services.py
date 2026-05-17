@@ -2,7 +2,7 @@ import requests
 from dataclasses import dataclass, field
 from decimal import Decimal
 from django.conf import settings
-from typing import Any
+from typing import Any, TypedDict
 from core.logging import get_logger
 from apps.core.constants import (
     GOOGLE_AUTOCOMPLETE_TIMEOUT_SECONDS,
@@ -20,6 +20,45 @@ logger = get_logger(__name__)
 
 
 GOOGLE_PROVIDER = 'google'
+
+
+class LegacyGooglePlaceDict(TypedDict):
+    google_place_id: str
+    provider: str
+    provider_place_id: str
+    name: str
+    address: str
+    latitude: str
+    longitude: str
+    rating: float | None
+    user_ratings_total: int | None
+    price_level: int | None
+    types: list[str]
+    is_open_now: bool | None
+    photo_reference: str | None
+    distance_km: float
+
+
+class AutocompleteLocationDict(TypedDict):
+    lat: float
+    lng: float
+
+
+class AutocompleteGeometryDict(TypedDict):
+    location: AutocompleteLocationDict
+
+
+class AutocompleteLegacyPlaceDict(TypedDict):
+    place_id: str
+    name: str
+    vicinity: str
+    geometry: AutocompleteGeometryDict
+    rating: float | None
+    user_ratings_total: int | None
+    distance_km: float
+    types: list[str]
+    provider: str
+    provider_place_id: str
 
 
 @dataclass
@@ -44,7 +83,7 @@ class ProviderPlace:
     photo_reference: str | None = None
     distance_km: float = 0.0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> LegacyGooglePlaceDict:
         """Convert to a dict matching the legacy Google-shaped format.
 
         Views still consume dicts during enrichment — this bridge
@@ -121,7 +160,7 @@ class GooglePlacesService:
         keyword: str = "",
         additional_categories: list[str] | None = None,
         include_cafe: bool = True,
-    ) -> list[dict[str, Any]]:
+    ) -> list[LegacyGooglePlaceDict]:
         """
         Search for places near a location using Google Places API.
 
@@ -260,7 +299,7 @@ class GooglePlacesService:
         longitude: float,
         radius_meters: int = 10000,
         types: str | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> list[AutocompleteLegacyPlaceDict]:
         """
         Search using Autocomplete API for real-time search suggestions.
 

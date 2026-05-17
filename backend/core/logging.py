@@ -10,8 +10,23 @@ Usage:
 """
 import logging
 import json
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import ParamSpec, Protocol, TypeVar, cast
+
+
+P = ParamSpec('P')
+R = TypeVar('R')
+
+
+class RequestUserLike(Protocol):
+    is_authenticated: bool
+
+
+class RequestLike(Protocol):
+    user: RequestUserLike
+    method: str
+    path: str
 
 
 class StructuredFormatter(logging.Formatter):
@@ -47,7 +62,7 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def log_request(logger: logging.Logger) -> Callable:
+def log_request(logger: logging.Logger) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to log API request details.
 
@@ -64,9 +79,11 @@ def log_request(logger: logging.Logger) -> Callable:
             def get(self, request):
                 return Response(...)
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)
-        def wrapper(self, request, *args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            request_obj = args[1] if len(args) > 1 else kwargs.get('request')
+            request = cast(RequestLike, request_obj)
             user_str = str(request.user) if request.user.is_authenticated else 'anonymous'
             logger.info(
                 f'{request.method} {request.path}',
@@ -76,12 +93,12 @@ def log_request(logger: logging.Logger) -> Callable:
                     'user': user_str,
                 }}
             )
-            return func(self, request, *args, **kwargs)
+            return func(*args, **kwargs)
         return wrapper
     return decorator
 
 
-def log_service_call(logger: logging.Logger, service_name: str) -> Callable:
+def log_service_call(logger: logging.Logger, service_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to log service method calls with timing.
 
@@ -102,9 +119,9 @@ def log_service_call(logger: logging.Logger, service_name: str) -> Callable:
     """
     import time
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
