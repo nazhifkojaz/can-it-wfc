@@ -136,7 +136,7 @@ export const useGeolocation = (options?: GeolocationOptions) => {
           loading: false,
         });
       }
-    }, 12000);
+    }, 30000);
 
     const onResolved = () => {
       resolved = true;
@@ -199,8 +199,21 @@ export const useGeolocation = (options?: GeolocationOptions) => {
 
     setState(prev => ({ ...prev, loading: true, error: null }));
 
+    let resolved = false;
+    const safetyTimeoutId = window.setTimeout(() => {
+      if (!resolved) {
+        setState(prev => ({
+          ...prev,
+          error: 'Location not available. Your browser may be blocking location access. Check your tracker/ad-blocker settings.',
+          loading: false,
+        }));
+      }
+    }, 30000);
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        resolved = true;
+        clearTimeout(safetyTimeoutId);
         setState({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -209,6 +222,8 @@ export const useGeolocation = (options?: GeolocationOptions) => {
         });
       },
       (error) => {
+        resolved = true;
+        clearTimeout(safetyTimeoutId);
         if (error.code === error.PERMISSION_DENIED) {
           setState(prev => ({
             ...prev,
@@ -231,7 +246,8 @@ export const useGeolocation = (options?: GeolocationOptions) => {
       },
       {
         enableHighAccuracy: options?.enableHighAccuracy ?? true,
-        maximumAge: 0, // Force fresh location on manual refetch
+        maximumAge: 0,
+        timeout: 30000,
       }
     );
   }, [options?.enableHighAccuracy]);

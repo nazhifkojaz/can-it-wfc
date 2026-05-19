@@ -85,4 +85,141 @@ describe('useGeolocation', () => {
     unmount();
     expect(clearWatch).toHaveBeenCalledWith(123);
   });
+
+  it('refetch resolves with new location on success', async () => {
+    const { result, unmount } = renderHook(() => useGeolocation({ watch: false }));
+
+    const initialSuccess = getCurrentPosition.mock.calls[0][0] as PositionCallback;
+    act(() => {
+      initialSuccess(position(-6.2088, 106.8456));
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.refetch();
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    const refetchSuccess = getCurrentPosition.mock.calls[1][0] as PositionCallback;
+    act(() => {
+      refetchSuccess(position(-6.1754, 106.8272));
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.location).toEqual({ lat: -6.1754, lng: 106.8272 });
+
+    unmount();
+  });
+
+  it('refetch handles permission denied error', async () => {
+    const { result, unmount } = renderHook(() => useGeolocation({ watch: false }));
+
+    const initialSuccess = getCurrentPosition.mock.calls[0][0] as PositionCallback;
+    act(() => {
+      initialSuccess(position(-6.2088, 106.8456));
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.refetch();
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    const refetchError = getCurrentPosition.mock.calls[1][1] as PositionErrorCallback;
+    act(() => {
+      refetchError({
+        code: 1,
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+        message: 'User denied',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toContain('permission denied');
+
+    unmount();
+  });
+
+  it('refetch handles timeout error', async () => {
+    const { result, unmount } = renderHook(() => useGeolocation({ watch: false }));
+
+    const initialSuccess = getCurrentPosition.mock.calls[0][0] as PositionCallback;
+    act(() => {
+      initialSuccess(position(-6.2088, 106.8456));
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.refetch();
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    const refetchError = getCurrentPosition.mock.calls[1][1] as PositionErrorCallback;
+    act(() => {
+      refetchError({
+        code: 3,
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+        message: 'Timeout expired',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toContain('timed out');
+
+    unmount();
+  });
+
+  it('refetch fires safety timeout when callbacks never fire', async () => {
+    vi.useFakeTimers();
+
+    const { result, unmount } = renderHook(() => useGeolocation({ watch: false }));
+
+    const initialSuccess = getCurrentPosition.mock.calls[0][0] as PositionCallback;
+    act(() => {
+      initialSuccess(position(-6.2088, 106.8456));
+    });
+
+    expect(result.current.loading).toBe(false);
+
+    act(() => {
+      result.current.refetch();
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(31000);
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toContain('blocking location access');
+
+    vi.useRealTimers();
+    unmount();
+  });
 });
