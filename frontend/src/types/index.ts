@@ -321,9 +321,10 @@ export interface SearchResult {
   average_wfc_rating?: number;
   total_reviews?: number;
   total_visits?: number;
-  source: 'google';
+  source: 'database' | 'google';
   provider?: string;  // e.g. 'google'
   result_type: 'cafe' | 'location';
+  match_score?: number | null;  // 0-1 trigram similarity (DB results only)
 }
 
 export interface SearchResponse {

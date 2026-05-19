@@ -54,12 +54,30 @@ export const trackCafeViewed = (props: {
 };
 
 export const trackSearchPerformed = (props: {
-  query: string;
+  queryLength: number;
   resultCount: number;
+  registeredCount: number;
+  providerCount: number;
+  locationCount: number;
 }) => {
   posthog.capture('search_performed', {
-    query: props.query,
+    query_length: props.queryLength,
     result_count: props.resultCount,
+    registered_count: props.registeredCount,
+    provider_count: props.providerCount,
+    location_count: props.locationCount,
+  });
+};
+
+export const trackSearchResultSelected = (props: {
+  source: string;
+  resultType: string;
+  isRegistered: boolean;
+}) => {
+  posthog.capture('search_result_selected', {
+    source: props.source,
+    result_type: props.resultType,
+    is_registered: props.isRegistered,
   });
 };
 

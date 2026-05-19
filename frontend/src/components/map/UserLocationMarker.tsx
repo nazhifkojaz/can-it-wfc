@@ -41,6 +41,8 @@ const UserLocationMarker: React.FC<UserLocationMarkerProps> = ({ position }) => 
       <style>{`
         .user-location-pulse {
           animation: pulse 2s ease-in-out infinite;
+          transform-box: fill-box;
+          transform-origin: center;
         }
 
         @keyframes pulse {

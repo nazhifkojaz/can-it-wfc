@@ -22,6 +22,7 @@ import {
   trackReviewCreated,
   trackCafeViewed,
   trackSearchPerformed,
+  trackSearchResultSelected,
   trackDirectionsClicked,
   trackShareLinkCopied,
   trackLocationPermissionResponded,
@@ -118,19 +119,82 @@ describe('Analytics - search_performed', () => {
     vi.clearAllMocks();
   });
 
-  it('should capture query and result count', () => {
-    trackSearchPerformed({ query: 'starbucks menteng', resultCount: 7 });
+  it('should capture metadata without raw query', () => {
+    trackSearchPerformed({
+      queryLength: 18,
+      resultCount: 7,
+      registeredCount: 3,
+      providerCount: 2,
+      locationCount: 2,
+    });
     expect(mockCapture).toHaveBeenCalledWith('search_performed', {
-      query: 'starbucks menteng',
+      query_length: 18,
       result_count: 7,
+      registered_count: 3,
+      provider_count: 2,
+      location_count: 2,
     });
   });
 
   it('should capture zero results', () => {
-    trackSearchPerformed({ query: 'xyz', resultCount: 0 });
+    trackSearchPerformed({
+      queryLength: 3,
+      resultCount: 0,
+      registeredCount: 0,
+      providerCount: 0,
+      locationCount: 0,
+    });
     expect(mockCapture).toHaveBeenCalledWith('search_performed', {
-      query: 'xyz',
+      query_length: 3,
       result_count: 0,
+      registered_count: 0,
+      provider_count: 0,
+      location_count: 0,
+    });
+  });
+});
+
+describe('Analytics - search_result_selected', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should capture source, result type, and registration status', () => {
+    trackSearchResultSelected({
+      source: 'database',
+      resultType: 'cafe',
+      isRegistered: true,
+    });
+    expect(mockCapture).toHaveBeenCalledWith('search_result_selected', {
+      source: 'database',
+      result_type: 'cafe',
+      is_registered: true,
+    });
+  });
+
+  it('should capture unregistered Google result', () => {
+    trackSearchResultSelected({
+      source: 'google',
+      resultType: 'cafe',
+      isRegistered: false,
+    });
+    expect(mockCapture).toHaveBeenCalledWith('search_result_selected', {
+      source: 'google',
+      result_type: 'cafe',
+      is_registered: false,
+    });
+  });
+
+  it('should capture location selection', () => {
+    trackSearchResultSelected({
+      source: 'google',
+      resultType: 'location',
+      isRegistered: false,
+    });
+    expect(mockCapture).toHaveBeenCalledWith('search_result_selected', {
+      source: 'google',
+      result_type: 'location',
+      is_registered: false,
     });
   });
 });
