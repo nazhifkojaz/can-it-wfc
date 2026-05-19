@@ -1,3 +1,4 @@
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -184,6 +185,8 @@ class Cafe(models.Model):
             models.Index(fields=['-average_wfc_rating']),
             models.Index(fields=['is_closed', '-created_at'], name='cafe_closed_created_idx'),
             models.Index(fields=['avg_wifi_rating', 'avg_noise_level'], name='cafe_wifi_noise_idx'),
+            GinIndex(fields=['name'], name='cafe_name_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['address'], name='cafe_address_trgm_idx', opclasses=['gin_trgm_ops']),
         ]
     
     def __str__(self):

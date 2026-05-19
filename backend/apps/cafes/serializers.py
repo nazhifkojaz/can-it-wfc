@@ -554,6 +554,7 @@ class CafeSearchQuerySerializer(serializers.Serializer):
             'max_value': 'Limit cannot exceed 50'
         }
     )
+    include_unregistered = serializers.BooleanField(required=False, default=True)
 
 
 class CafeInsightsSerializer(serializers.Serializer):

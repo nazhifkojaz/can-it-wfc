@@ -1,7 +1,11 @@
 import math
+import time
 from decimal import Decimal
+from urllib.parse import quote
 
-from django.db.models import Count, Exists, OuterRef, Q
+from django.contrib.postgres.search import TrigramSimilarity
+from django.db.models import Count, Exists, F, OuterRef, Q
+from django.db.models.functions import Greatest
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, permissions, status
 from rest_framework.exceptions import NotFound, ValidationError
@@ -67,6 +71,7 @@ DEFAULT_GOOGLE_PLACES_ALLOWED_TYPES = {
     'bakery', 'cafe', 'coffee_shop', 'food', 'restaurant'
 }
 DEFAULT_GOOGLE_PLACES_EXCLUDED_KEYWORDS = ['warteg', 'warkop']
+REGISTERED_SEARCH_CANDIDATE_LIMIT = 100
 
 
 def get_google_place_filter_config():
@@ -91,6 +96,112 @@ def get_google_place_excluded_keywords():
         'GOOGLE_PLACES_EXCLUDED_KEYWORDS',
         DEFAULT_GOOGLE_PLACES_EXCLUDED_KEYWORDS,
     )
+
+
+def _normalize_search_query(query: str) -> str:
+    return ' '.join(str(query).casefold().strip().split())
+
+
+def _normalize_search_coordinate(value, decimals: int = 3) -> float:
+    return round(float(value), decimals)
+
+
+def _registered_cafe_search_result(cafe, latitude, longitude):
+    distance_km = Cafe.calculate_distance(
+        float(latitude), float(longitude),
+        float(cafe.latitude), float(cafe.longitude),
+    )
+    return {
+        'google_place_id': cafe.google_place_id or '',
+        'is_registered': True,
+        'db_cafe_id': cafe.id,
+        'name': cafe.name,
+        'address': cafe.address,
+        'latitude': str(cafe.latitude),
+        'longitude': str(cafe.longitude),
+        'distance': round(distance_km, 2),
+        'rating': float(cafe.google_rating) if cafe.google_rating is not None else None,
+        'result_type': 'cafe',
+        'source': 'database',
+        'provider': 'google' if cafe.google_place_id else None,
+        'place_category': cafe.place_category,
+        'place_category_label': PLACE_CATEGORY_LABELS.get(cafe.place_category, 'Cafe'),
+        'place_category_confidence': PLACE_CONFIDENCE_HIGH,
+        'provider_types': [],
+        'average_wfc_rating': (
+            float(cafe.average_wfc_rating)
+            if cafe.average_wfc_rating is not None else None
+        ),
+        'total_reviews': cafe.total_reviews,
+        'total_visits': cafe.total_visits,
+    }
+
+
+def _score_search_result(result: dict, normalized_query: str) -> tuple:
+    name = str(result.get('name', '')).casefold()
+    address = str(result.get('address', '')).casefold()
+    similarity = float(result.get('match_score') or 0)
+    query_words = normalized_query.split()
+
+    if name == normalized_query:
+        text_rank = 0
+    elif name.startswith(normalized_query):
+        text_rank = 1
+    elif all(w in name for w in query_words):
+        text_rank = 2
+    elif normalized_query in name:
+        text_rank = 3
+    elif any(w in name for w in query_words):
+        text_rank = 4
+    elif normalized_query in address:
+        text_rank = 5
+    elif all(w in address for w in query_words):
+        text_rank = 6
+    elif any(w in address for w in query_words):
+        text_rank = 7
+    else:
+        text_rank = 8
+
+    is_registered = result.get('is_registered', False)
+    wfc_rating = result.get('average_wfc_rating') or 0
+    total_reviews = min(result.get('total_reviews', 0), 50)
+    distance = result.get('distance', 999.0)
+
+    confidence = result.get('place_category_confidence', 'low')
+    confidence_order = {'high': 0, 'medium': 1, 'low': 2}
+    confidence_rank = confidence_order.get(confidence, 3)
+
+    return (
+        text_rank,
+        -float(wfc_rating),
+        -total_reviews,
+        0 if is_registered else 1,
+        confidence_rank,
+        float(distance),
+        -similarity,
+        name,
+    )
+
+
+def _search_registered_cafes(query: str, latitude, longitude):
+    cafes = Cafe.objects.filter(is_closed=False).annotate(
+        similarity=Greatest(
+            TrigramSimilarity('name', query),
+            TrigramSimilarity('address', query),
+        )
+    ).filter(similarity__gte=0.15)
+    cafes = cafes.order_by(
+        '-similarity',
+        F('average_wfc_rating').desc(nulls_last=True),
+        '-total_reviews',
+        'name',
+    )[:REGISTERED_SEARCH_CANDIDATE_LIMIT]
+    results = []
+    for cafe in cafes:
+        result = _registered_cafe_search_result(cafe, latitude, longitude)
+        result['match_score'] = round(float(getattr(cafe, 'similarity', 0)), 4)
+        results.append(result)
+    return results
 
 
 def _normalise_config_values(values):
@@ -1033,6 +1144,8 @@ class CafeSearchView(APIView):
         from django.core.cache import cache
         from .serializers import CafeSearchQuerySerializer
 
+        search_start = time.time()
+
         # Validate query parameters
         query_serializer = CafeSearchQuerySerializer(data=request.query_params)
         if not query_serializer.is_valid():
@@ -1048,6 +1161,7 @@ class CafeSearchView(APIView):
         latitude = validated_params.get('lat')
         longitude = validated_params.get('lon')
         limit = validated_params['limit']
+        include_unregistered = validated_params.get('include_unregistered', True)
 
         # Require location for search
         if latitude is None or longitude is None:
@@ -1058,15 +1172,84 @@ class CafeSearchView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Check cache first (10 min TTL)
-        cache_key = f'search_v5:{query}:{latitude}:{longitude}'
-        cached = cache.get(cache_key)
+        normalized_query = _normalize_search_query(query)
+        normalized_latitude = _normalize_search_coordinate(latitude)
+        normalized_longitude = _normalize_search_coordinate(longitude)
+        cache_query = quote(normalized_query, safe='')
+        cache_key = (
+            f'search_v10:{cache_query}:'
+            f'{normalized_latitude}:{normalized_longitude}:'
+            f'include_unregistered={include_unregistered}'
+        )
+        cache_miss = object()
+        cached = cache.get(cache_key, cache_miss)
 
-        if cached:
-            logger.info(f"Search cache hit for '{query}'")
+        if cached is not cache_miss:
+            logger.info(
+                "Search cache hit",
+                extra={'extra_data': {
+                    'query_length': len(normalized_query),
+                    'cache': 'hit',
+                }},
+            )
             return Response({
                 'results': cached[:limit],
                 'query': query,
                 'total_results': len(cached[:limit])
+            })
+
+        registered_results = _search_registered_cafes(
+            normalized_query,
+            latitude,
+            longitude,
+        )
+
+        registered_results.sort(key=lambda r: _score_search_result(r, normalized_query))
+
+        best_db_match = max(
+            (r.get('match_score') or 0 for r in registered_results),
+            default=0
+        )
+
+        if not include_unregistered:
+            cache.set(cache_key, registered_results, 600)
+            results = registered_results[:limit]
+            total_ms = round((time.time() - search_start) * 1000, 2)
+            logger.info(
+                "Search complete (db-only)",
+                extra={'extra_data': {
+                    'query_length': len(normalized_query),
+                    'db_results': len(registered_results),
+                    'provider_skipped': not include_unregistered,
+                    'total_results': len(results),
+                    'total_ms': total_ms,
+                }},
+            )
+            return Response({
+                'results': results,
+                'query': query,
+                'total_results': len(results)
+            })
+
+        if best_db_match >= 0.85:
+            cache.set(cache_key, registered_results, 600)
+            results = registered_results[:limit]
+            total_ms = round((time.time() - search_start) * 1000, 2)
+            logger.info(
+                "Search complete (db-only, high confidence match)",
+                extra={'extra_data': {
+                    'query_length': len(normalized_query),
+                    'db_results': len(registered_results),
+                    'best_match_score': round(best_db_match, 4),
+                    'provider_skipped': True,
+                    'total_results': len(results),
+                    'total_ms': total_ms,
+                }},
+            )
+            return Response({
+                'results': results,
+                'query': query,
+                'total_results': len(results)
             })
 
         # Fetch from Google Autocomplete API
@@ -1078,7 +1261,21 @@ class CafeSearchView(APIView):
                 radius_meters=10000  # 10km radius
             )
         except Exception as e:
-            logger.warning(f"Google Places autocomplete error: {e}")
+            logger.warning(
+                "Google Places autocomplete error",
+                extra={'extra_data': {
+                    'query_length': len(normalized_query),
+                    'error': str(e),
+                    'db_results': len(registered_results),
+                }},
+            )
+            if registered_results:
+                results = registered_results[:limit]
+                return Response({
+                    'results': results,
+                    'query': query,
+                    'total_results': len(results)
+                })
             return Response({
                 'results': [],
                 'error': 'Search service temporarily unavailable',
@@ -1095,11 +1292,18 @@ class CafeSearchView(APIView):
         }
 
         # Process each result and check DB for registration status
-        unified_results = []
+        unified_results = list(registered_results)
+        registered_google_place_ids = {
+            result['google_place_id']
+            for result in registered_results
+            if result.get('google_place_id')
+        }
         allowed_keywords, fallback_types = get_google_place_filter_config()
 
         for place in autocomplete_results:
             place_id = place.get('place_id')
+            if place_id in registered_google_place_ids:
+                continue
             place_types = place.get('types', [])
             classification = classify_place(
                 provider_types=place.get('types', []),
@@ -1140,6 +1344,7 @@ class CafeSearchView(APIView):
                 'place_category_label': place_category_label,
                 'place_category_confidence': place_category_confidence,
                 'provider_types': place_types,
+                'match_score': None,
             }
 
             # Add DB data if registered
@@ -1151,10 +1356,22 @@ class CafeSearchView(APIView):
 
             unified_results.append(result)
 
+        unified_results.sort(key=lambda r: _score_search_result(r, normalized_query))
+
         # Cache for 10 minutes
         cache.set(cache_key, unified_results, 600)
 
-        logger.info(f"Autocomplete search for '{query}' returned {len(unified_results)} results")
+        total_ms = round((time.time() - search_start) * 1000, 2)
+        logger.info(
+            "Search complete",
+            extra={'extra_data': {
+                'query_length': len(normalized_query),
+                'db_results': len(registered_results),
+                'provider_results': len(unified_results) - len(registered_results),
+                'total_results': len(unified_results),
+                'total_ms': total_ms,
+            }},
+        )
 
         return Response({
             'results': unified_results[:limit],

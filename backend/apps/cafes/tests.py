@@ -27,6 +27,15 @@ def _request_for(user):
     return type('Request', (), {'user': user})()
 
 
+@pytest.fixture
+def clear_cache():
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
 class TestGooglePlaceClassification:
     """Test Google place classification before DB/API enrichment."""
 
@@ -194,6 +203,1061 @@ class TestGooglePlaceClassification:
             self.KEYWORDS,
             self.FALLBACK_TYPES,
         )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures('disable_throttle', 'clear_cache')
+class TestCafeSearchView:
+    """Tests for GET /api/cafes/search/."""
+
+    @staticmethod
+    def _place(name='Coffee Place', place_id='google_place_1', types=None):
+        if types is None:
+            types = ['cafe', 'food', 'point_of_interest']
+        return {
+            'place_id': place_id,
+            'name': name,
+            'vicinity': 'Jl. Test, Jakarta',
+            'geometry': {
+                'location': {
+                    'lat': -6.2088,
+                    'lng': 106.8456,
+                },
+            },
+            'rating': 4.5,
+            'distance_km': 0.12,
+            'types': types,
+        }
+
+    def test_rejects_short_query_without_google_call(self, api_client, monkeypatch):
+        def fail_search(**kwargs):
+            pytest.fail('Google search should not be called for invalid query')
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            fail_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'ab',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_rejects_missing_location_without_google_call(self, api_client, monkeypatch):
+        def fail_search(**kwargs):
+            pytest.fail('Google search should not be called without location')
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            fail_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {'q': 'coffee'})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_cache_hit_skips_google_search(self, api_client, monkeypatch):
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place()]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        params = {'q': 'coffee', 'lat': '-6.2088', 'lon': '106.8456'}
+        first_response = api_client.get('/api/cafes/search/', params)
+        second_response = api_client.get('/api/cafes/search/', params)
+
+        assert first_response.status_code == status.HTTP_200_OK
+        assert second_response.status_code == status.HTTP_200_OK
+        assert len(calls) == 1
+        assert second_response.data['total_results'] == 1
+        assert second_response.data['results'][0]['google_place_id'] == 'google_place_1'
+
+    def test_cached_empty_results_skip_google_search(self, api_client, monkeypatch):
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return []
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        params = {'q': 'coffee', 'lat': '-6.2088', 'lon': '106.8456'}
+        first_response = api_client.get('/api/cafes/search/', params)
+        second_response = api_client.get('/api/cafes/search/', params)
+
+        assert first_response.status_code == status.HTTP_200_OK
+        assert first_response.data['results'] == []
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_response.data['results'] == []
+        assert len(calls) == 1
+
+    def test_query_normalization_reuses_cache(self, api_client, monkeypatch):
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place(name='Coffee Lab')]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        api_client.get('/api/cafes/search/', {
+            'q': 'Coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+        response = api_client.get('/api/cafes/search/', {
+            'q': '  coffee  ',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(calls) == 1
+
+    def test_coordinate_normalization_reuses_cache(self, api_client, monkeypatch):
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place()]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        api_client.get('/api/cafes/search/', {
+            'q': 'coffee',
+            'lat': '-6.20884',
+            'lon': '106.84564',
+        })
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'coffee',
+            'lat': '-6.20882',
+            'lon': '106.84562',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(calls) == 1
+
+    def test_registered_cafe_appears_when_google_returns_empty(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        cafe = make_cafe(
+            name='Searchable Coffee Lab',
+            address='Jl. Registered Search, Jakarta',
+            google_place_id='registered_search_place',
+            average_wfc_rating=Decimal('4.50'),
+            total_reviews=7,
+            total_visits=11,
+            google_rating=Decimal('4.6'),
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'searchable',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['total_results'] == 1
+        result = response.data['results'][0]
+        assert result['source'] == 'database'
+        assert result['is_registered'] is True
+        assert result['db_cafe_id'] == cafe.id
+        assert result['google_place_id'] == 'registered_search_place'
+        assert result['average_wfc_rating'] == 4.5
+        assert result['total_reviews'] == 7
+        assert result['total_visits'] == 11
+        assert result['rating'] == 4.6
+
+    def test_closed_registered_cafe_does_not_appear(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Closed Search Cafe',
+            address='Jl. Closed Search, Jakarta',
+            is_closed=True,
+        )
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'closed search',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'] == []
+
+    def test_db_only_cafe_without_google_place_id_can_appear(
+        self,
+        api_client,
+        test_user,
+        monkeypatch,
+    ):
+        from apps.cafes.models import Cafe
+
+        cafe = Cafe.objects.create(
+            name='Independent Study Cafe',
+            address='Jl. Independent, Jakarta',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id=None,
+            created_by=test_user,
+        )
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'independent',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        result = response.data['results'][0]
+        assert result['db_cafe_id'] == cafe.id
+        assert result['google_place_id'] == ''
+        assert result['provider'] is None
+        assert result['source'] == 'database'
+
+    def test_registered_result_distance_uses_request_coordinates(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        from apps.cafes.models import Cafe
+
+        make_cafe(
+            name='Distance Search Cafe',
+            address='Jl. Distance, Jakarta',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+        )
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'distance',
+            'lat': '-6.2000',
+            'lon': '106.8000',
+        })
+
+        expected_distance = round(Cafe.calculate_distance(
+            -6.2000, 106.8000,
+            -6.2088, 106.8456,
+        ), 2)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['distance'] == expected_distance
+
+    def test_google_failure_still_returns_registered_results(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Resilient Search Cafe',
+            address='Jl. Resilient, Jakarta',
+        )
+
+        def fail_search(**kwargs):
+            raise RuntimeError('provider unavailable')
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            fail_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'resilient',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['total_results'] == 1
+        assert response.data['results'][0]['source'] == 'database'
+
+    def test_google_is_called_even_when_db_results_fill_limit(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Limit Filled Cafe',
+            address='Jl. Limit Filled, Jakarta',
+        )
+
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place(name='Provider Discovery Cafe', place_id='provider_disc')]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'limit filled',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'limit': 1,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(calls) == 1
+        assert response.data['total_results'] == 1
+
+    def test_google_is_skipped_when_db_has_high_confidence_match(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Starbucks Coffee',
+            average_wfc_rating=Decimal('4.00'),
+            total_reviews=10,
+        )
+
+        def fail_search(**kwargs):
+            pytest.fail('Google should be skipped for high-confidence DB match')
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            fail_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'Starbucks Coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['total_results'] == 1
+        assert response.data['results'][0]['name'] == 'Starbucks Coffee'
+        assert response.data['results'][0]['match_score'] >= 0.85
+
+    def test_google_is_called_when_db_match_is_below_threshold(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Coffee Lab',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+        )
+
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place(name='Celesta Coffee', place_id='celesta_coffee')]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'celesta coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(calls) == 1
+        db_result = [r for r in response.data['results'] if r['source'] == 'database'][0]
+        assert db_result['match_score'] < 0.85
+
+    def test_google_is_called_when_registered_results_are_below_limit(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        calls = []
+        make_cafe(
+            name='Hybrid Search Cafe',
+            address='Jl. Hybrid, Jakarta',
+        )
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place(name='Hybrid Provider Cafe', place_id='hybrid_provider')]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'hybrid',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'limit': 2,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(calls) == 1
+        assert response.data['total_results'] == 2
+        assert [r['source'] for r in response.data['results']] == ['database', 'google']
+
+    def test_google_result_matching_registered_place_id_is_deduped(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Dedupe Search Cafe',
+            address='Jl. Dedupe, Jakarta',
+            google_place_id='dedupe_place',
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [self._place(
+                name='Dedupe Search Cafe',
+                place_id='dedupe_place',
+            )],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'dedupe',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'limit': 10,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['total_results'] == 1
+        assert response.data['results'][0]['source'] == 'database'
+        assert response.data['results'][0]['google_place_id'] == 'dedupe_place'
+
+    def test_place_details_cache_prevents_repeated_provider_calls(
+        self,
+        settings,
+        monkeypatch,
+    ):
+        from apps.cafes.services import GooglePlacesService
+
+        settings.GOOGLE_PLACES_API_KEY = 'test-key'
+        calls = []
+
+        class MockResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    'status': 'OK',
+                    'result': {
+                        'name': 'Cached Place',
+                        'geometry': {'location': {'lat': -6.2088, 'lng': 106.8456}},
+                    },
+                }
+
+        def mock_get(url, params, timeout):
+            calls.append({'url': url, 'params': params, 'timeout': timeout})
+            return MockResponse()
+
+        monkeypatch.setattr('apps.cafes.services.requests.get', mock_get)
+
+        first = GooglePlacesService.get_place_details(
+            'cached_place',
+            fields='geometry,name',
+            use_cache=True,
+        )
+        second = GooglePlacesService.get_place_details(
+            'cached_place',
+            fields='geometry,name',
+            use_cache=True,
+        )
+
+        assert first == second
+        assert first['name'] == 'Cached Place'
+        assert len(calls) == 1
+
+    def test_place_details_cache_is_opt_in(
+        self,
+        settings,
+        monkeypatch,
+    ):
+        from apps.cafes.services import GooglePlacesService
+
+        settings.GOOGLE_PLACES_API_KEY = 'test-key'
+        calls = []
+
+        class MockResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    'status': 'OK',
+                    'result': {
+                        'name': 'Uncached Place',
+                        'geometry': {'location': {'lat': -6.2088, 'lng': 106.8456}},
+                    },
+                }
+
+        def mock_get(url, params, timeout):
+            calls.append({'url': url, 'params': params, 'timeout': timeout})
+            return MockResponse()
+
+        monkeypatch.setattr('apps.cafes.services.requests.get', mock_get)
+
+        GooglePlacesService.get_place_details('uncached_place', fields='geometry,name')
+        GooglePlacesService.get_place_details('uncached_place', fields='geometry,name')
+
+        assert len(calls) == 2
+
+    def test_ranking_exact_registered_name_beats_google_result(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Favorite Coffee House',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=3,
+            google_place_id='registered_coffee',
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [self._place(
+                name='Favorite Coffee House',
+                place_id='google_coffee',
+            )],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'favorite coffee house',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        sources = [r['source'] for r in response.data['results']]
+        assert sources[0] == 'database'
+
+    def test_ranking_registered_beats_unregistered_similar_relevance(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Nice Coffee Spot',
+            average_wfc_rating=Decimal('3.20'),
+            total_reviews=3,
+            google_place_id='nice_registered',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [self._place(
+                name='Nice Coffee Palace',
+                place_id='nice_unregistered',
+            )],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'nice coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'limit': 10,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        sources = [r['source'] for r in response.data['results']]
+        assert sources[0] == 'database'
+        assert sources[1] == 'google'
+
+    def test_ranking_better_wfc_wins_among_registered_matches(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Moderate Coffee',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=20,
+            google_place_id='moderate',
+        )
+        make_cafe(
+            name='Premium Coffee',
+            average_wfc_rating=Decimal('4.80'),
+            total_reviews=35,
+            google_place_id='premium',
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert names[0] == 'Premium Coffee'
+        assert names[1] == 'Moderate Coffee'
+
+    def test_ranking_nearer_result_wins_as_tiebreaker(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Far Coffee',
+            average_wfc_rating=Decimal('4.00'),
+            total_reviews=10,
+            latitude=Decimal('-6.4000'),
+            longitude=Decimal('106.8500'),
+        )
+        make_cafe(
+            name='Near Coffee',
+            average_wfc_rating=Decimal('4.00'),
+            total_reviews=10,
+            latitude=Decimal('-6.2090'),
+            longitude=Decimal('106.8458'),
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert names[0] == 'Near Coffee'
+        assert names[1] == 'Far Coffee'
+
+    def test_ranking_location_after_cafe_for_cafe_like_query(
+        self,
+        api_client,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [
+                self._place(
+                    name='Jakarta Convention Center',
+                    place_id='location_place',
+                    types=['point_of_interest', 'establishment'],
+                ),
+                self._place(
+                    name='Jakarta Coffee Club',
+                    place_id='cafe_place',
+                    types=['cafe', 'food'],
+                ),
+            ],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'jakarta',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'limit': 10,
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        result_types = [r['result_type'] for r in response.data['results']]
+        cafe_index = result_types.index('cafe')
+        location_index = result_types.index('location')
+        assert cafe_index < location_index
+
+    def test_ranking_name_match_ranked_above_address_match(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Gedung Cendana',
+            address='Jl. Coffee Street No. 1, Jakarta',
+        )
+        make_cafe(
+            name='Café Cendana',
+            address='Jl. Other Street No. 2, Jakarta',
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'cendana',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert names[0] == 'Café Cendana'
+        assert names[1] == 'Gedung Cendana'
+
+    def test_ranking_exact_name_beats_prefix_beats_substring(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Barista',
+            average_wfc_rating=Decimal('3.00'),
+            total_reviews=1,
+        )
+        make_cafe(
+            name='Barista Academy',
+            average_wfc_rating=Decimal('3.00'),
+            total_reviews=1,
+        )
+        make_cafe(
+            name='The Great Barista',
+            average_wfc_rating=Decimal('3.00'),
+            total_reviews=1,
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'barista',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert names[0] == 'Barista'
+        assert names[1] == 'Barista Academy'
+        assert names[2] == 'The Great Barista'
+
+    def test_ranking_is_deterministic(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Zeta Coffee',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+        )
+        make_cafe(
+            name='Alpha Coffee',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        params = {'q': 'coffee', 'lat': '-6.2088', 'lon': '106.8456'}
+        first = api_client.get('/api/cafes/search/', params)
+        second = api_client.get('/api/cafes/search/', params)
+
+        first_names = [r['name'] for r in first.data['results']]
+        second_names = [r['name'] for r in second.data['results']]
+        assert first_names == second_names
+
+    # --- Phase 8: Trigram similarity tests ---
+
+    def test_trigram_typo_matches_known_cafe(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Starbucks Coffee',
+            average_wfc_rating=Decimal('4.00'),
+            total_reviews=10,
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'Starbcks',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert 'Starbucks Coffee' in names
+
+    def test_trigram_exact_beats_fuzzy_match(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Starbucks Coffee',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+        )
+        make_cafe(
+            name='Starbako Cafe',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'starbucks',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert names[0] == 'Starbucks Coffee'
+        assert 'Starbako Cafe' in names
+
+    def test_trigram_ranking_deterministic_with_similarity(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Coffee Lab Express',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+        )
+        make_cafe(
+            name='Express Coffee Lab',
+            average_wfc_rating=Decimal('3.50'),
+            total_reviews=5,
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        params = {'q': 'express coffee', 'lat': '-6.2088', 'lon': '106.8456'}
+        first = api_client.get('/api/cafes/search/', params)
+        second = api_client.get('/api/cafes/search/', params)
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        first_names = [r['name'] for r in first.data['results']]
+        second_names = [r['name'] for r in second.data['results']]
+        assert first_names == second_names
+
+    def test_trigram_search_does_not_return_unrelated_cafes(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Java Jazz Cafe',
+            average_wfc_rating=Decimal('4.00'),
+            total_reviews=10,
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'starbucks',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert 'Java Jazz Cafe' not in names
+
+    def test_map_filter_params_do_not_affect_search_results(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='High Rated Cafe',
+            average_wfc_rating=Decimal('4.50'),
+            total_reviews=10,
+        )
+        make_cafe(
+            name='Low Rated Cafe',
+            average_wfc_rating=Decimal('2.00'),
+            total_reviews=10,
+        )
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            lambda **kwargs: [],
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'rated cafe',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'min_wfc': '3',
+            'categories': 'library',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [r['name'] for r in response.data['results']]
+        assert 'High Rated Cafe' in names
+        assert 'Low Rated Cafe' in names
+
+    def test_include_unregistered_false_skips_google(
+        self,
+        api_client,
+        make_cafe,
+        monkeypatch,
+    ):
+        make_cafe(
+            name='Registered Only Cafe',
+            total_reviews=3,
+        )
+
+        def fail_search(**kwargs):
+            pytest.fail('Google should not be called when include_unregistered=false')
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            fail_search,
+        )
+
+        response = api_client.get('/api/cafes/search/', {
+            'q': 'registered only',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'include_unregistered': 'false',
+        })
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['total_results'] == 1
+        assert response.data['results'][0]['name'] == 'Registered Only Cafe'
+
+    def test_cache_key_differs_by_include_unregistered_toggle(
+        self,
+        api_client,
+        monkeypatch,
+    ):
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place(name='Toggle Coffee', place_id='toggle_google')]
+
+        monkeypatch.setattr(
+            'apps.cafes.views.GooglePlacesService.autocomplete_search',
+            mock_search,
+        )
+
+        db_only_response = api_client.get('/api/cafes/search/', {
+            'q': 'toggle coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+            'include_unregistered': 'false',
+        })
+        default_response = api_client.get('/api/cafes/search/', {
+            'q': 'toggle coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert db_only_response.status_code == status.HTTP_200_OK
+        assert default_response.status_code == status.HTTP_200_OK
+        assert db_only_response.data['total_results'] == 0
+        assert default_response.data['total_results'] == 1
+        assert len(calls) == 1
+
+        cached_default_response = api_client.get('/api/cafes/search/', {
+            'q': 'toggle coffee',
+            'lat': '-6.2088',
+            'lon': '106.8456',
+        })
+
+        assert cached_default_response.status_code == status.HTTP_200_OK
+        assert cached_default_response.data['total_results'] == 1
+        assert len(calls) == 1
 
 
 @pytest.mark.django_db

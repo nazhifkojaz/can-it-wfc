@@ -1,7 +1,10 @@
+import hashlib
+
 import requests
 from dataclasses import dataclass, field
 from decimal import Decimal
 from django.conf import settings
+from django.core.cache import cache
 from typing import Any, TypedDict
 from core.logging import get_logger
 from apps.core.constants import (
@@ -20,6 +23,13 @@ logger = get_logger(__name__)
 
 
 GOOGLE_PROVIDER = 'google'
+GOOGLE_PLACE_DETAILS_CACHE_SECONDS = 24 * 60 * 60
+
+
+def _place_details_cache_key(place_id: str, fields: str) -> str:
+    place_hash = hashlib.sha256(place_id.encode()).hexdigest()[:16]
+    fields_hash = hashlib.sha256(fields.encode()).hexdigest()[:16]
+    return f'google_place_details_v1:{place_hash}:{fields_hash}'
 
 
 class LegacyGooglePlaceDict(TypedDict):
@@ -370,6 +380,7 @@ class GooglePlacesService:
                 details = GooglePlacesService.get_place_details(
                     place_id,
                     fields='geometry,name,formatted_address,rating,user_ratings_total,types,photos',
+                    use_cache=True,
                 )
 
                 if not details or not details.get('geometry'):
@@ -411,7 +422,11 @@ class GooglePlacesService:
             return []
 
     @staticmethod
-    def get_place_details(place_id: str, fields: str | None = None) -> dict[str, Any] | None:
+    def get_place_details(
+        place_id: str,
+        fields: str | None = None,
+        use_cache: bool = False,
+    ) -> dict[str, Any] | None:
         """
         Get detailed information about a specific place.
 
@@ -420,10 +435,11 @@ class GooglePlacesService:
             fields: Comma-separated list of fields to request
                    Default includes Basic Data (FREE) + some paid fields
                    For autocomplete, pass only the fields needed by search result display/classification.
+            use_cache: Whether to cache successful details responses.
         """
         api_key = settings.GOOGLE_PLACES_API_KEY
 
-        if not api_key:
+        if not api_key or not place_id:
             return None
 
         url = f"{GooglePlacesService.BASE_URL}/details/json"
@@ -431,6 +447,12 @@ class GooglePlacesService:
         # Default fields if not specified
         if not fields:
             fields = 'name,formatted_address,geometry,rating,user_ratings_total,price_level,opening_hours,formatted_phone_number,website'
+
+        cache_key = _place_details_cache_key(place_id, fields) if use_cache else None
+        if cache_key:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
 
         params = {
             'place_id': place_id,
@@ -444,7 +466,16 @@ class GooglePlacesService:
             data = response.json()
 
             if data.get('status') == 'OK':
-                return data.get('result')
+                result = data.get('result')
+                if result is not None:
+                    cache_seconds = getattr(
+                        settings,
+                        'GOOGLE_PLACE_DETAILS_CACHE_SECONDS',
+                        GOOGLE_PLACE_DETAILS_CACHE_SECONDS,
+                    )
+                    if cache_key and cache_seconds > 0:
+                        cache.set(cache_key, result, cache_seconds)
+                return result
             return None
 
         except requests.RequestException as e:
