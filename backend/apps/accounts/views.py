@@ -40,7 +40,7 @@ from .serializers import (
     UserSettingsSerializer,
     FollowUserSerializer,
 )
-from .utils import get_user_by_username_or_id, is_own_profile
+from .utils import check_is_following, get_user_by_username_or_id, is_own_profile
 from .models import Follow
 from core.logging import get_logger
 from apps.cafes.models import CafeList, CafeListItem, SavedCafeList
@@ -476,8 +476,12 @@ class UserFollowersListView(generics.ListAPIView):
         settings = user.settings
         own_profile = is_own_profile(self.request, user)
 
-        if not settings.show_followers and not own_profile:
-            return User.objects.none()
+        if not own_profile:
+            if not settings.show_followers:
+                return User.objects.none()
+
+            if settings.profile_visibility == 'private' and not check_is_following(self.request, user):
+                return User.objects.none()
 
         follower_ids = user.get_follower_ids()
         return User.objects.filter(id__in=follower_ids).order_by('-date_joined')
@@ -505,8 +509,12 @@ class UserFollowingListView(generics.ListAPIView):
         settings = user.settings
         own_profile = is_own_profile(self.request, user)
 
-        if not settings.show_following and not own_profile:
-            return User.objects.none()
+        if not own_profile:
+            if not settings.show_following:
+                return User.objects.none()
+
+            if settings.profile_visibility == 'private' and not check_is_following(self.request, user):
+                return User.objects.none()
 
         following_ids = user.get_following_ids()
         return User.objects.filter(id__in=following_ids).order_by('-date_joined')

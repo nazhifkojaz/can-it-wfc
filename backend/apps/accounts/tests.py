@@ -360,3 +360,102 @@ class TestSavedLists:
         response = api_client.get('/api/auth/me/saved-lists/?limit=2')
         assert len(response.data['results']) == 2
         assert response.data['count'] == 5
+
+
+@pytest.mark.django_db
+class TestPublicSocialListPrivacy:
+    """Private profiles must not leak followers/following to unauthorised users."""
+
+    def _make_private_target(self, make_user):
+        target = make_user(username='privateuser', email='private@example.com')
+        target.settings.profile_visibility = 'private'
+        target.settings.show_followers = True
+        target.settings.show_following = True
+        target.settings.save()
+        return target
+
+    def test_anonymous_sees_empty_followers(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_anonymous_sees_empty_following(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_active_follower_sees_followers(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        follower = make_user(username='follower1', email='follower1@example.com')
+        Follow.objects.create(follower=follower, followed=target, status='active')
+        followed_by = make_user(username='followedby1', email='followedby1@example.com')
+        Follow.objects.create(follower=followed_by, followed=target, status='active')
+
+        api_client.force_authenticate(user=follower)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'follower1' in usernames
+        assert 'followedby1' in usernames
+
+    def test_active_follower_sees_following(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        follower = make_user(username='follower2', email='follower2@example.com')
+        Follow.objects.create(follower=follower, followed=target, status='active')
+        followed_by = make_user(username='followedby2', email='followedby2@example.com')
+        Follow.objects.create(follower=target, followed=followed_by, status='active')
+
+        api_client.force_authenticate(user=follower)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'followedby2' in usernames
+
+    def test_pending_follower_sees_empty_followers(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        pending = make_user(username='pending1', email='pending1@example.com')
+        Follow.objects.create(follower=pending, followed=target, status='pending')
+        Follow.objects.create(follower=target, followed=pending, status='pending')
+
+        api_client.force_authenticate(user=pending)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_pending_follower_sees_empty_following(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        pending = make_user(username='pending2', email='pending2@example.com')
+        Follow.objects.create(follower=pending, followed=target, status='pending')
+
+        api_client.force_authenticate(user=pending)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_owner_sees_own_followers_while_private(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        target.settings.show_followers = False
+        target.settings.save()
+        follower = make_user(username='owned_follower', email='owned_follower@example.com')
+        Follow.objects.create(follower=follower, followed=target, status='active')
+
+        api_client.force_authenticate(user=target)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'owned_follower' in usernames
+
+    def test_owner_sees_own_following_while_private(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        target.settings.show_following = False
+        target.settings.save()
+        followed = make_user(username='owned_following', email='owned_following@example.com')
+        Follow.objects.create(follower=target, followed=followed, status='active')
+
+        api_client.force_authenticate(user=target)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'owned_following' in usernames
