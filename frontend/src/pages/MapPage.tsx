@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, List, Map as MapIcon } from 'lucide-react';
+import { AlertCircle, List, Map as MapIcon, RefreshCw } from 'lucide-react';
 import MobileLayout from '../components/layout/MobileLayout';
 import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
@@ -284,6 +284,14 @@ const MapPage: React.FC = () => {
               <p className="error-title">Location access needed</p>
               <p className="error-message">{locationError}</p>
             </div>
+            <button
+              onClick={handleRetryLocation}
+              className="location-error-retry"
+              aria-label="Retry location"
+            >
+              <RefreshCw size={18} />
+              <span>Retry</span>
+            </button>
           </div>
         )}
 

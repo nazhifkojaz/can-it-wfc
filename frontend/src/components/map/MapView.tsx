@@ -233,7 +233,7 @@ const MapView: React.FC<MapViewProps> = ({
 
         {/* Custom Map Controls Group (Bottom Left) */}
         <div className={styles.mapControlsGroup}>
-          <SearchButton onClick={() => onSearchClick?.()} />
+          <SearchButton onClick={() => onSearchClick?.()} disabled={!userLocation} />
           <FindMyLocationButton
             onClick={handleFindMyLocation}
             disabled={!userLocation && !onRetryLocation}

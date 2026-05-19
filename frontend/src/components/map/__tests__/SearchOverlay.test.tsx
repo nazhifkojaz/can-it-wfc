@@ -58,14 +58,6 @@ describe('SearchOverlay', () => {
     vi.useRealTimers();
   });
 
-  function typeAndWait(queryText: string) {
-    const input = screen.getByPlaceholderText('Search cafes or locations...');
-    fireEvent.change(input, { target: { value: queryText } });
-    act(() => {
-      vi.advanceTimersByTime(500);
-    });
-  }
-
   it('cancels pending searches when the overlay closes', () => {
     const { rerender } = render(
       <SearchOverlay
