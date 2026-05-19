@@ -1206,11 +1206,6 @@ class CafeSearchView(APIView):
 
         registered_results.sort(key=lambda r: _score_search_result(r, normalized_query))
 
-        best_db_match = max(
-            (r.get('match_score') or 0 for r in registered_results),
-            default=0
-        )
-
         if not include_unregistered:
             cache.set(cache_key, registered_results, 600)
             results = registered_results[:limit]
@@ -1221,27 +1216,6 @@ class CafeSearchView(APIView):
                     'query_length': len(normalized_query),
                     'db_results': len(registered_results),
                     'provider_skipped': not include_unregistered,
-                    'total_results': len(results),
-                    'total_ms': total_ms,
-                }},
-            )
-            return Response({
-                'results': results,
-                'query': query,
-                'total_results': len(results)
-            })
-
-        if best_db_match >= 0.85:
-            cache.set(cache_key, registered_results, 600)
-            results = registered_results[:limit]
-            total_ms = round((time.time() - search_start) * 1000, 2)
-            logger.info(
-                "Search complete (db-only, high confidence match)",
-                extra={'extra_data': {
-                    'query_length': len(normalized_query),
-                    'db_results': len(registered_results),
-                    'best_match_score': round(best_db_match, 4),
-                    'provider_skipped': True,
                     'total_results': len(results),
                     'total_ms': total_ms,
                 }},

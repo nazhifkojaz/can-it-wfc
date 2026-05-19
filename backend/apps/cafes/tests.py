@@ -559,12 +559,15 @@ class TestCafeSearchView:
             total_reviews=10,
         )
 
-        def fail_search(**kwargs):
-            pytest.fail('Google should be skipped for high-confidence DB match')
+        calls = []
+
+        def mock_search(**kwargs):
+            calls.append(kwargs)
+            return [self._place(name='Starbucks Pondok Indah', place_id='sby_pondok')]
 
         monkeypatch.setattr(
             'apps.cafes.views.GooglePlacesService.autocomplete_search',
-            fail_search,
+            mock_search,
         )
 
         response = api_client.get('/api/cafes/search/', {
@@ -574,9 +577,10 @@ class TestCafeSearchView:
         })
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['total_results'] == 1
-        assert response.data['results'][0]['name'] == 'Starbucks Coffee'
-        assert response.data['results'][0]['match_score'] >= 0.85
+        assert len(calls) == 1, 'Google should be called even with high-confidence DB match'
+        names = [r['name'] for r in response.data['results']]
+        assert 'Starbucks Coffee' in names
+        assert 'Starbucks Pondok Indah' in names
 
     def test_google_is_called_when_db_match_is_below_threshold(
         self,
