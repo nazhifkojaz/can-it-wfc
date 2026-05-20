@@ -146,13 +146,34 @@ class TestLogout:
 
 
 @pytest.mark.django_db
+class TestCsrfTokenView:
+    """GET /api/auth/csrf/ issues CSRF cookies for API clients."""
+
+    def test_returns_csrf_token_in_body(self, api_client):
+        response = api_client.get('/api/auth/csrf/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert 'csrfToken' in response.data
+        assert len(response.data['csrfToken']) > 0
+
+    def test_sets_csrftoken_cookie(self, api_client):
+        response = api_client.get('/api/auth/csrf/')
+
+        assert 'csrftoken' in response.cookies
+
+    def test_accessible_without_authentication(self, api_client):
+        response = api_client.get('/api/auth/csrf/')
+
+        assert response.status_code == status.HTTP_200_OK
+
+@pytest.mark.django_db
 class TestJWTCookieCSRF:
     """Cookie-authenticated unsafe requests must pass CSRF validation."""
 
     def _access_token_for(self, user):
         return str(RefreshToken.for_user(user).access_token)
 
-    def test_cookie_auth_post_without_csrf_is_rejected(self, test_user):
+    def test_cookie_auth_patch_without_csrf_is_rejected(self, test_user):
         client = APIClient(enforce_csrf_checks=True)
         client.cookies['access_token'] = self._access_token_for(test_user)
 
@@ -160,7 +181,32 @@ class TestJWTCookieCSRF:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_cookie_auth_post_with_csrf_succeeds(self, test_user):
+    def test_cookie_auth_post_without_csrf_is_rejected(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.post('/api/auth/logout/', format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cookie_auth_put_without_csrf_is_rejected(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.put('/api/auth/me/', {'bio': 'Blocked'}, format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cookie_auth_get_safe_method_skips_csrf(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.get('/api/auth/me/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['username'] == 'testuser'
+
+    def test_cookie_auth_patch_with_csrf_succeeds(self, test_user):
         client = APIClient(enforce_csrf_checks=True)
         csrf_response = client.get('/api/auth/csrf/')
         client.cookies['access_token'] = self._access_token_for(test_user)
@@ -174,6 +220,19 @@ class TestJWTCookieCSRF:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data['bio'] == 'Allowed'
+
+    def test_cookie_auth_post_with_csrf_succeeds(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        csrf_response = client.get('/api/auth/csrf/')
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.post(
+            '/api/auth/logout/',
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_response.data['csrfToken'],
+        )
+
+        assert response.status_code == status.HTTP_200_OK
 
     def test_bearer_auth_post_without_csrf_succeeds(self, test_user):
         client = APIClient(enforce_csrf_checks=True)
