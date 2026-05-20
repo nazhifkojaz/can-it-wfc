@@ -28,12 +28,4 @@ def check_is_following(request, user) -> bool:
     return False
 
 
-def check_follow_status(request, user) -> str:
-    """Returns follow status: 'none', 'active', 'pending', or 'rejected'."""
-    if request and hasattr(request, 'user') and request.user.is_authenticated:
-        follow = Follow.objects.filter(
-            follower=request.user, followed=user
-        ).first()
-        if follow:
-            return follow.status
-    return 'none'
+

@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 from .models import UserSettings, Follow
-from .utils import is_own_profile, check_is_following, check_follow_status
+from .utils import is_own_profile, check_is_following
 
 User = get_user_model()
 
