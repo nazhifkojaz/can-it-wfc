@@ -127,6 +127,28 @@ describe('SearchOverlay', () => {
     }));
   });
 
+  it('does not search with default coordinates when no search location exists', async () => {
+    render(
+      <SearchOverlay
+        isOpen={true}
+        onClose={onClose}
+        onSelectResult={onSelectResult}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search cafes or locations...'), {
+      target: { value: 'coffee' },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(mockGet).not.toHaveBeenCalled();
+    expect(screen.getByText('Search needs a map location. Enable location access or move the map and try again.')).toBeDefined();
+  });
+
   describe('result rendering', () => {
     it('renders results in relevance order with registration badges', async () => {
       mockGet.mockResolvedValue({

@@ -21,8 +21,6 @@ import { logger } from '../utils/logger';
 import { getActiveChips } from '../lib/filterEncoding';
 import './MapPage.css';
 
-const DEFAULT_SEARCH_CENTER = { lat: -6.2088, lng: 106.8456 };
-
 const MapPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
@@ -139,7 +137,7 @@ const MapPage: React.FC = () => {
   });
 
   const searchOverlayCenter = useMemo(
-    () => activeSearchCenter ?? searchCenter ?? DEFAULT_SEARCH_CENTER,
+    () => activeSearchCenter ?? searchCenter ?? undefined,
     [activeSearchCenter?.lat, activeSearchCenter?.lng, searchCenter?.lat, searchCenter?.lng]
   );
 
