@@ -26,6 +26,3 @@ def check_is_following(request, user) -> bool:
     if request and hasattr(request, 'user') and request.user.is_authenticated:
         return Follow.objects.filter(follower=request.user, followed=user, status='active').exists()
     return False
-
-
-

@@ -43,7 +43,7 @@ jobs:
       - name: Run tests
         working-directory: ./frontend
         run: npm test -- --run
-       
+
       - name: Build
         working-directory: ./frontend
         env:
