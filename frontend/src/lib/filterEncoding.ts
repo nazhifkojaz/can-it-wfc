@@ -1,10 +1,27 @@
 import { CafeFilters, DEFAULT_FILTERS } from '../types/filters';
+import { PlaceCategory } from '../types';
 import { PRICE_RANGE_LABELS } from '../config/constants';
 
 export const FILTER_PARAM_KEYS = [
   'min_wifi', 'max_noise', 'min_power', 'min_seating', 'min_wfc',
   'price', 'hide_closed', 'verified', 'min_reviews', 'include_unregistered',
+  'categories',
 ] as const;
+
+const DEFAULT_CATEGORIES: PlaceCategory[] = ['cafe'];
+const PLACE_CATEGORY_LABELS: Record<PlaceCategory, string> = {
+  cafe: 'Cafe',
+  coworking_space: 'Coworking',
+  library: 'Library',
+};
+
+const selectedCategories = (filters: CafeFilters): PlaceCategory[] => {
+  return filters.place_categories?.length ? filters.place_categories : DEFAULT_CATEGORIES;
+};
+
+const isDefaultCategorySelection = (categories: PlaceCategory[]): boolean => {
+  return categories.length === 1 && categories[0] === 'cafe';
+};
 
 /** Convert CafeFilters to backend API query params (only sends non-default values). */
 export function filtersToApiParams(filters: CafeFilters): Record<string, string | number | boolean> {
@@ -19,6 +36,10 @@ export function filtersToApiParams(filters: CafeFilters): Record<string, string 
   if (filters.verified) params.verified = true;
   if (filters.min_reviews > 0) params.min_reviews = filters.min_reviews;
   if (!filters.include_unregistered) params.include_unregistered = false;
+  const cats = selectedCategories(filters);
+  if (!isDefaultCategorySelection(cats)) {
+    params.categories = cats.join(',');
+  }
   return params;
 }
 
@@ -62,6 +83,14 @@ export function paramsToFilters(params: URLSearchParams): CafeFilters {
 
   if (params.get('include_unregistered') === 'false') filters.include_unregistered = false;
 
+  const categories = params.get('categories');
+  if (categories) {
+    const parsed = categories.split(',').map(c => c.trim()).filter(
+      (c): c is PlaceCategory => ['cafe', 'coworking_space', 'library'].includes(c)
+    );
+    if (parsed.length > 0) filters.place_categories = Array.from(new Set(parsed));
+  }
+
   return filters;
 }
 
@@ -80,5 +109,9 @@ export function getActiveChips(filters: CafeFilters): Array<{ key: keyof CafeFil
   if (filters.verified) chips.push({ key: 'verified', label: 'Verified Only' });
   if (filters.min_reviews > 0) chips.push({ key: 'min_reviews', label: `${filters.min_reviews}+ Reviews` });
   if (!filters.include_unregistered) chips.push({ key: 'include_unregistered', label: 'Registered Only' });
+  const cats = selectedCategories(filters);
+  if (!isDefaultCategorySelection(cats)) {
+    chips.push({ key: 'place_categories', label: `Types: ${cats.map(c => PLACE_CATEGORY_LABELS[c]).join(', ')}` });
+  }
   return chips;
 }

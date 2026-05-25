@@ -5,15 +5,19 @@ import styles from './TrendingCafeRow.module.css';
 function formatActivityLine(cafe: DiscoverTrendingCafe): string {
   const { recent_visit_count: visits, recent_review_count: reviews } = cafe;
   if (visits > 0 && reviews > 0) {
-    return `${visits} visits · ${reviews} reviews this week`;
+    return `${formatCount(visits, 'visit')} · ${formatCount(reviews, 'review')} this week`;
   }
   if (reviews > 0) {
-    return `${reviews} reviews this week`;
+    return `${formatCount(reviews, 'review')} this week`;
   }
   if (visits > 0) {
-    return `${visits} visits this week`;
+    return `${formatCount(visits, 'visit')} this week`;
   }
   return 'No activity this week';
+}
+
+function formatCount(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
 interface TrendingCafeRowProps {

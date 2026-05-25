@@ -131,94 +131,6 @@
   box-shadow: 2px 2px 0 var(--neo-black);
 }
 
-/* Activity List */
-.activity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Activity Item */
-.activity-item {
-  background: var(--neo-white);
-  border: var(--neo-border-width) solid var(--neo-black);
-  border-radius: var(--neo-border-radius);
-  box-shadow: 3px 3px 0 var(--neo-black);
-  padding: 16px;
-  display: flex;
-  gap: 12px;
-  cursor: pointer;
-  transition: all 0.1s;
-}
-
-.activity-item:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--neo-black);
-}
-
-.activity-item:active {
-  transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0 var(--neo-black);
-}
-
-.activity-icon {
-  width: 40px;
-  height: 40px;
-  background: var(--neo-primary-light);
-  border: var(--neo-border-width) solid var(--neo-black);
-  border-radius: var(--neo-border-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--neo-primary);
-  flex-shrink: 0;
-}
-
-.activity-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.activity-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: baseline;
-  margin-bottom: 6px;
-}
-
-.activity-type {
-  font-weight: var(--neo-font-extrabold);
-  color: var(--neo-gray-600);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.activity-cafe {
-  font-weight: var(--neo-font-black);
-  font-size: 16px;
-  color: var(--neo-black);
-}
-
-.activity-rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--neo-primary);
-  font-weight: var(--neo-font-bold);
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-
-.activity-comment {
-  margin: 8px 0;
-  color: var(--neo-black);
-  font-style: italic;
-  line-height: 1.4;
-  font-size: 14px;
-}
-
 .visit-details {
   display: flex;
   flex-wrap: wrap;
@@ -235,26 +147,9 @@
   font-size: 13px;
   font-weight: var(--neo-font-bold);
 }
-
-.activity-date {
-  margin-top: 8px;
-  color: var(--neo-gray-500);
-  font-size: 12px;
-  font-weight: var(--neo-font-bold);
-}
-
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .panel-content {
     padding: 12px;
-  }
-
-  .activity-item {
-    padding: 12px;
-  }
-
-  .activity-icon {
-    width: 36px;
-    height: 36px;
   }
 }

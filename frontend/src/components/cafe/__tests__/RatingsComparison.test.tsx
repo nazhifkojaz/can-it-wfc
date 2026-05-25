@@ -40,7 +40,7 @@ describe('RatingsComparison', () => {
     it('should render Google rating when provided as string (type conversion)', () => {
       // Testing runtime type coercion - component handles string input gracefully
       // This ensures if API returns a string instead of number, UI still works
-      const props = { ...defaultProps, googleRating: "4.3" as any };
+      const props = { ...defaultProps, googleRating: '4.3' };
       render(<RatingsComparison {...props} />);
       expect(screen.getByText('4.3')).toBeInTheDocument();
     });
@@ -251,7 +251,7 @@ describe('RatingsComparison', () => {
     it('should handle string googleRating with decimal', () => {
       // Testing runtime type coercion - component handles string input gracefully
       // This ensures if API returns a string instead of number, UI still works
-      const props = { ...defaultProps, googleRating: "3.7" as any };
+      const props = { ...defaultProps, googleRating: '3.7' };
       render(<RatingsComparison {...props} />);
       expect(screen.getByText('3.7')).toBeInTheDocument();
     });

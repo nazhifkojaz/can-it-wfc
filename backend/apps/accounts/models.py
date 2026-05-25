@@ -117,12 +117,6 @@ class UserSettings(models.Model):
         ('private', 'Private - Only me'),
     ]
 
-    ACTIVITY_VISIBILITY_CHOICES = [
-        ('public', 'Public - Everyone'),
-        ('followers', 'Followers Only'),
-        ('private', 'Private - Only Me'),
-    ]
-
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -137,11 +131,6 @@ class UserSettings(models.Model):
         help_text="Who can view your profile"
     )
 
-    show_activity_dates = models.BooleanField(
-        default=True,
-        help_text="Show dates on your activity (reviews and visits)"
-    )
-
     show_followers = models.BooleanField(
         default=True,
         help_text="Show who follows you"
@@ -150,13 +139,6 @@ class UserSettings(models.Model):
     show_following = models.BooleanField(
         default=True,
         help_text="Show who you follow"
-    )
-
-    activity_visibility = models.CharField(
-        max_length=20,
-        choices=ACTIVITY_VISIBILITY_CHOICES,
-        default='public',
-        help_text="Who can see your activity in their feed"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

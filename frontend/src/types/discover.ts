@@ -1,3 +1,5 @@
+import type { CafeListOwnerSummary, CafeListPreviewCafe } from './lists';
+
 export interface DiscoverReview {
   id: number;
   cafe: { id: number; name: string; address_short: string };
@@ -16,9 +18,9 @@ export interface DiscoverFeaturedList {
   id: number;
   name: string;
   description: string;
-  owner: { username: string; display_name: string; avatar_url: string | null };
+  owner: CafeListOwnerSummary;
   item_count: number;
-  preview_cafes: { id: number; name: string }[];
+  preview_cafes: CafeListPreviewCafe[];
   featured_at: string;
   icon: string;
 }
@@ -47,9 +49,9 @@ export interface DiscoverTrendingList {
   id: number;
   name: string;
   description: string;
-  owner: { username: string; display_name: string; avatar_url: string | null };
+  owner: CafeListOwnerSummary;
   item_count: number;
-  preview_cafes: { id: number; name: string }[];
+  preview_cafes: CafeListPreviewCafe[];
   icon: string;
   save_count: number;
   recent_save_count: number;

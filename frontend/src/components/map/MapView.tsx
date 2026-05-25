@@ -30,6 +30,7 @@ interface MapViewProps {
   jumpToLocation?: { lat: number; lng: number } | null;
   tempSearchMarker?: SearchResult | null;
   onSearchClick?: () => void;
+  onRetryLocation?: () => void;
 }
 
 // Component to fly to a location when explicitly requested
@@ -55,7 +56,8 @@ const MapView: React.FC<MapViewProps> = ({
   userLocation,
   jumpToLocation,
   tempSearchMarker,
-  onSearchClick
+  onSearchClick,
+  onRetryLocation
 }) => {
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
@@ -137,12 +139,16 @@ const MapView: React.FC<MapViewProps> = ({
 
   // Handle find my location
   const handleFindMyLocation = useCallback(() => {
+    if (onRetryLocation) {
+      onRetryLocation();
+    }
+
     if (userLocation) {
       setFlyTarget([userLocation.lat, userLocation.lng]);
       setFlyTrigger(prev => prev + 1);
       onSearchArea(userLocation);
     }
-  }, [userLocation, onSearchArea]);
+  }, [userLocation, onSearchArea, onRetryLocation]);
 
   const MapResizer = () => {
     const map = useMap();
@@ -197,6 +203,10 @@ const MapView: React.FC<MapViewProps> = ({
             latitude: tempSearchMarker.latitude,
             longitude: tempSearchMarker.longitude,
             google_place_id: tempSearchMarker.google_place_id,
+            place_category: tempSearchMarker.place_category ?? undefined,
+            place_category_label: tempSearchMarker.place_category_label,
+            place_category_confidence: tempSearchMarker.place_category_confidence,
+            provider_types: tempSearchMarker.provider_types,
             google_rating: tempSearchMarker.rating,
             distance: tempSearchMarker.distance,
             price_range: undefined,
@@ -223,10 +233,10 @@ const MapView: React.FC<MapViewProps> = ({
 
         {/* Custom Map Controls Group (Bottom Left) */}
         <div className={styles.mapControlsGroup}>
-          <SearchButton onClick={() => onSearchClick?.()} />
+          <SearchButton onClick={() => onSearchClick?.()} disabled={!userLocation} />
           <FindMyLocationButton
             onClick={handleFindMyLocation}
-            disabled={!userLocation}
+            disabled={!userLocation && !onRetryLocation}
           />
           <ZoomInButton /> {/* Custom Zoom In Button */}
           <ZoomOutButton /> {/* Custom Zoom Out Button */}

@@ -1,12 +1,10 @@
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import {
   User,
   UserUpdate,
   UserProfile,
   UserSettings,
-  UserActivityResponse,
   FollowUser,
-  ActivityFeedResponse,
   PaginatedResponse,
   Cafe,
   CafeCreate,
@@ -19,10 +17,12 @@ import {
   Review,
   ReviewCreate,
   ReviewUpdate,
+  UnregisteredCafeRegistrationPayload,
   CafeList,
   CafeListDetail,
   CafeListItem,
   CafeListMembership,
+  CafeListItemRegistrationCreate,
   CafeListCreate,
   CafeListUpdate,
   SaveListResponse,
@@ -50,6 +50,39 @@ const api: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Send cookies with requests (for httpOnly cookie auth)
+});
+
+let csrfToken: string | null = null;
+let csrfTokenRequest: Promise<string> | null = null;
+const unsafeMethods = new Set(['post', 'put', 'patch', 'delete']);
+
+const ensureCsrfToken = async (): Promise<string> => {
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = api.get<{ csrfToken: string }>('/auth/csrf/')
+      .then(response => {
+        csrfToken = response.data.csrfToken;
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfTokenRequest = null;
+      });
+  }
+
+  return csrfTokenRequest;
+};
+
+api.interceptors.request.use(async config => {
+  const method = config.method?.toLowerCase();
+  if (method && unsafeMethods.has(method)) {
+    const headers = AxiosHeaders.from(config.headers);
+    headers.set('X-CSRFToken', await ensureCsrfToken());
+    config.headers = headers;
+  }
+  return config;
 });
 
 /** Generic GET request helper */
@@ -176,10 +209,6 @@ export const userApi = {
   getUserProfile: (usernameOrId: string | number) =>
     get<UserProfile>(`/auth/users/${usernameOrId}/profile/`),
 
-  // Get user activity by username or ID (Phase 1: Social Features)
-  getUserActivity: (usernameOrId: string | number, limit: number = 20) =>
-    get<UserActivityResponse>(`/auth/users/${usernameOrId}/activity/`, { limit }),
-
   // Get current user's settings (Phase 1: Social Features)
   getSettings: () => get<UserSettings>('/auth/me/settings/'),
 
@@ -211,9 +240,6 @@ export const userApi = {
 
   handleFollowRequest: (userId: number, action: 'accept' | 'reject') =>
     post<{ message: string }>(`/auth/follow-requests/${userId}/handle/`, { action }),
-
-  // Enhanced Activity Feed (NEW: Optimized endpoint using Activity table)
-  getActivityFeed: (limit: number = 50) => get<ActivityFeedResponse>('/activity/feed/', { limit }),
 
   // Get user's public lists
   getUserLists: (username: string) => get<CafeList[]>(`/auth/users/${username}/lists/`),
@@ -302,30 +328,13 @@ export const listApi = {
   // Auto-register an unregistered cafe and add it to a list
   addItemWithRegistration: (
     listId: number,
-    data: {
-      google_place_id: string;
-      cafe_name: string;
-      cafe_address: string;
-      cafe_latitude: string;
-      cafe_longitude: string;
-      note?: string;
-    }
+    data: CafeListItemRegistrationCreate
   ) => post<CafeListItem>(`/lists/${listId}/items/`, data),
 
-  addToToGoWithRegistration: (data: {
-    google_place_id: string;
-    cafe_name: string;
-    cafe_address: string;
-    cafe_latitude: string;
-    cafe_longitude: string;
-  }) => post<CafeListItem>('/lists/to-go/items/', data),
-  addToFavoritesWithRegistration: (data: {
-    google_place_id: string;
-    cafe_name: string;
-    cafe_address: string;
-    cafe_latitude: string;
-    cafe_longitude: string;
-  }) => post<CafeListItem>('/lists/favorites/items/', data),
+  addToToGoWithRegistration: (data: UnregisteredCafeRegistrationPayload) =>
+    post<CafeListItem>('/lists/to-go/items/', data),
+  addToFavoritesWithRegistration: (data: UnregisteredCafeRegistrationPayload) =>
+    post<CafeListItem>('/lists/favorites/items/', data),
 
   // Membership — powers the save-to-list popover state
   getCafeMemberships: (cafeId: number) =>
@@ -352,21 +361,11 @@ export const visitApi = {
 
   // Get user's visits (backend filters by current user automatically)
   getMyVisits: (page: number = 1, filters?: { ordering?: string; visit_date__gte?: string; visit_date__lte?: string }) =>
-    get<{
-      count: number;
-      next: string | null;
-      previous: string | null;
-      results: Visit[];
-    }>('/visits/', { page, ...filters }),
+    get<PaginatedResponse<Visit>>('/visits/', { page, ...filters }),
 
   // Get visits with filters (for duplicate checking, etc.)
   getVisits: (filters?: { cafe?: number; visit_date?: string; page?: number }) =>
-    get<{
-      count: number;
-      next: string | null;
-      previous: string | null;
-      results: Visit[];
-    }>('/visits/', filters),
+    get<PaginatedResponse<Visit>>('/visits/', filters),
 
   // Get visit by ID
   getById: (id: number) => get<Visit>(`/visits/${id}/`),
@@ -391,12 +390,7 @@ export const reviewApi = {
 
   // Get reviews for a cafe
   getByCafe: (cafeId: number, page: number = 1) =>
-    get<{
-      count: number;
-      next: string | null;
-      previous: string | null;
-      results: Review[];
-    }>('/reviews/', { cafe: cafeId, page }),
+    get<PaginatedResponse<Review>>('/reviews/', { cafe: cafeId, page }),
 
   // Get review by ID
   getById: (id: number) => get<Review>(`/reviews/${id}/`),

@@ -10,6 +10,13 @@
   animation: slideDown 0.2s ease-out;
 }
 
+.searchPanel {
+  background: white;
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 4px);
+  box-shadow: 4px 4px 0 var(--neo-black, #000);
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -22,14 +29,10 @@
 }
 
 .header {
-  background: white;
-  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
-  border-radius: var(--neo-border-radius, 4px);
-  padding: 8px 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 4px 4px 0 var(--neo-black, #000);
 }
 
 .closeButton {
@@ -64,10 +67,11 @@
 
 .searchInput {
   width: 100%;
-  padding: 8px 16px 8px 40px;
+  padding: 9px 16px 9px 40px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
+  line-height: 20px;
   outline: none;
 }
 
@@ -128,6 +132,56 @@
 
 .resultsContainer {
   border-bottom: 1px solid #e5e7eb;
+}
+
+.originLabel {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: var(--neo-border-width, 3px) solid var(--neo-black, #000);
+  border-radius: var(--neo-border-radius, 4px);
+  box-shadow: 4px 4px 0 var(--neo-black, #000);
+  margin-top: 8px;
+}
+
+.resultGroup {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.resultGroup:last-child {
+  border-bottom: none;
+}
+
+.groupHeader {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.groupHeaderRegistered {
+  background-color: #f0fdf4;
+  color: #059669;
+}
+
+.groupHeaderNew {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.groupHeaderLocation {
+  background-color: #fefce8;
+  color: #a16207;
+}
+
+.resultItemActive {
+  background-color: #f0f9ff;
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
 }
 
 .sectionHeader {
@@ -234,6 +288,11 @@
   color: #059669;
 }
 
+.resultBadgeCategory {
+  background-color: #ffedd5;
+  color: #9a3412;
+}
+
 .resultAddress {
   font-size: 13px;
   color: #6b7280;
@@ -261,4 +320,34 @@
 .starIcon {
   color: #fbbf24;
   fill: #fbbf24;
+}
+
+.googleToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #111827;
+  font-weight: 500;
+  background: white;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.googleToggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.resultBadgeMatch {
+  background-color: #e0e7ff;
+  color: #4338ca;
+  text-transform: none;
 }

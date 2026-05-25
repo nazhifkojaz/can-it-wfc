@@ -3,7 +3,6 @@ import { Flag, X } from 'lucide-react';
 import { Modal, Loading } from '../common';
 import api from '../../api/client';
 import { extractApiError } from '../../utils/errorUtils';
-import { trackCafeFlagged } from '../../lib/analytics';
 import styles from './FlagCafeModal.module.css';
 
 interface FlagCafeModalProps {
@@ -73,13 +72,6 @@ const FlagCafeModal: React.FC<FlagCafeModalProps> = ({
         description: description.trim()
       });
 
-      // Track analytics (values match backend CafeFlag.REASON_CHOICES)
-      trackCafeFlagged({
-        cafeId,
-        reason: selectedReason as 'not_cafe' | 'wrong_location' | 'permanently_closed' | 'duplicate',
-      });
-
-      // Success
       if (onSuccess) {
         onSuccess();
       }

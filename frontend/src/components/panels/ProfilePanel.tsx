@@ -40,7 +40,7 @@ import { REVIEW_CONFIG, VISIT_TIME_LABELS } from '../../config/constants';
 import { Visit, Review, Cafe } from '../../types';
 import { useInView } from 'react-intersection-observer';
 import { logger } from '../../utils/logger';
-import { trackVisitDeleted, trackProfileTabViewed } from '../../lib/analytics';
+
 import './ProfilePanel.css';
 
 const ProfilePanel: React.FC = () => {
@@ -318,12 +318,6 @@ const ProfilePanel: React.FC = () => {
     try {
       await deleteVisit(visitToDelete.id);
 
-      // Track analytics
-      trackVisitDeleted({
-        cafeId: visitToDelete.cafe.id,
-        cafeName: visitToDelete.cafe.name,
-      });
-
       setShowDeleteConfirm(false);
       setVisitToDelete(null);
       refetchVisits();
@@ -563,7 +557,6 @@ const ProfilePanel: React.FC = () => {
               className="profile-tab-dropdown-label"
               onClick={() => {
                 setActiveTab(activeTab === 'reviews' ? 'reviews' : 'visits');
-                trackProfileTabViewed({ tab: activeTab === 'reviews' ? 'reviews' : 'visits' });
               }}
             >
               {activeTab === 'reviews' ? 'Reviews' : 'Visits'}
@@ -582,7 +575,6 @@ const ProfilePanel: React.FC = () => {
                   onClick={() => {
                     setActiveTab('visits');
                     setIsVisitsDropdownOpen(false);
-                    trackProfileTabViewed({ tab: 'visits' });
                   }}
                 >
                   {activeTab === 'visits' && '● '}Visits
@@ -592,7 +584,6 @@ const ProfilePanel: React.FC = () => {
                   onClick={() => {
                     setActiveTab('reviews');
                     setIsVisitsDropdownOpen(false);
-                    trackProfileTabViewed({ tab: 'reviews' });
                   }}
                 >
                   {activeTab === 'reviews' && '● '}Reviews
@@ -610,7 +601,6 @@ const ProfilePanel: React.FC = () => {
               className="profile-tab-dropdown-label"
               onClick={() => {
                 setActiveTab(activeTab === 'saved' ? 'saved' : 'lists');
-                trackProfileTabViewed({ tab: activeTab === 'saved' ? 'saved' : 'lists' });
               }}
             >
               {activeTab === 'saved' ? 'Saved' : 'Lists'}
@@ -629,7 +619,6 @@ const ProfilePanel: React.FC = () => {
                   onClick={() => {
                     setActiveTab('lists');
                     setIsListsDropdownOpen(false);
-                    trackProfileTabViewed({ tab: 'lists' });
                   }}
                 >
                   {activeTab === 'lists' && '● '}My Lists
@@ -639,7 +628,6 @@ const ProfilePanel: React.FC = () => {
                   onClick={() => {
                     setActiveTab('saved');
                     setIsListsDropdownOpen(false);
-                    trackProfileTabViewed({ tab: 'saved' });
                   }}
                 >
                   {activeTab === 'saved' && '● '}Saved
@@ -652,7 +640,6 @@ const ProfilePanel: React.FC = () => {
             className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('settings');
-              trackProfileTabViewed({ tab: 'settings' });
             }}
           >
             Settings

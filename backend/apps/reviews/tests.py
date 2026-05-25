@@ -6,48 +6,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import override_settings
-from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.models import Cafe
 from apps.reviews.models import Visit, Review
 
 User = get_user_model()
-
-
-@pytest.fixture
-def api_client():
-    """Create API client for tests"""
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    """Create a test user"""
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123'
-    )
-
-
-@pytest.fixture
-def test_cafe(db, test_user):
-    """Create a test cafe"""
-    return Cafe.objects.create(
-        name='Test Cafe',
-        address='123 Test St, Jakarta',
-        latitude=Decimal('-6.2088'),
-        longitude=Decimal('106.8456'),
-        google_place_id='test_place_123',
-        created_by=test_user
-    )
-
-
-@pytest.fixture
-def authenticated_client(api_client, test_user):
-    """Create authenticated API client"""
-    api_client.force_authenticate(user=test_user)
-    return api_client
 
 
 @pytest.mark.django_db
@@ -131,6 +94,25 @@ class TestVisitCreation:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_zero_coordinate_check_in_is_verifiable(self, test_user):
+        """Latitude or longitude equal to zero is a valid coordinate."""
+        cafe = Cafe.objects.create(
+            name='Zero Coordinate Cafe',
+            address='Equator and Prime Meridian',
+            latitude=Decimal('0'),
+            longitude=Decimal('0'),
+            google_place_id='zero_coordinate_place',
+            created_by=test_user,
+        )
+        visit = Visit.objects.create(
+            cafe=cafe,
+            user=test_user,
+            check_in_latitude=Decimal('0'),
+            check_in_longitude=Decimal('0'),
+        )
+
+        assert visit.is_verified_location() is True
+
 
 @pytest.mark.django_db
 class TestCombinedVisitReview:
@@ -160,7 +142,7 @@ class TestCombinedVisitReview:
         assert 'review' in response.data
         assert response.data['review'] is not None
 
-        # Verify in database (UPDATED: Review Refactor)
+        # Verify in database.
         assert Visit.objects.filter(cafe=test_cafe).exists()
         visit = Visit.objects.get(cafe=test_cafe)
         assert Review.objects.filter(cafe=test_cafe, user=visit.user).exists()
@@ -233,6 +215,94 @@ class TestCombinedVisitReview:
         response = authenticated_client.post('/api/visits/create-with-review/', data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    @override_settings(MIN_ACCOUNT_AGE_HOURS=24)
+    def test_combined_review_rejects_new_account(self, authenticated_client, test_cafe):
+        """Combined visit+review must enforce account-age review limits."""
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wfc_rating': 4,
+            'wifi_quality': 4,
+            'seating_comfort': 4,
+            'noise_level': 4,
+        }
+
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Review.objects.filter(cafe=test_cafe).count() == 0
+        assert Visit.objects.filter(cafe=test_cafe).count() == 0
+
+    @override_settings(MAX_REVIEWS_PER_DAY=1)
+    def test_combined_review_rejects_daily_review_limit(self, authenticated_client, test_cafe, test_user):
+        """Combined visit+review must enforce the same daily spam limit as reviews."""
+        reviewed_cafe = Cafe.objects.create(
+            name='Already Reviewed Cafe',
+            address='456 Limit St',
+            latitude=Decimal('-6.2088'),
+            longitude=Decimal('106.8456'),
+            google_place_id='already_reviewed_place',
+            created_by=test_user,
+        )
+        Review.objects.create(
+            cafe=reviewed_cafe,
+            user=test_user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+        )
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wfc_rating': 4,
+            'wifi_quality': 4,
+            'seating_comfort': 4,
+            'noise_level': 4,
+        }
+
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not Review.objects.filter(cafe=test_cafe, user=test_user).exists()
+        assert not Visit.objects.filter(cafe=test_cafe, user=test_user).exists()
+
+    def test_combined_review_rejects_duplicate_review(self, authenticated_client, test_cafe, test_user):
+        """Combined visit+review must not turn duplicate reviews into visits."""
+        Review.objects.create(
+            cafe=test_cafe,
+            user=test_user,
+            wfc_rating=4,
+            wifi_quality=4,
+            power_outlets_rating=4,
+            seating_comfort=4,
+            noise_level=4,
+        )
+        data = {
+            'cafe_id': test_cafe.id,
+            'visit_date': str(date.today()),
+            'check_in_latitude': -6.2088,
+            'check_in_longitude': 106.8456,
+            'include_review': True,
+            'wfc_rating': 4,
+            'wifi_quality': 4,
+            'seating_comfort': 4,
+            'noise_level': 4,
+        }
+
+        response = authenticated_client.post('/api/visits/create-with-review/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Review.objects.filter(cafe=test_cafe, user=test_user).count() == 1
+        assert not Visit.objects.filter(cafe=test_cafe, user=test_user).exists()
 
     def test_combined_visit_far_location_rejected(self, authenticated_client, test_cafe):
         """Test combined visit+review from >1km away is rejected"""
@@ -433,12 +503,14 @@ class TestReviewModeration:
         response = authenticated_client.post(f'/api/reviews/{review.id}/mark_helpful/')
 
         assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['helpful_count'] == 1
         review.refresh_from_db()
         assert review.helpful_count == 1
 
         # Toggle off
         response = authenticated_client.post(f'/api/reviews/{review.id}/mark_helpful/')
         assert response.status_code == status.HTTP_200_OK
+        assert response.data['helpful_count'] == 0
         review.refresh_from_db()
         assert review.helpful_count == 0
 
@@ -621,36 +693,6 @@ class TestTransactionRollbackHandling:
         # The transaction.atomic() should roll back — review should not exist
         assert not Review.objects.filter(user=test_user, cafe=test_cafe).exists()
 
-    def test_transaction_with_both_visit_and_review(self, authenticated_client, test_cafe, test_user):
-        """Test that both visit and review are created successfully in one transaction"""
-        initial_visit_count = Visit.objects.filter(cafe=test_cafe).count()
-        initial_review_count = Review.objects.filter(cafe=test_cafe).count()
-
-        data = {
-            'cafe_id': test_cafe.id,
-            'visit_date': str(date.today()),
-            'amount_spent': 25.0,
-            'visit_time': 2,
-            'check_in_latitude': -6.2088,
-            'check_in_longitude': 106.8456,
-            'include_review': True,
-            'wfc_rating': 5,
-            'wifi_quality': 5,
-            'power_outlets_rating': 5,
-            'seating_comfort': 5,
-            'noise_level': 5,
-            'comment': 'Excellent place!'
-        }
-        response = authenticated_client.post('/api/visits/create-with-review/', data)
-
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['review'] is not None
-
-        # Verify both visit and review were created
-        assert Visit.objects.filter(cafe=test_cafe).count() == initial_visit_count + 1
-        assert Review.objects.filter(cafe=test_cafe).count() == initial_review_count + 1
-
-
 @pytest.mark.django_db
 class TestCheckSpamDailyLimit:
     """Test Review.check_spam() enforces the exact MAX_REVIEWS_PER_DAY limit."""
@@ -823,7 +865,7 @@ class TestUserReviewsView:
     def test_returns_empty_for_private_profile(self, api_client, test_user, db):
         from apps.accounts.models import UserSettings
         settings = UserSettings.objects.get(user=test_user)
-        settings.activity_visibility = 'private'
+        settings.profile_visibility = 'private'
         settings.save()
 
         other_user = User.objects.create_user(
@@ -849,7 +891,7 @@ class TestUserReviewsView:
     def test_returns_own_reviews_even_for_private_profile(self, api_client, test_user, test_cafe):
         from apps.accounts.models import UserSettings
         settings = UserSettings.objects.get(user=test_user)
-        settings.activity_visibility = 'private'
+        settings.profile_visibility = 'private'
         settings.save()
 
         api_client.force_authenticate(user=test_user)

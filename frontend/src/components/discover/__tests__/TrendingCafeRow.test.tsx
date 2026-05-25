@@ -53,7 +53,7 @@ describe('TrendingCafeRow', () => {
       recent_review_count: 1,
     };
     render(<TrendingCafeRow cafe={cafe} rank={1} onClick={vi.fn()} />);
-    expect(screen.getByText('1 visits · 1 reviews this week')).toBeInTheDocument();
+    expect(screen.getByText('1 visit · 1 review this week')).toBeInTheDocument();
   });
 
   it('fires onClick when row is clicked', () => {

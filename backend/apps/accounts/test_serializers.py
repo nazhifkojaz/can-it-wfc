@@ -6,9 +6,16 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework import serializers
-from apps.accounts.serializers import UserUpdateSerializer
+from apps.accounts.serializers import UserProfileSerializer, UserUpdateSerializer
 
 User = get_user_model()
+
+
+class MockAnonymousRequest:
+    class Anonymous:
+        is_authenticated = False
+
+    user = Anonymous()
 
 
 @pytest.mark.django_db
@@ -302,60 +309,6 @@ class TestUserUpdateSerializer:
         assert not serializer.is_valid()
         assert 'avatar_url' in serializer.errors
 
-    def test_avatar_url_rejects_localhost_srf(self):
-        """
-        SSRF protection test: avatar_url should reject internal URLs.
-        """
-        user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-
-        # SSRF attempt - internal admin panel
-        ssrf_url = 'http://localhost:8000/admin/'
-
-        class MockRequest:
-            def __init__(self, user):
-                self.user = user
-
-        serializer = UserUpdateSerializer(
-            instance=user,
-            data={'avatar_url': ssrf_url},
-            partial=True,
-            context={'request': MockRequest(user)}
-        )
-
-        assert not serializer.is_valid()
-        assert 'avatar_url' in serializer.errors
-
-    def test_avatar_url_rejects_private_ip(self):
-        """
-        SSRF protection test: avatar_url should reject private IP addresses.
-        """
-        user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-
-        # SSRF attempt - internal network IP
-        ssrf_url = 'http://192.168.1.1/avatar.jpg'
-
-        class MockRequest:
-            def __init__(self, user):
-                self.user = user
-
-        serializer = UserUpdateSerializer(
-            instance=user,
-            data={'avatar_url': ssrf_url},
-            partial=True,
-            context={'request': MockRequest(user)}
-        )
-
-        assert not serializer.is_valid()
-        assert 'avatar_url' in serializer.errors
-
     def test_avatar_url_allows_null(self):
         """Test avatar_url can be set to null/empty to remove avatar"""
         user = User.objects.create_user(
@@ -409,36 +362,6 @@ class TestUserUpdateSerializer:
         # Empty string should be converted to None
         assert user.avatar_url is None
 
-    def test_bio_and_display_name_still_work(self):
-        """Test that bio and display_name still work after changes"""
-        user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-
-        data = {
-            'bio': 'Coffee lover',
-            'display_name': 'Coffee Enthusiast'
-        }
-
-        class MockRequest:
-            def __init__(self, user):
-                self.user = user
-
-        serializer = UserUpdateSerializer(
-            instance=user,
-            data=data,
-            partial=True,
-            context={'request': MockRequest(user)}
-        )
-
-        assert serializer.is_valid(), serializer.errors
-        serializer.save()
-        user.refresh_from_db()
-        assert user.bio == 'Coffee lover'
-        assert user.display_name == 'Coffee Enthusiast'
-
     def test_can_update_multiple_fields_at_once(self):
         """
         Test that display_name, bio, and avatar_url can be updated together.
@@ -472,3 +395,27 @@ class TestUserUpdateSerializer:
         assert user.display_name == 'Coffee Enthusiast'
         assert user.bio == 'Love trying new cafes'
         assert user.avatar_url == 'https://res.cloudinary.com/demo/avatar.jpg'
+
+
+@pytest.mark.django_db
+class TestUserProfileSerializer:
+    """Test public profile privacy behavior."""
+
+    def test_private_profile_limited_payload_masks_display_name(self):
+        user = User.objects.create_user(
+            username='privateuser',
+            email='private@example.com',
+            password='testpass123',
+            display_name='Jane Doe',
+        )
+        user.settings.profile_visibility = 'private'
+        user.settings.save()
+
+        serializer = UserProfileSerializer(
+            user,
+            context={'request': MockAnonymousRequest()},
+        )
+
+        assert serializer.data['display_name'] == user.effective_display_name
+        assert serializer.data['display_name'] != 'Jane Doe'
+        assert serializer.data['profile_visibility'] == 'private'

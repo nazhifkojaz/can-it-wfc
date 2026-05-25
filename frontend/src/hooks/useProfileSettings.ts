@@ -3,7 +3,7 @@ import { User } from '../types';
 import { UseResultModalReturn } from './useResultModal';
 import { authApi, userApi } from '../api/client';
 import { extractApiError, getFieldError } from '../utils/errorUtils';
-import { trackUserLoggedOut, trackPrivacySettingsChanged } from '../lib/analytics';
+
 
 interface UseProfileSettingsOptions {
   user: User | null;
@@ -118,10 +118,6 @@ export function useProfileSettings({ user, updateUser, logout, resultModal }: Us
       if (user) {
         updateUser({ ...user, settings: { ...user.settings, ...updatedSettings } as User['settings'] });
       }
-      trackPrivacySettingsChanged({
-        setting: 'profile_visibility',
-        newValue: value,
-      });
     } catch (error) {
       setProfileVisibility(profileVisibility);
       resultModal.showResultModal({
@@ -140,7 +136,6 @@ export function useProfileSettings({ user, updateUser, logout, resultModal }: Us
       primaryButton: {
         label: 'Log Out',
         onClick: async () => {
-          trackUserLoggedOut();
           await logout();
           resultModal.closeResultModal();
         },

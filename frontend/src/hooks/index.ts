@@ -13,5 +13,6 @@ export * from './useProfileSettings';
 export * from './useResultModal';
 export * from './useReviewForm';
 export * from './useReviews';
+export * from './useUserLists';
 export * from './useUserReviews';
 export * from './useVisits';

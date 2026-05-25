@@ -1,6 +1,18 @@
-import type { Cafe } from './index';
+import type { Cafe, PaginatedResponse } from './index';
 
 export type CafeListType = 'to_go' | 'favorites' | 'custom';
+
+export interface CafeListOwnerSummary {
+  id?: number;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+}
+
+export interface CafeListPreviewCafe {
+  id: number;
+  name: string;
+}
 
 export interface CafeList {
   id: number;
@@ -14,8 +26,8 @@ export interface CafeList {
   is_featured: boolean;
   save_count: number;
   item_count: number;
-  owner?: { id: number; username: string; display_name: string; avatar_url: string | null };
-  preview_cafes?: { id: number; name: string }[];
+  owner?: CafeListOwnerSummary;
+  preview_cafes?: CafeListPreviewCafe[];
   created_at: string;
   updated_at: string;
 }
@@ -60,9 +72,4 @@ export interface SaveListResponse {
   saved_at?: string;
 }
 
-export interface SavedListsResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: CafeList[];
-}
+export type SavedListsResponse = PaginatedResponse<CafeList>;

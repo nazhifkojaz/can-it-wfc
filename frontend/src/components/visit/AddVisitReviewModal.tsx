@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, MapPinned, DollarSign, Star, CheckCircle } from 'lucide-react';
 import { Cafe, CombinedVisitReviewCreate, Review, Visit } from '../../types';
-import { Modal, SharedResultModal, StarRating, FacilityCheckbox } from '../common';
+import { Modal, SharedResultModal } from '../common';
 import ReviewForm from '../review/ReviewForm';
+import ReviewFields from '../review/ReviewFields';
 import { useVisits, useGeolocation, useResultModal, useReviewForm } from '../../hooks';
 import { calculateDistance, formatVisitTime } from '../../utils';
 import { CURRENCIES, detectCurrencyFromCoordinates, formatCurrency } from '../../utils/currency';
-import { VISIT_TIME_OPTIONS, VISIT_TIME_ANALYTICS_MAP, REVIEW_CONFIG } from '../../config/constants';
-import { RATING_DIMENSIONS, FACILITY_CONFIG } from '../../config/ratings';
+import { VISIT_TIME_OPTIONS, REVIEW_CONFIG } from '../../config/constants';
 import { visitApi, reviewApi } from '../../api/client';
 import { extractApiError, getFieldError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
@@ -59,16 +59,11 @@ const visitReviewValidation = {
   },
 
   validateComment: (comment: string): string | null => {
-    if (comment.length > 160) {
-      return 'Comment must be 160 characters or less';
+    if (comment.length > REVIEW_CONFIG.MAX_COMMENT_LENGTH) {
+      return `Comment must be ${REVIEW_CONFIG.MAX_COMMENT_LENGTH} characters or less`;
     }
     return null;
   },
-
-    validateReviewFields: (_includeReview: boolean, _wfcRating: number): string | null => {
-      // wfcRating is auto-computed, so this check is no longer needed
-      return null;
-    }
 };
 
 interface AddVisitReviewModalProps {
@@ -123,11 +118,11 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
 
   // Check for duplicate visit and existing review when modal opens
   useEffect(() => {
-    const checkDuplicate = async () => {
-      if (isOpen && selectedCafe?.is_registered) {
+    const checkDuplicate = async (cafe?: Cafe) => {
+      if (isOpen && cafe?.is_registered) {
         try {
           const today = new Date().toISOString().split('T')[0];
-          const response = await visitApi.getVisits({ cafe: selectedCafe.id, visit_date: today });
+          const response = await visitApi.getVisits({ cafe: cafe.id, visit_date: today });
 
           if (response.results && response.results.length > 0) {
             setExistingVisit(response.results[0]);
@@ -146,12 +141,12 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
     };
 
-    const checkExistingReview = async () => {
-      if (isOpen && selectedCafe?.is_registered) {
+    const checkExistingReview = async (cafe?: Cafe) => {
+      if (isOpen && cafe?.is_registered) {
         setExistingReviewLoading(true);
         setReviewCheckFailed(false);
         try {
-          const review = await reviewApi.getUserCafeReview(selectedCafe.id);
+          const review = await reviewApi.getUserCafeReview(cafe.id);
           setHasExistingReview(!!review);
           setExistingReviewData(review);
         } catch (error) {
@@ -195,8 +190,8 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       }
 
       refetch();
-      checkDuplicate();
-      checkExistingReview();
+      checkDuplicate(preselectedCafe);
+      checkExistingReview(preselectedCafe);
     }
   }, [isOpen, preselectedCafe, refetch]);
 
@@ -261,24 +256,21 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
     if (amountError) validationErrors.push(amountError);
 
     // Validate review fields if review is included
-      if (includeReview) {
-        const reviewError = visitReviewValidation.validateReviewFields(includeReview, form.wfcRating);
-        if (reviewError) validationErrors.push(reviewError);
+    if (includeReview) {
+      const commentError = visitReviewValidation.validateComment(form.comment);
+      if (commentError) validationErrors.push(commentError);
 
-        const commentError = visitReviewValidation.validateComment(form.comment);
-        if (commentError) validationErrors.push(commentError);
-
-        const ratingErrors = [
-          visitReviewValidation.validateRating(form.wifi_quality, 'WiFi quality'),
-          visitReviewValidation.validateRating(form.seating_comfort, 'Seating comfort'),
-          visitReviewValidation.validateRating(form.noise_level, 'Noise level'),
-        ];
-        if (form.power_outlets_rating !== undefined) {
-          ratingErrors.push(visitReviewValidation.validateRating(form.power_outlets_rating, 'Power outlets'));
-        }
-
-        validationErrors.push(...ratingErrors.filter(Boolean) as string[]);
+      const ratingErrors = [
+        visitReviewValidation.validateRating(form.wifi_quality, 'WiFi quality'),
+        visitReviewValidation.validateRating(form.seating_comfort, 'Seating comfort'),
+        visitReviewValidation.validateRating(form.noise_level, 'Noise level'),
+      ];
+      if (form.power_outlets_rating !== undefined) {
+        ratingErrors.push(visitReviewValidation.validateRating(form.power_outlets_rating, 'Power outlets'));
       }
+
+      validationErrors.push(...ratingErrors.filter(Boolean) as string[]);
+    }
 
     // Show validation errors if any
     if (validationErrors.length > 0) {
@@ -332,6 +324,7 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         visitReviewData.cafe_address = selectedCafe.address;
         visitReviewData.cafe_latitude = lat.toFixed(8);
         visitReviewData.cafe_longitude = lng.toFixed(8);
+        visitReviewData.place_category = selectedCafe.place_category;
       }
 
       if (includeReview) {
@@ -346,28 +339,14 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
       // Track analytics
       trackVisitLogged({
         cafeId: selectedCafe.id,
-        cafeName: selectedCafe.name,
         includesReview: includeReview,
-        visitTime: visitTime !== null ? VISIT_TIME_ANALYTICS_MAP[visitTime] : null,
-        amountSpent: amountSpent ? parseFloat(amountSpent) : null,
-        currency: amountSpent ? currency : null,
-        isDuplicateVisit: showDuplicateInfo && !!existingVisit,
       });
 
-      // Track review creation if review was included
       if (includeReview) {
         trackReviewCreated({
           cafeId: selectedCafe.id,
-          cafeName: selectedCafe.name,
           wfcRating: form.wfcRating,
-          wifiQuality: form.wifi_quality,
-          hasComment: !!form.comment.trim(),
-          commentLength: form.comment.length,
           source: 'visit_modal',
-          hasSmokingArea: form.hasSmokingArea ? true : null,
-          hasPrayerRoom: form.hasPrayerRoom ? true : null,
-          hasIndoorSeating: form.hasIndoorSeating ? true : null,
-          hasOutdoorSeating: form.hasOutdoorSeating ? true : null,
         });
       }
 
@@ -684,68 +663,21 @@ const AddVisitReviewModal: React.FC<AddVisitReviewModalProps> = ({
         {includeReview && !hasExistingReview && (
           <div className={styles.reviewSection}>
             <h4 className={styles.reviewSectionTitle}>Work From Cafe Review</h4>
-
-            {(() => {
-              const subRatings = RATING_DIMENSIONS.filter(d => d.key !== 'wfc_rating');
-              return (
-                <>
-                  <div className={styles.ratingField}>
-                    <label className={styles.ratingLabel}>
-                      <Star size={18} />
-                      Overall WFC Rating
-                      <span className={styles.optional}>(Auto)</span>
-                    </label>
-                    <StarRating value={form.wfcRating} disabled />
-                  </div>
-                  {subRatings.map(d => {
-                    const value = form.ratingValues[d.key];
-                    const setter = form.ratingSetters[d.key];
-                    if (value === undefined || !setter) return null;
-                    return (
-                      <div key={d.key} className={styles.ratingField}>
-                        <label className={styles.ratingLabel}>
-                          {d.icon}
-                          {d.label}
-                        </label>
-                        <StarRating value={value} onChange={setter} />
-                      </div>
-                    );
-                  })}
-                  <div className={styles.checkboxGrid}>
-                    {FACILITY_CONFIG.map(f => {
-                      const checked = form.facilityValues[f.key];
-                      const setter = form.facilitySetters[f.key];
-                      if (checked === undefined || !setter) return null;
-                      return (
-                        <FacilityCheckbox
-                          key={f.key}
-                          label={f.label}
-                          icon={f.icon}
-                          checked={checked}
-                          onChange={setter}
-                        />
-                      );
-                    })}
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label htmlFor="comment">
-                      Comment (Optional, max {REVIEW_CONFIG.MAX_COMMENT_LENGTH} chars)
-                    </label>
-                    <textarea
-                      id="comment"
-                      value={form.comment}
-                      onChange={(e) => form.setComment(e.target.value.slice(0, REVIEW_CONFIG.MAX_COMMENT_LENGTH))}
-                      placeholder="Share your experience..."
-                      maxLength={REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-                      rows={3}
-                    />
-                    <div className={styles.charCount}>
-                      {form.comment.length}/{REVIEW_CONFIG.MAX_COMMENT_LENGTH}
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
+            <ReviewFields
+              form={form}
+              variant="compact"
+              textareaId="comment"
+              commentRows={3}
+              commentPlaceholder="Share your experience..."
+              classes={{
+                ratingField: styles.ratingField,
+                ratingLabel: styles.ratingLabel,
+                checkboxGrid: styles.checkboxGrid,
+                formGroup: styles.formGroup,
+                charCount: styles.charCount,
+                optional: styles.optional,
+              }}
+            />
           </div>
         )}
 

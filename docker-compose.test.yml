@@ -1,0 +1,24 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: can_it_wfc
+      POSTGRES_USER: can_it_wfc
+      POSTGRES_PASSWORD: can_it_wfc
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U can_it_wfc -d can_it_wfc"]
+      interval: 2s
+      timeout: 5s
+      retries: 20

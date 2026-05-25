@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserPlus, UserMinus, Clock } from 'lucide-react';
 import { userApi } from '../../api/client';
 import { extractApiError } from '../../utils/errorUtils';
 import { logger } from '../../utils/logger';
-import { trackUserFollowed, trackUserUnfollowed } from '../../lib/analytics';
 import styles from './FollowButton.module.css';
-
-type FollowSource = 'review_card';
 
 interface FollowButtonProps {
   username: string;
@@ -15,7 +12,6 @@ interface FollowButtonProps {
   onFollowChange?: (isFollowing: boolean) => void;
   onStatusChange?: (status: 'none' | 'active' | 'pending' | 'rejected') => void;
   onError?: (error: Error) => void;
-  source?: FollowSource;
 }
 
 const FollowButton: React.FC<FollowButtonProps> = ({
@@ -25,10 +21,13 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   onFollowChange,
   onStatusChange,
   onError,
-  source = 'review_card',
 }) => {
   const [loading, setLoading] = useState(false);
   const [followStatus, setFollowStatus] = useState(initialFollowStatus || (initialIsFollowing ? 'active' : 'none'));
+
+  useEffect(() => {
+    setFollowStatus(initialFollowStatus || (initialIsFollowing ? 'active' : 'none'));
+  }, [username, initialFollowStatus, initialIsFollowing]);
 
   const handleToggleFollow = async () => {
     setLoading(true);
@@ -38,22 +37,17 @@ const FollowButton: React.FC<FollowButtonProps> = ({
         setFollowStatus('none');
         onFollowChange?.(false);
         onStatusChange?.('none');
-        trackUserUnfollowed({ targetUsername: username });
       } else if (followStatus === 'pending') {
         await userApi.unfollowUser(username);
         setFollowStatus('none');
         onFollowChange?.(false);
         onStatusChange?.('none');
-        trackUserUnfollowed({ targetUsername: username });
       } else {
         const response = await userApi.followUser(username);
         const newStatus = (response?.follow_status as 'none' | 'active' | 'pending' | 'rejected') || 'active';
         setFollowStatus(newStatus);
         onFollowChange?.(newStatus === 'active');
         onStatusChange?.(newStatus);
-        if (newStatus === 'active') {
-          trackUserFollowed({ targetUsername: username, source });
-        }
       }
     } catch (error) {
       logger.error('Failed to toggle follow', error, 'FollowButton');
@@ -72,12 +66,12 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     <button
       className={`${styles.followButton} ${isActive ? styles.following : ''} ${isRequested ? styles.pending : ''}`}
       onClick={handleToggleFollow}
-      disabled={loading || isRequested || followStatus === 'rejected'}
+      disabled={loading || followStatus === 'rejected'}
     >
       {isRequested ? (
         <>
           <Clock size={18} />
-          Requested
+          Cancel Request
         </>
       ) : isActive ? (
         <>

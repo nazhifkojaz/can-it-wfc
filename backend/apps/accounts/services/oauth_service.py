@@ -55,6 +55,9 @@ class GoogleOAuthProvider(OAuthProviderBase):
         if not email:
             raise OAuthEmailNotProvided(provider='Google')
 
+        if idinfo.get('email_verified') is not True:
+            raise OAuthTokenInvalid(detail='Google account email must be verified.')
+
         return OAuthUserInfo(
             provider_user_id=idinfo.get('sub'),
             email=email,

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Star, Users, Coffee } from 'lucide-react';
 import { Cafe } from '../../types';
 import { parseDistance, formatDistance } from '../../utils/formatters';
-import { trackListSorted } from '../../lib/analytics';
 import './CafeList.css';
 
 interface CafeListProps {
@@ -15,20 +14,12 @@ interface CafeListProps {
 
 type SortOption = 'distance' | 'rating' | 'visits';
 
-// Map sort option to analytics sort value
-const sortToAnalyticsSort: Record<SortOption, 'nearest' | 'top_rated' | 'popular'> = {
-  distance: 'nearest',
-  rating: 'top_rated',
-  visits: 'popular',
-};
-
 const CafeList: React.FC<CafeListProps> = ({ cafes: initialCafes, loading, error: _error, userLocation, onCafeClick }) => {
   const [sortBy, setSortBy] = useState<SortOption>('distance');
   const [sortedCafes, setSortedCafes] = useState<Cafe[]>([]);
 
   const handleSortChange = (newSort: SortOption) => {
     setSortBy(newSort);
-    trackListSorted({ sortBy: sortToAnalyticsSort[newSort] });
   };
 
   const sortCafes = (cafes: Cafe[], sortOption: SortOption): Cafe[] => {

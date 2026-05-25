@@ -91,7 +91,7 @@ class Visit(models.Model):
         Check if check-in location is within acceptable distance of cafe.
         Returns True if verified, False if too far, None if no check-in data.
         """
-        if not self.check_in_latitude or not self.check_in_longitude:
+        if self.check_in_latitude is None or self.check_in_longitude is None:
             return None
         
         # Import inside method to avoid circular imports

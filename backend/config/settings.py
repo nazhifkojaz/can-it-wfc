@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'django.contrib.postgres',
+
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
@@ -48,7 +50,6 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.cafes',
     'apps.reviews',
-    'apps.activity',  # Activity stream for feeds
     'apps.discover',  # Discover panel
 ]
 
@@ -206,6 +207,12 @@ CORS_ALLOWED_ORIGINS = env.list(
 
 CORS_ALLOW_CREDENTIALS = True  # Required for cookie-based authentication
 
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=CORS_ALLOWED_ORIGINS,
+)
+CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
+
 # API Documentation (Spectacular)
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Can-It-WFC API',
@@ -297,8 +304,8 @@ LOGGING = {
 }
 
 # Anti-spam settings
-MAX_REVIEWS_PER_DAY = 10
-MIN_ACCOUNT_AGE_HOURS = 0
+MAX_REVIEWS_PER_DAY = env.int('MAX_REVIEWS_PER_DAY', default=10)
+MIN_ACCOUNT_AGE_HOURS = env.int('MIN_ACCOUNT_AGE_HOURS', default=0)
 DUPLICATE_CAFE_DISTANCE_METERS = 50  # Distance threshold for duplicate detection
 
 # Google OAuth credentials

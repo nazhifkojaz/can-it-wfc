@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, List, Map as MapIcon } from 'lucide-react';
+import { AlertCircle, List, Map as MapIcon, RefreshCw } from 'lucide-react';
 import MobileLayout from '../components/layout/MobileLayout';
 import MapView from '../components/map/MapView';
 import CafeList from '../components/cafe/CafeList';
@@ -17,27 +17,28 @@ import PanelManager from '../components/panels/PanelManager';
 import { usePanel } from '../contexts/PanelContext';
 import { cafeApi } from '../api/client';
 import { logger } from '../utils/logger';
-import { trackMapAreaSearched, trackViewModeToggled, type ViewMode } from '../lib/analytics';
+
 import { getActiveChips } from '../lib/filterEncoding';
 import './MapPage.css';
 
 const MapPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('map');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [showAddVisitReview, setShowAddVisitReview] = useState(false);
   const [visitCafe, setVisitCafe] = useState<Cafe | undefined>(undefined);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [tempSearchMarker, setTempSearchMarker] = useState<SearchResult | null>(null);
   const [jumpToLocation, setJumpToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const [manualSearchCenter, setManualSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbySearchCenter, setNearbySearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchAfterLocationRefetch, setSearchAfterLocationRefetch] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const resultModal = useResultModal();
   const { activePanel } = usePanel();
   const { filters, appliedFilters, setFilter, applyFilters, resetAll, clearOne, syncPending } = useMapFilters();
 
-  const { location, error: locationError, loading: locationLoading } = useGeolocation();
+  const { location, error: locationError, loading: locationLoading, refetch } = useGeolocation({ watch: false });
 
   const searchUserLocation = useMemo(
     () => location ? { lat: location.lat, lon: location.lng } : undefined,
@@ -51,7 +52,27 @@ const MapPage: React.FC = () => {
     }
   }, [activePanel]);
 
-  // Handle cafe query parameter (from activity clicks)
+  React.useEffect(() => {
+    if (!nearbySearchCenter && location) {
+      setNearbySearchCenter(location);
+    }
+  }, [nearbySearchCenter, location]);
+
+  React.useEffect(() => {
+    if (!searchAfterLocationRefetch || locationLoading) return;
+
+    if (location) {
+      setNearbySearchCenter(location);
+    }
+    setSearchAfterLocationRefetch(false);
+  }, [searchAfterLocationRefetch, locationLoading, location]);
+
+  const handleRetryLocation = React.useCallback(() => {
+    setSearchAfterLocationRefetch(true);
+    refetch();
+  }, [refetch]);
+
+  // Handle cafe query parameter from profile/list/deep links.
   React.useEffect(() => {
     const cafeId = searchParams.get('cafe');
     if (cafeId && !activePanel) {
@@ -72,6 +93,10 @@ const MapPage: React.FC = () => {
             latitude: cafe.latitude.toString(),
             longitude: cafe.longitude.toString(),
             rating: cafe.google_rating ?? undefined,
+            place_category: cafe.place_category,
+            place_category_label: cafe.place_category_label,
+            place_category_confidence: cafe.place_category_confidence,
+            provider_types: cafe.provider_types,
             average_wfc_rating: cafe.average_wfc_rating ? parseFloat(String(cafe.average_wfc_rating)) : undefined,
             total_reviews: cafe.total_reviews,
             total_visits: cafe.total_visits,
@@ -82,7 +107,7 @@ const MapPage: React.FC = () => {
           // Clear only the cafe param, preserve filter params
           setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('cafe'); return n; }, { replace: true });
         } catch (error) {
-          logger.error('Failed to jump to cafe from activity', error, 'MapPage');
+          logger.error('Failed to jump to selected cafe', error, 'MapPage');
           resultModal.showResultModal({
             type: 'error',
             title: 'Cafe Not Found',
@@ -95,7 +120,7 @@ const MapPage: React.FC = () => {
     }
   }, [searchParams, activePanel, setSearchParams, resultModal]);
 
-  const searchCenter = manualSearchCenter || location;
+  const searchCenter = nearbySearchCenter;
   const {
     cafes,
     loading: loadingCafes,
@@ -103,13 +128,18 @@ const MapPage: React.FC = () => {
     refetch: refetchCafes,
     searchCenter: activeSearchCenter,
   } = useNearbyCafes({
-    latitude: searchCenter?.lat || 0,
-    longitude: searchCenter?.lng || 0,
-    enabled: !!searchCenter,
+    latitude: searchCenter?.lat ?? 0,
+    longitude: searchCenter?.lng ?? 0,
+    enabled: searchCenter != null,
     userLatitude: location?.lat,
     userLongitude: location?.lng,
     filters: appliedFilters,
   });
+
+  const searchOverlayCenter = useMemo(
+    () => activeSearchCenter ?? searchCenter ?? undefined,
+    [activeSearchCenter?.lat, activeSearchCenter?.lng, searchCenter?.lat, searchCenter?.lng]
+  );
 
   // Sync selectedCafe with cafes array when data refreshes (e.g. after registration)
   React.useEffect(() => {
@@ -142,12 +172,7 @@ const MapPage: React.FC = () => {
   }, [cafes, selectedCafe]);
 
   const handleSearchArea = (center: { lat: number; lng: number }) => {
-    // Track analytics
-    trackMapAreaSearched({
-      latitude: center.lat,
-      longitude: center.lng,
-    });
-    setManualSearchCenter(center);
+    setNearbySearchCenter(center);
   };
 
   const handleCafeClick = React.useCallback((cafe: Cafe) => {
@@ -179,22 +204,20 @@ const MapPage: React.FC = () => {
   };
 
   const toggleViewMode = () => {
-    setViewMode(prev => {
-      const newMode = prev === 'map' ? 'list' : 'map';
-      trackViewModeToggled({ switchedTo: newMode });
-      return newMode;
-    });
+    setViewMode(prev => prev === 'map' ? 'list' : 'map');
   };
 
   const handleSearchSelect = (result: SearchResult) => {
     const lat = parseFloat(result.latitude);
     const lng = parseFloat(result.longitude);
+    const selectedLocation = { lat, lng };
 
     // Jump map to selected location
-    setJumpToLocation({ lat, lng });
+    setJumpToLocation(selectedLocation);
 
     // If it's a location (not a cafe), just pan - no marker
     if (result.result_type === 'location') {
+      setNearbySearchCenter(selectedLocation);
       return;
     }
 
@@ -259,6 +282,14 @@ const MapPage: React.FC = () => {
               <p className="error-title">Location access needed</p>
               <p className="error-message">{locationError}</p>
             </div>
+            <button
+              onClick={handleRetryLocation}
+              className="location-error-retry"
+              aria-label="Retry location"
+            >
+              <RefreshCw size={18} />
+              <span>Retry</span>
+            </button>
           </div>
         )}
 
@@ -286,6 +317,7 @@ const MapPage: React.FC = () => {
               jumpToLocation={jumpToLocation}
               tempSearchMarker={tempSearchMarker}
               onSearchClick={() => setShowSearchOverlay(true)}
+              onRetryLocation={handleRetryLocation}
             />
           </div>
         )}
@@ -332,6 +364,7 @@ const MapPage: React.FC = () => {
           onClose={() => setShowSearchOverlay(false)}
           onSelectResult={handleSearchSelect}
           userLocation={searchUserLocation}
+          searchCenter={searchOverlayCenter}
         />
       </div>
       {activePanel && <PanelManager />}

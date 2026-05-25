@@ -12,7 +12,7 @@ import { formatCurrency } from './currency';
  * @param visitTime - The visit time value (1 = Morning, 2 = Afternoon, 3 = Evening)
  * @returns Formatted visit time label or 'Not specified' if invalid/null
  */
-export const formatVisitTime = (visitTime: number | null | undefined): string => {
+export const formatVisitTime = (visitTime: number | string | null | undefined): string => {
   if (visitTime === null || visitTime === undefined) {
     return 'Not specified';
   }

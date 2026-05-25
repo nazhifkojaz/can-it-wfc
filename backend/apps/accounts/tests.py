@@ -3,28 +3,12 @@ Authentication and User Management Tests
 """
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.models import Follow
 
 User = get_user_model()
-
-
-@pytest.fixture
-def api_client():
-    """Create API client for tests"""
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    """Create a test user"""
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123'
-    )
 
 
 @pytest.mark.django_db
@@ -107,16 +91,6 @@ class TestUserModel:
 
         assert user.can_review() is True
 
-    def test_update_stats(self, test_user):
-        """Test update_stats recalculates user statistics"""
-        _initial_reviews = test_user.total_reviews  # noqa: F841
-        test_user.update_stats()
-
-        # Should recalculate from database
-        assert test_user.total_reviews >= 0
-        assert test_user.total_visits >= 0
-
-
 @pytest.mark.django_db
 class TestLogout:
     """Test logout endpoint"""
@@ -172,6 +146,155 @@ class TestLogout:
 
 
 @pytest.mark.django_db
+class TestCsrfTokenView:
+    """GET /api/auth/csrf/ issues CSRF cookies for API clients."""
+
+    def test_returns_csrf_token_in_body(self, api_client):
+        response = api_client.get('/api/auth/csrf/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert 'csrfToken' in response.data
+        assert len(response.data['csrfToken']) > 0
+
+    def test_sets_csrftoken_cookie(self, api_client):
+        response = api_client.get('/api/auth/csrf/')
+
+        assert 'csrftoken' in response.cookies
+
+    def test_accessible_without_authentication(self, api_client):
+        response = api_client.get('/api/auth/csrf/')
+
+        assert response.status_code == status.HTTP_200_OK
+
+@pytest.mark.django_db
+class TestJWTCookieCSRF:
+    """Cookie-authenticated unsafe requests must pass CSRF validation."""
+
+    def _access_token_for(self, user):
+        return str(RefreshToken.for_user(user).access_token)
+
+    def test_cookie_auth_patch_without_csrf_is_rejected(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.patch('/api/auth/me/', {'bio': 'Blocked'}, format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cookie_auth_post_without_csrf_is_rejected(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.post('/api/auth/logout/', format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cookie_auth_put_without_csrf_is_rejected(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.put('/api/auth/me/', {'bio': 'Blocked'}, format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cookie_auth_get_safe_method_skips_csrf(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.get('/api/auth/me/')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['username'] == 'testuser'
+
+    def test_cookie_auth_patch_with_csrf_succeeds(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        csrf_response = client.get('/api/auth/csrf/')
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.patch(
+            '/api/auth/me/',
+            {'bio': 'Allowed'},
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_response.data['csrfToken'],
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['bio'] == 'Allowed'
+
+    def test_cookie_auth_post_with_csrf_succeeds(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        csrf_response = client.get('/api/auth/csrf/')
+        client.cookies['access_token'] = self._access_token_for(test_user)
+
+        response = client.post(
+            '/api/auth/logout/',
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_response.data['csrfToken'],
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_bearer_auth_post_without_csrf_succeeds(self, test_user):
+        client = APIClient(enforce_csrf_checks=True)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {self._access_token_for(test_user)}')
+
+        response = client.patch('/api/auth/me/', {'bio': 'Bearer'}, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['bio'] == 'Bearer'
+
+
+class TestGoogleOAuthProvider:
+    """Google OAuth email linking requires verified provider emails."""
+
+    def _patch_google_token(self, monkeypatch, idinfo):
+        monkeypatch.setattr(
+            'google.oauth2.id_token.verify_oauth2_token',
+            lambda *args, **kwargs: idinfo,
+        )
+
+    def test_unverified_google_email_is_rejected(self, monkeypatch):
+        from apps.accounts.services.oauth_service import GoogleOAuthProvider
+        from core.exceptions import OAuthTokenInvalid
+
+        self._patch_google_token(monkeypatch, {
+            'sub': 'google-123',
+            'email': 'user@example.com',
+            'email_verified': False,
+        })
+
+        with pytest.raises(OAuthTokenInvalid):
+            GoogleOAuthProvider().verify_token('token')
+
+    def test_missing_google_email_verified_is_rejected(self, monkeypatch):
+        from apps.accounts.services.oauth_service import GoogleOAuthProvider
+        from core.exceptions import OAuthTokenInvalid
+
+        self._patch_google_token(monkeypatch, {
+            'sub': 'google-123',
+            'email': 'user@example.com',
+        })
+
+        with pytest.raises(OAuthTokenInvalid):
+            GoogleOAuthProvider().verify_token('token')
+
+    def test_verified_google_email_succeeds(self, monkeypatch):
+        from apps.accounts.services.oauth_service import GoogleOAuthProvider
+
+        self._patch_google_token(monkeypatch, {
+            'sub': 'google-123',
+            'email': 'user@example.com',
+            'email_verified': True,
+            'picture': 'https://example.com/avatar.png',
+        })
+
+        user_info = GoogleOAuthProvider().verify_token('token')
+
+        assert user_info.provider_user_id == 'google-123'
+        assert user_info.email == 'user@example.com'
+
+
+@pytest.mark.django_db
 class TestUnfollowUpdatesCounts:
     """Test that unfollowing updates denormalized follower/following counts."""
 
@@ -220,7 +343,7 @@ class TestUnfollowUpdatesCounts:
 
 @pytest.mark.django_db
 class TestSavedLists:
-    """Tests for GET /api/auth/me/saved-lists/ (Phase 5)."""
+    """Tests for GET /api/auth/me/saved-lists/."""
 
     def test_returns_saved_public_lists(self, api_client, test_user):
         from apps.cafes.models import CafeList, SavedCafeList
@@ -298,3 +421,100 @@ class TestSavedLists:
         assert response.data['count'] == 5
 
 
+@pytest.mark.django_db
+class TestPublicSocialListPrivacy:
+    """Private profiles must not leak followers/following to unauthorised users."""
+
+    def _make_private_target(self, make_user):
+        target = make_user(username='privateuser', email='private@example.com')
+        target.settings.profile_visibility = 'private'
+        target.settings.show_followers = True
+        target.settings.show_following = True
+        target.settings.save()
+        return target
+
+    def test_anonymous_sees_empty_followers(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_anonymous_sees_empty_following(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_active_follower_sees_followers(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        follower = make_user(username='follower1', email='follower1@example.com')
+        Follow.objects.create(follower=follower, followed=target, status='active')
+        followed_by = make_user(username='followedby1', email='followedby1@example.com')
+        Follow.objects.create(follower=followed_by, followed=target, status='active')
+
+        api_client.force_authenticate(user=follower)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'follower1' in usernames
+        assert 'followedby1' in usernames
+
+    def test_active_follower_sees_following(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        follower = make_user(username='follower2', email='follower2@example.com')
+        Follow.objects.create(follower=follower, followed=target, status='active')
+        followed_by = make_user(username='followedby2', email='followedby2@example.com')
+        Follow.objects.create(follower=target, followed=followed_by, status='active')
+
+        api_client.force_authenticate(user=follower)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'followedby2' in usernames
+
+    def test_pending_follower_sees_empty_followers(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        pending = make_user(username='pending1', email='pending1@example.com')
+        Follow.objects.create(follower=pending, followed=target, status='pending')
+        Follow.objects.create(follower=target, followed=pending, status='pending')
+
+        api_client.force_authenticate(user=pending)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_pending_follower_sees_empty_following(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        pending = make_user(username='pending2', email='pending2@example.com')
+        Follow.objects.create(follower=pending, followed=target, status='pending')
+
+        api_client.force_authenticate(user=pending)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        assert response.data['results'] == []
+
+    def test_owner_sees_own_followers_while_private(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        target.settings.show_followers = False
+        target.settings.save()
+        follower = make_user(username='owned_follower', email='owned_follower@example.com')
+        Follow.objects.create(follower=follower, followed=target, status='active')
+
+        api_client.force_authenticate(user=target)
+        response = api_client.get(f'/api/auth/users/{target.username}/followers/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'owned_follower' in usernames
+
+    def test_owner_sees_own_following_while_private(self, api_client, make_user, disable_throttle):
+        target = self._make_private_target(make_user)
+        target.settings.show_following = False
+        target.settings.save()
+        followed = make_user(username='owned_following', email='owned_following@example.com')
+        Follow.objects.create(follower=target, followed=followed, status='active')
+
+        api_client.force_authenticate(user=target)
+        response = api_client.get(f'/api/auth/users/{target.username}/following/')
+        assert response.status_code == 200
+        usernames = [r['username'] for r in response.data['results']]
+        assert 'owned_following' in usernames

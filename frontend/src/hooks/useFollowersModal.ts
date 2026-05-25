@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { usePanel } from '../contexts/PanelContext';
-import { trackUserProfileViewed } from '../lib/analytics';
 
 type FollowModalType = 'followers' | 'following';
 
@@ -33,7 +32,6 @@ export const useFollowersModal = (): UseFollowersModalReturn => {
 
   const handleUserClick = useCallback((clickedUsername: string) => {
     setShowFollowersModal(false);
-    trackUserProfileViewed({ targetUsername: clickedUsername, source: 'followers_modal' });
     showPanel('userProfile', { username: clickedUsername });
   }, [showPanel]);
 

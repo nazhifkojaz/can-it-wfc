@@ -12,8 +12,6 @@ import {
   formatCount,
   truncateText,
 } from '../formatters';
-import { formatVisitTime } from '../visit';
-import { VISIT_TIME } from '../../config/constants';
 
 describe('formatters', () => {
   describe('formatPriceRange', () => {
@@ -83,18 +81,6 @@ describe('formatters', () => {
     it('should handle invalid inputs', () => {
       expect(formatRating(null)).toBe('N/A');
       expect(formatRating(undefined)).toBe('N/A');
-    });
-  });
-
-  describe('formatVisitTime', () => {
-    it('should format visit time labels', () => {
-      expect(formatVisitTime(VISIT_TIME.MORNING)).toContain('Morning');
-      expect(formatVisitTime(VISIT_TIME.AFTERNOON)).toContain('Afternoon');
-      expect(formatVisitTime(VISIT_TIME.EVENING)).toContain('Evening');
-    });
-
-    it('should handle invalid inputs', () => {
-      expect(formatVisitTime(999)).toBe('Not specified');
     });
   });
 

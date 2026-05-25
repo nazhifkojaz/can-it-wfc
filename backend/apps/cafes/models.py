@@ -1,3 +1,4 @@
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -17,9 +18,21 @@ class Cafe(models.Model):
     """
     Cafe/Coffee shop model with location and statistics.
     """
+    class PlaceCategory(models.TextChoices):
+        CAFE = 'cafe', 'Cafe'
+        COWORKING_SPACE = 'coworking_space', 'Coworking space'
+        LIBRARY = 'library', 'Library'
+
     # Basic information
     name = models.CharField(max_length=200)
     address = models.TextField()
+    place_category = models.CharField(
+        max_length=32,
+        choices=PlaceCategory.choices,
+        default=PlaceCategory.CAFE,
+        db_index=True,
+        help_text="WFC place category used for discovery and map labeling"
+    )
     
     # Location coordinates
     latitude = models.DecimalField(
@@ -172,6 +185,8 @@ class Cafe(models.Model):
             models.Index(fields=['-average_wfc_rating']),
             models.Index(fields=['is_closed', '-created_at'], name='cafe_closed_created_idx'),
             models.Index(fields=['avg_wifi_rating', 'avg_noise_level'], name='cafe_wifi_noise_idx'),
+            GinIndex(fields=['name'], name='cafe_name_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['address'], name='cafe_address_trgm_idx', opclasses=['gin_trgm_ops']),
         ]
     
     def __str__(self):

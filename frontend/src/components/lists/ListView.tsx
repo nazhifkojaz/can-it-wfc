@@ -4,6 +4,8 @@ import { useListDetail, useLists, useResultModal } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSaveList } from '../../hooks/useSaveList';
 import { Loading, EmptyState, ConfirmDialog, SharedResultModal } from '../common';
+import { buildAppPath } from '../../utils/url';
+import { trackShareLinkCopied } from '../../lib/analytics';
 import type { CafeListItem } from '../../types';
 import ListItemRow from './ListItemRow';
 import styles from './Lists.module.css';
@@ -77,8 +79,8 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
 
   const copyShareLink = async () => {
     if (!list) return;
-    const base = `${window.location.origin}/?list=${listId}`;
-    const url = list.share_token ? `${base}&token=${list.share_token}` : base;
+    const base = `${window.location.origin}${buildAppPath(`/list/${listId}`)}`;
+    const url = list.share_token ? `${base}?token=${list.share_token}` : base;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -92,6 +94,7 @@ const ListView: React.FC<ListViewProps> = ({ listId, onBack, onCafeClick }) => {
       document.body.removeChild(textarea);
     }
     setCopied(true);
+    trackShareLinkCopied({ listId });
     setTimeout(() => setCopied(false), 2000);
   };
 

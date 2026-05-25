@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.core.validators import MaxLengthValidator
 from core.logging import get_logger
 from .models import Cafe, CafeFlag, CafeList, CafeListItem
+from .place_classification import PLACE_CATEGORY_LABELS, PLACE_CONFIDENCE_HIGH, SUPPORTED_PLACE_CATEGORIES
 from apps.accounts.serializers import UserSerializer
 from decimal import Decimal
 
@@ -35,6 +36,18 @@ class CafeStatsMixin:
         # Return cached value (precomputed in Cafe.update_stats())
         return obj.facility_stats_cache
 
+    def get_place_category_label(self, obj):
+        return PLACE_CATEGORY_LABELS.get(obj.place_category, 'Cafe')
+
+    def get_place_category_confidence(self, obj):
+        return PLACE_CONFIDENCE_HIGH
+
+    def get_provider_types(self, obj):
+        return []
+
+    def get_provider(self, obj):
+        return 'google' if obj.google_place_id else None
+
 
 class CafeSummarySerializer(CafeStatsMixin, serializers.ModelSerializer):
     """Cafe summary used in list views and as a nested read-only representation."""
@@ -48,6 +61,10 @@ class CafeSummarySerializer(CafeStatsMixin, serializers.ModelSerializer):
     )
     average_ratings = serializers.SerializerMethodField()
     facility_stats = serializers.SerializerMethodField()
+    place_category_label = serializers.SerializerMethodField()
+    place_category_confidence = serializers.SerializerMethodField()
+    provider_types = serializers.SerializerMethodField()
+    provider = serializers.SerializerMethodField()
     is_registered = serializers.SerializerMethodField()
     source = serializers.SerializerMethodField()
 
@@ -60,6 +77,11 @@ class CafeSummarySerializer(CafeStatsMixin, serializers.ModelSerializer):
             'latitude',
             'longitude',
             'google_place_id',
+            'place_category',
+            'place_category_label',
+            'place_category_confidence',
+            'provider_types',
+            'provider',
             'price_range',
             'average_wfc_rating',
             'total_reviews',
@@ -107,6 +129,10 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
     source = serializers.SerializerMethodField()
     average_ratings = serializers.SerializerMethodField()
     facility_stats = serializers.SerializerMethodField()
+    place_category_label = serializers.SerializerMethodField()
+    place_category_confidence = serializers.SerializerMethodField()
+    provider_types = serializers.SerializerMethodField()
+    provider = serializers.SerializerMethodField()
     # Annotated by CafeDetailView.get_queryset for authenticated users; 0 for anon.
     my_lists_count = serializers.IntegerField(read_only=True, default=0)
     # Annotated by CafeDetailView.get_queryset; count of distinct users who saved this cafe.
@@ -121,6 +147,11 @@ class CafeDetailSerializer(CafeStatsMixin, serializers.ModelSerializer):
             'latitude',
             'longitude',
             'google_place_id',
+            'place_category',
+            'place_category_label',
+            'place_category_confidence',
+            'provider_types',
+            'provider',
             'price_range',
             'total_visits',
             'unique_visitors',
@@ -180,6 +211,7 @@ class CafeCreateSerializer(serializers.ModelSerializer):
             'latitude',
             'longitude',
             'google_place_id',
+            'place_category',
             'price_range'
         ]
     
@@ -314,6 +346,21 @@ class CafeListUpdateSerializer(serializers.ModelSerializer):
         fields = ['name', 'description', 'icon', 'visibility']
         extra_kwargs = {'name': {'required': False}}
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        list_type = self.instance.list_type if self.instance else None
+        visibility = attrs.get(
+            'visibility',
+            self.instance.visibility if self.instance else None,
+        )
+
+        if list_type in ('to_go', 'favorites') and visibility in ('public', 'shareable'):
+            raise serializers.ValidationError({
+                'visibility': 'Special lists (to-go, favorites) cannot be made public or shareable.',
+            })
+
+        return attrs
+
 
 class SaveListResponseSerializer(serializers.Serializer):
     """Response for POST/DELETE /api/lists/<id>/save/."""
@@ -338,6 +385,10 @@ class CafeListItemCreateSerializer(serializers.Serializer):
     cafe_address = serializers.CharField(required=False, allow_blank=True)
     cafe_latitude = serializers.CharField(required=False, allow_blank=True)
     cafe_longitude = serializers.CharField(required=False, allow_blank=True)
+    place_category = serializers.ChoiceField(
+        choices=Cafe.PlaceCategory.choices,
+        required=False,
+    )
 
 
 class CafeListItemNoteSerializer(serializers.ModelSerializer):
@@ -436,6 +487,24 @@ class CafeFilterSerializer(serializers.Serializer):
     verified = serializers.BooleanField(required=False, default=False)
     min_reviews = serializers.IntegerField(required=False, default=0, min_value=0)
     include_unregistered = serializers.BooleanField(required=False, default=True)
+    categories = serializers.CharField(required=False, default='cafe')
+
+    def validate_categories(self, value):
+        if not value:
+            return ['cafe']
+        cats = []
+        for cat in (c.strip() for c in value.split(',')):
+            if cat and cat not in cats:
+                cats.append(cat)
+        if not cats:
+            return ['cafe']
+        for cat in cats:
+            if cat not in SUPPORTED_PLACE_CATEGORIES:
+                supported = ', '.join(sorted(SUPPORTED_PLACE_CATEGORIES))
+                raise serializers.ValidationError(
+                    f"Invalid place category: {cat}. Supported: {supported}"
+                )
+        return cats
 
     def validate_price(self, value):
         if not value:
@@ -485,6 +554,7 @@ class CafeSearchQuerySerializer(serializers.Serializer):
             'max_value': 'Limit cannot exceed 50'
         }
     )
+    include_unregistered = serializers.BooleanField(required=False, default=True)
 
 
 class CafeInsightsSerializer(serializers.Serializer):

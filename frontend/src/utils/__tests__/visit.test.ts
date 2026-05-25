@@ -75,7 +75,7 @@ describe('visit utilities', () => {
     });
 
     it('should handle string input', () => {
-      expect(formatVisitTime('1' as any)).toContain('Morning');
+      expect(formatVisitTime('1')).toContain('Morning');
     });
   });
 

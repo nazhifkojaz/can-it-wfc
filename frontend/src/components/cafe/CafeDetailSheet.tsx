@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapPin, Bookmark, Star, Flag, ChevronDown } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
-import { Cafe, Review } from '../../types';
+import { Cafe, Review, PlaceCategory } from '../../types';
 import { Sheet, Loading, EmptyState, SharedResultModal } from '../common';
 import { useReviews, useCafeLists, useGeolocation, useResultModal, useCafeDetail } from '../../hooks';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,9 +14,8 @@ import CafeInsightsCard from './CafeInsightsCard';
 import ActionButtons from './ActionButtons';
 
 import { formatDistance } from '../../utils/formatters';
-import { calculateDistance } from '../../utils';
 import { ListIcon } from '../../utils/listIcons';
-import { trackCafeViewed, trackDirectionsClicked, trackGoogleRatingRefreshed } from '../../lib/analytics';
+import { trackCafeViewed, trackDirectionsClicked } from '../../lib/analytics';
 import styles from './CafeDetailSheet.module.css';
 
 interface CafeDetailSheetProps {
@@ -24,8 +23,19 @@ interface CafeDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onLogVisit: () => void;
-  source?: 'map_marker' | 'list_item' | 'search_result' | 'activity_feed' | 'favorite' | 'direct' | 'discover';
+  source?: 'map_marker' | 'list_item' | 'search_result' | 'favorite' | 'direct' | 'discover';
 }
+
+const CATEGORY_LABELS: Record<PlaceCategory, string> = {
+  cafe: 'Cafe',
+  coworking_space: 'Coworking space',
+  library: 'Library',
+};
+
+const NON_CAFE_DISCLAIMERS: Record<string, string> = {
+  coworking_space: 'This is a work-friendly place, not a cafe. Amenities like coffee, food, seating, and power may vary.',
+  library: 'This is a work-friendly place, not a cafe. Amenities like coffee, food, seating, and power may vary.',
+};
 
 const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
   cafe: initialCafe,
@@ -43,35 +53,24 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
     userLocation: location,
   });
 
+  const placeCategory: PlaceCategory = (cafe.place_category as PlaceCategory) || 'cafe';
+  const isNonCafe = placeCategory !== 'cafe';
+
   // Track cafe view once when sheet opens
   const hasTrackedViewRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && !hasTrackedViewRef.current) {
-      const distanceKm = location
-        ? calculateDistance(
-            location.lat,
-            location.lng,
-            parseFloat(cafe.latitude),
-            parseFloat(cafe.longitude)
-          )
-        : null;
-
       trackCafeViewed({
         cafeId: cafe.id,
-        cafeName: cafe.name,
-        isRegistered: cafe.is_registered,
-        hasWfcRating: !!cafe.average_wfc_rating,
         source,
-        distanceKm,
       });
       hasTrackedViewRef.current = true;
     }
-    // Reset tracking when sheet closes
     if (!isOpen) {
       hasTrackedViewRef.current = false;
     }
-  }, [isOpen, cafe.id, cafe.name, cafe.is_registered, cafe.average_wfc_rating, cafe.latitude, cafe.longitude, source, location]);
+  }, [isOpen, cafe.id, source]);
 
   const {
     reviews,
@@ -130,25 +129,13 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
       return;
     }
 
-    const distanceKm = calculateDistance(
-      location.lat,
-      location.lng,
-      parseFloat(cafe.latitude),
-      parseFloat(cafe.longitude)
-    );
-
-    trackDirectionsClicked({
-      cafeId: cafe.id,
-      cafeName: cafe.name,
-      distanceKm,
-    });
+    trackDirectionsClicked({ cafeId: cafe.id });
 
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${location.lat},${location.lng}&destination=${cafe.latitude},${cafe.longitude}&travelmode=driving`;
     window.open(mapsUrl, '_blank');
   };
 
   const handleRefreshGoogleRating = () => {
-    trackGoogleRatingRefreshed({ cafeId: cafe.id });
     refreshGoogleRating();
   };
 
@@ -238,6 +225,25 @@ const CafeDetailSheet: React.FC<CafeDetailSheetProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Category badge */}
+      <span className={styles.categoryBadge}>
+        {CATEGORY_LABELS[placeCategory]}
+      </span>
+
+      {/* Non-cafe disclaimer */}
+      {isNonCafe && (
+        <div className={styles.disclaimer}>
+          {NON_CAFE_DISCLAIMERS[placeCategory]}
+        </div>
+      )}
+
+      {/* Unregistered Google result disclaimer */}
+      {!cafe.is_registered && (
+        <div className={styles.disclaimer}>
+          This place comes from Google Places and has not been verified by the WFC community yet.
+        </div>
+      )}
 
       {/* Address & Distance */}
       <div className={styles.cafeMeta}>

@@ -3,7 +3,7 @@ import { cafeApi } from '../api/client';
 import { NearbyCafesResponse } from '../types';
 import { CafeFilters } from '../types/filters';
 import { filtersToApiParams } from '../lib/filterEncoding';
-import { queryKeys } from '../config/queryKeys';
+import { normalizeNearbyCoordinate, queryKeys } from '../config/queryKeys';
 
 interface UseNearbyCafesParams {
   latitude: number;
@@ -24,10 +24,10 @@ export const useNearbyCafes = ({
   userLongitude,
   filters,
 }: UseNearbyCafesParams) => {
-  const roundedLat = Number(latitude.toFixed(8));
-  const roundedLng = Number(longitude.toFixed(8));
-  const roundedUserLat = userLatitude ? Number(userLatitude.toFixed(8)) : undefined;
-  const roundedUserLng = userLongitude ? Number(userLongitude.toFixed(8)) : undefined;
+  const searchLat = normalizeNearbyCoordinate(latitude);
+  const searchLng = normalizeNearbyCoordinate(longitude);
+  const searchUserLat = userLatitude != null ? normalizeNearbyCoordinate(userLatitude) : undefined;
+  const searchUserLng = userLongitude != null ? normalizeNearbyCoordinate(userLongitude) : undefined;
 
   const {
     data,
@@ -35,22 +35,29 @@ export const useNearbyCafes = ({
     error: fetchError,
     refetch,
   } = useQuery<NearbyCafesResponse>({
-    queryKey: queryKeys.cafesNearby(roundedLat, roundedLng, radius_km, filters),
+    queryKey: queryKeys.cafesNearby(
+      searchLat,
+      searchLng,
+      radius_km,
+      filters,
+      searchUserLat,
+      searchUserLng,
+    ),
     queryFn: async () => {
       const filterParams = filters ? filtersToApiParams(filters) : {};
       const response = await cafeApi.getAllNearby({
-        latitude: roundedLat,
-        longitude: roundedLng,
+        latitude: searchLat,
+        longitude: searchLng,
         radius_km,
         limit: 100,
-        user_latitude: roundedUserLat,
-        user_longitude: roundedUserLng,
+        user_latitude: searchUserLat,
+        user_longitude: searchUserLng,
         ...filterParams,
       });
 
       return response;
     },
-    enabled: enabled && !!latitude && !!longitude,
+    enabled: enabled && Number.isFinite(latitude) && Number.isFinite(longitude),
     staleTime: 2 * 60 * 1000,
     retry: 1,
   });
@@ -62,6 +69,6 @@ export const useNearbyCafes = ({
     loading,
     error: fetchError ? String(fetchError) : null,
     refetch,
-    searchCenter: latitude && longitude ? { lat: roundedLat, lng: roundedLng } : null,
+    searchCenter: enabled && Number.isFinite(latitude) && Number.isFinite(longitude) ? { lat: searchLat, lng: searchLng } : null,
   };
 };

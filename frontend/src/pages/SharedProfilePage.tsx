@@ -3,9 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { User as UserIcon, Star, MapPin, List, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSharedProfile } from '../hooks/useSharedProfile';
-import { useUserReviews, useFollowersModal } from '../hooks';
-import { CafeList } from '../types';
-import { userApi } from '../api/client';
+import { useUserLists, useUserReviews, useFollowersModal } from '../hooks';
 import FollowButton from '../components/social/FollowButton';
 import FollowersModal from '../components/social/FollowersModal';
 import ListCard from '../components/lists/ListCard';
@@ -23,9 +21,6 @@ const SharedProfilePage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'stats'>('reviews');
   const [shouldFetchReviews, setShouldFetchReviews] = useState(false);
-  const [lists, setLists] = useState<CafeList[]>([]);
-  const [listsLoading, setListsLoading] = useState(false);
-  const [listsError, setListsError] = useState<string | null>(null);
 
   const {
     reviews: userReviews,
@@ -34,6 +29,15 @@ const SharedProfilePage: React.FC = () => {
     hasNextPage: hasNextReviewsPage,
     isFetchingNextPage: isFetchingNextReviewsPage,
   } = useUserReviews(username, shouldFetchReviews);
+
+  const {
+    lists,
+    loading: listsLoading,
+    error: listsError,
+  } = useUserLists(
+    username,
+    activeTab === 'lists' && !!profile && profile.message !== 'This profile is private',
+  );
 
   const handleBack = () => {
     if (authUser) {
@@ -54,25 +58,6 @@ const SharedProfilePage: React.FC = () => {
       setShouldFetchReviews(true);
     }
   }, [activeTab, profile]);
-
-  useEffect(() => {
-    if (!profile || profile.message === 'This profile is private') return;
-    const fetchLists = async () => {
-      setListsLoading(true);
-      setListsError(null);
-      try {
-        const data = await userApi.getUserLists(username || '');
-        setLists(data);
-      } catch {
-        setListsError('Could not load lists');
-      } finally {
-        setListsLoading(false);
-      }
-    };
-    if (activeTab === 'lists' && lists.length === 0) {
-      fetchLists();
-    }
-  }, [activeTab, username, profile]);
 
   if (isLoading) {
     return (
@@ -311,7 +296,7 @@ const SharedProfilePage: React.FC = () => {
                     <ListCard
                       key={list.id}
                       list={list}
-                      onClick={() => {}}
+                      onClick={() => navigate(`/list/${list.id}`)}
                     />
                   ))
                 )}

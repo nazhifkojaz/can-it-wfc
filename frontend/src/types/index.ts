@@ -34,10 +34,8 @@ export interface PaginatedResponse<T> {
 
 export interface UserSettings {
   profile_visibility: 'public' | 'private';
-  show_activity_dates: boolean;
   show_followers: boolean;
   show_following: boolean;
-  activity_visibility: 'public' | 'followers' | 'private';
 }
 
 export interface UserProfile extends UserBase {
@@ -54,71 +52,6 @@ export interface UserProfile extends UserBase {
   follow_status?: 'none' | 'active' | 'pending' | 'rejected';
   profile_visibility?: 'private';
   message?: string;
-}
-
-export interface UserActivityItem {
-  id: number;
-  type: 'visit' | 'review';
-  cafe_id: number;
-  cafe_name: string;
-  cafe_google_place_id: string | null;
-  date: string | null; // Hidden if show_activity_dates=false
-  created_at: string;
-  // Review-specific fields (null for visits)
-  wfc_rating?: number | null;
-  comment?: string | null;
-  // Visit-specific fields (null for reviews)
-  visit_time?: number | null;
-  amount_spent?: number | null;
-  currency?: string | null;
-}
-
-export interface UserActivityResponse {
-  user_id: number;
-  username: string;
-  activity: UserActivityItem[];
-  message?: string; // For private profiles
-}
-
-export type ActivityType =
-  | 'own_visit'
-  | 'own_review'
-  | 'following_visit'
-  | 'following_review'
-  | 'new_follower'
-  | 'following_followed';
-
-export interface ActivityItem {
-  id: string;
-  type: ActivityType;
-  created_at: string;
-
-  // Actor (who did the action)
-  actor_username?: string;
-  actor_display_name?: string;
-  actor_avatar_url?: string;
-
-  // Target (for follows)
-  target_username?: string;
-  target_display_name?: string;
-  target_avatar_url?: string;
-
-  // Cafe (for cafe activities)
-  cafe_id?: number;
-  cafe_name?: string;
-  cafe_google_place_id?: string | null;
-
-  // Activity details
-  wfc_rating?: number | null;
-  comment?: string | null;
-  visit_time?: number | null;
-  amount_spent?: number | null;
-  currency?: string | null;
-}
-
-export interface ActivityFeedResponse {
-  activities: ActivityItem[];
-  count: number;
 }
 
 export interface FollowUser extends UserBase {
@@ -149,6 +82,22 @@ export interface FacilityStats {
   outdoor_seating: FacilityOption;
 }
 
+export type PlaceCategory = 'cafe' | 'coworking_space' | 'library';
+export type PlaceCategoryConfidence = 'high' | 'medium' | 'low';
+
+export interface UnregisteredCafeRegistrationPayload {
+  google_place_id: string;
+  cafe_name: string;
+  cafe_address: string;
+  cafe_latitude: string;
+  cafe_longitude: string;
+  place_category?: PlaceCategory;
+}
+
+export type CafeListItemRegistrationCreate = UnregisteredCafeRegistrationPayload & {
+  note?: string;
+};
+
 export interface Cafe {
   id: number;  // Backend uses integer ID (AutoField), not UUID
   name: string;
@@ -156,6 +105,10 @@ export interface Cafe {
   latitude: string;
   longitude: string;
   google_place_id?: string;
+  place_category?: PlaceCategory;
+  place_category_label?: string;
+  place_category_confidence?: PlaceCategoryConfidence;
+  provider_types?: string[];
   price_range?: 1 | 2 | 3 | 4;
   total_visits: number;
   unique_visitors: number;
@@ -173,6 +126,7 @@ export interface Cafe {
   // NEW: Registration status
   is_registered: boolean;  // true = in database, false = from Google Places only
   source: 'database' | 'google_places';
+  provider?: string;  // e.g. 'google'
 
   // NEW: Google Places data (only for unregistered cafes)
   google_rating?: number | null;
@@ -193,6 +147,7 @@ export interface CafeCreate {
   latitude: string;
   longitude: string;
   google_place_id?: string;
+  place_category?: PlaceCategory;
   price_range?: 1 | 2 | 3 | 4;
 }
 
@@ -220,6 +175,8 @@ export interface NearbyCafesParams {
   hide_closed?: boolean;
   verified?: boolean;
   min_reviews?: number;
+  include_unregistered?: boolean;
+  categories?: string;
 }
 
 export interface NearbyCafesResponse {
@@ -243,16 +200,11 @@ export interface Visit {
   updated_at: string;
 }
 
-export interface VisitCreate {
+export interface VisitCreate extends Partial<UnregisteredCafeRegistrationPayload> {
   // Scenario 1: Existing registered cafe
   cafe_id?: number; // Cafe integer ID
 
-  // Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
-  google_place_id?: string;
-  cafe_name?: string;
-  cafe_address?: string;
-  cafe_latitude?: string;
-  cafe_longitude?: string;
+  // Scenario 2: optional UnregisteredCafeRegistrationPayload fields auto-register Google Places cafes.
 
   // Common fields
   visit_date: string; // ISO date string
@@ -266,16 +218,11 @@ export interface VisitCreate {
 }
 
 // Combined Visit + Review Creation (new simplified flow)
-export interface CombinedVisitReviewCreate {
+export interface CombinedVisitReviewCreate extends Partial<UnregisteredCafeRegistrationPayload> {
   // Scenario 1: Existing registered cafe
   cafe_id?: number;
 
-  // Scenario 2: Unregistered cafe from Google Places (auto-registers on visit)
-  google_place_id?: string;
-  cafe_name?: string;
-  cafe_address?: string;
-  cafe_latitude?: string;
-  cafe_longitude?: string;
+  // Scenario 2: optional UnregisteredCafeRegistrationPayload fields auto-register Google Places cafes.
 
   // Common fields
   visit_date: string;
@@ -339,6 +286,8 @@ export type {
   CafeListItem,
   CafeListDetail,
   CafeListMembership,
+  CafeListOwnerSummary,
+  CafeListPreviewCafe,
   CafeListCreate,
   CafeListUpdate,
   SaveListResponse,
@@ -365,10 +314,21 @@ export interface SearchResult {
   longitude: string;
   distance?: number | string;
   rating?: number;
+  place_category?: PlaceCategory | null;
+  place_category_label?: string;
+  place_category_confidence?: PlaceCategoryConfidence;
+  provider_types?: string[];
   average_wfc_rating?: number;
   total_reviews?: number;
   total_visits?: number;
-  source: 'google';
+  source: 'database' | 'google';
+  provider?: string;  // e.g. 'google'
   result_type: 'cafe' | 'location';
+  match_score?: number | null;  // 0-1 trigram similarity (DB results only)
 }
 
+export interface SearchResponse {
+  results: SearchResult[];
+  query: string;
+  total_results: number;
+}

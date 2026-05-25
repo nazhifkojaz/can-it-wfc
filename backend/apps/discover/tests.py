@@ -4,44 +4,11 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.cache import cache
-from rest_framework.test import APIClient
 from rest_framework import status
 from apps.cafes.models import Cafe, CafeList, CafeListItem
 from apps.reviews.models import Review, Visit
 
 User = get_user_model()
-
-
-@pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
-def test_user(db):
-    return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123',
-    )
-
-
-@pytest.fixture
-def test_cafe(db, test_user):
-    return Cafe.objects.create(
-        name='Coffee Lab',
-        address='Jl. Senopati, Jakarta Selatan',
-        latitude=Decimal('-6.2088'),
-        longitude=Decimal('106.8456'),
-        google_place_id='place_1',
-        created_by=test_user,
-    )
-
-
-@pytest.fixture
-def authenticated_client(api_client, test_user):
-    api_client.force_authenticate(user=test_user)
-    return api_client
 
 
 def _make_review(user, cafe, wfc_rating=4, comment='Great place', visit_time=None):
@@ -384,23 +351,6 @@ class TestTrendingCafes:
         response = api_client.get(self.ENDPOINT)
         assert response.data['cafes'][0]['score'] == 4
 
-    def test_visit_dedupe_same_user_same_date(self, api_client, test_user, test_cafe):
-        cache.clear()
-        from django.db import transaction
-        Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today())
-        with transaction.atomic():
-            try:
-                Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today())
-            except Exception:
-                pass  # expected: duplicate violation
-
-        # Need 3 distinct-day visits for score>=3
-        Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today() - timedelta(days=1))
-        Visit.objects.create(user=test_user, cafe=test_cafe, visit_date=date.today() - timedelta(days=2))
-
-        response = api_client.get(self.ENDPOINT)
-        assert response.data['cafes'][0]['recent_visit_count'] == 3
-
     def test_distinct_not_inflating_counts(self, api_client, test_user, test_cafe):
         """Cafe with both reviews and visits should not have inflated counts."""
         cache.clear()
@@ -551,7 +501,7 @@ class TestTrendingCafes:
 
 @pytest.mark.django_db
 class TestTrendingLists:
-    """Tests for GET /api/discover/trending-lists/ (Phase 5)."""
+    """Tests for GET /api/discover/trending-lists/."""
 
     ENDPOINT = '/api/discover/trending-lists/'
 

@@ -10,12 +10,27 @@ export interface ApiError {
   status: number | null;
 }
 
+type StandardApiErrorPayload = {
+  code?: string | null;
+  message?: string;
+  details?: Record<string, string[]> | null;
+};
+
+type ApiErrorFieldValue = string | string[] | StandardApiErrorPayload | undefined | null;
+
+type ApiErrorPayload = {
+  error?: StandardApiErrorPayload;
+  detail?: string;
+  message?: string;
+  non_field_errors?: string[];
+} & Record<string, ApiErrorFieldValue>;
+
 /**
  * Extract error information from API response.
  * Supports the standardized custom format and DRF's default error formats.
  */
 type ErrorLike = {
-  response?: { data?: Record<string, any>; status?: number };
+  response?: { data?: ApiErrorPayload; status?: number };
   message?: string;
 } | null | undefined;
 
@@ -59,7 +74,7 @@ export function extractApiError(error: unknown): ApiError {
 
       for (const [key, value] of Object.entries(data)) {
         if (Array.isArray(value) && value.length > 0) {
-          fieldErrors[key] = value as string[];
+          fieldErrors[key] = value;
           if (!firstError) {
             firstError = `${key}: ${value[0]}`;
           }
@@ -108,10 +123,14 @@ export function getFieldError(error: unknown, fieldName: string): string | null 
   const data = err?.response?.data;
   if (data?.[fieldName]) {
     const fieldError = data[fieldName];
-    return Array.isArray(fieldError) ? fieldError[0] : fieldError;
+    if (Array.isArray(fieldError)) {
+      return fieldError[0] ?? null;
+    }
+    if (typeof fieldError === 'string') {
+      return fieldError;
+    }
   }
 
   return null;
 }
-
 

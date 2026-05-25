@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Home, User as UserIcon, Calendar, Star, MapPin, DollarSign, List } from 'lucide-react';
+import { Home, User as UserIcon, Star, MapPin, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePanel } from '../../contexts/PanelContext';
 import { userApi } from '../../api/client';
-import { UserProfile, UserActivityItem, CafeList, CafeListItem } from '../../types';
+import { UserProfile, CafeListItem } from '../../types';
 import { Loading, EmptyState } from '../common';
 import FollowButton from '../social/FollowButton';
 import FollowersModal from '../social/FollowersModal';
-import { useFollowersModal, useUserReviews } from '../../hooks';
+import { useFollowersModal, useUserLists, useUserReviews } from '../../hooks';
 import ListCard from '../lists/ListCard';
 import ListView from '../lists/ListView';
 import ReviewsTab from '../profile/ReviewsTab';
-import { formatVisitTime } from '../../utils/visit';
-import { formatRelativeDate } from '../../utils/date';
 import { logger } from '../../utils/logger';
 import { extractApiError } from '../../utils/errorUtils';
 import './UserProfilePanel.css';
@@ -23,16 +21,11 @@ const UserProfilePanel: React.FC = () => {
   const username = panelData?.username;
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activity, setActivity] = useState<UserActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'activity' | 'reviews' | 'lists' | 'stats'>('activity');
+  const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'stats'>('reviews');
   const { openFollowersModal, followersModalProps } = useFollowersModal();
 
-  // Lists tab state
-  const [lists, setLists] = useState<CafeList[]>([]);
-  const [listsLoading, setListsLoading] = useState(false);
-  const [listsError, setListsError] = useState<string | null>(null);
   const [openListId, setOpenListId] = useState<number | null>(null);
 
   // Reviews tab state
@@ -44,60 +37,25 @@ const UserProfilePanel: React.FC = () => {
     isFetchingNextPage: isFetchingNextReviewsPage,
   } = useUserReviews(username);
 
+  const canLoadLists =
+    activeTab === 'lists' &&
+    !!profile &&
+    !(profile.profile_visibility === 'private' && !profile.is_own_profile);
+  const {
+    lists,
+    loading: listsLoading,
+    error: listsError,
+    refetch: refetchLists,
+  } = useUserLists(username, canLoadLists);
+
   // Reset state when panel changes away
   React.useEffect(() => {
     if (activePanel !== 'userProfile') {
       setProfile(null);
-      setActivity([]);
-      setActiveTab('activity');
-      setLists([]);
-      setListsError(null);
+      setActiveTab('reviews');
+      setOpenListId(null);
     }
   }, [activePanel]);
-
-  // Merge visits with reviews for same cafe into single entries
-  const mergeActivities = (activities: UserActivityItem[]): UserActivityItem[] => {
-    const merged: UserActivityItem[] = [];
-    const reviewsByCafeId = new Map<number, UserActivityItem>();
-
-    // First, collect all reviews by their cafe ID
-    activities.forEach(item => {
-      if (item.type === 'review' && item.cafe_id) {
-        reviewsByCafeId.set(item.cafe_id, item);
-      }
-    });
-
-    // Process all activities
-    activities.forEach(item => {
-      if (item.type === 'visit') {
-        // Check if user has a review for this cafe
-        const review = reviewsByCafeId.get(item.cafe_id);
-        if (review) {
-          // Merge visit with cafe review data
-          merged.push({
-            ...item,
-            type: 'visit',
-            wfc_rating: review.wfc_rating,
-            comment: review.comment,
-          });
-        } else {
-          // Visit without review for this cafe
-          merged.push(item);
-        }
-      } else if (item.type === 'review') {
-        // Show standalone reviews (for cafes without recent visit in feed)
-        // Only show if not already merged with a visit
-        const hasVisitForCafe = activities.some(
-          a => a.type === 'visit' && a.cafe_id === item.cafe_id
-        );
-        if (!hasVisitForCafe) {
-          merged.push(item);
-        }
-      }
-    });
-
-    return merged;
-  };
 
   useEffect(() => {
     if (!username) {
@@ -111,17 +69,8 @@ const UserProfilePanel: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch profile
         const profileData = await userApi.getUserProfile(username);
         setProfile(profileData);
-
-        // Fetch activity (only if profile is public or own profile)
-        if (profileData.profile_visibility !== 'private' || profileData.is_own_profile) {
-          const activityData = await userApi.getUserActivity(username, 20);
-          // Merge visits with their reviews
-          const mergedActivity = mergeActivities(activityData.activity);
-          setActivity(mergedActivity);
-        }
       } catch (err: unknown) {
         const apiError = extractApiError(err);
         logger.error('Failed to load profile', err, 'UserProfilePanel');
@@ -133,37 +82,6 @@ const UserProfilePanel: React.FC = () => {
 
     fetchProfile();
   }, [username]);
-
-  // Fetch public lists when Lists tab is active
-  useEffect(() => {
-    if (activeTab !== 'lists' || !username || !profile) return;
-    if (profile.profile_visibility === 'private' && !profile.is_own_profile) return;
-    if (lists.length > 0 || listsLoading || listsError) return;
-
-    const fetchLists = async () => {
-      try {
-        setListsLoading(true);
-        setListsError(null);
-        const data = await userApi.getUserLists(username);
-        setLists(data);
-      } catch (err: unknown) {
-        const apiError = extractApiError(err);
-        logger.error('Failed to load user lists', err, 'UserProfilePanel');
-        setListsError(apiError.message);
-      } finally {
-        setListsLoading(false);
-      }
-    };
-
-    fetchLists();
-  }, [activeTab, username, profile, lists.length, listsLoading, listsError]);
-
-  const handleActivityClick = (cafeId: number) => {
-    hidePanel();
-    setTimeout(() => {
-      navigate(`/map?cafe=${cafeId}`);
-    }, 100);
-  };
 
   if (loading) {
     return (
@@ -305,7 +223,7 @@ const UserProfilePanel: React.FC = () => {
         {isPrivate && (
           <div className="private-message">
             <h3>🔒 This profile is private</h3>
-            <p>Only {profile.effective_display_name || profile.display_name} can see their activity and details.</p>
+            <p>Only {profile.effective_display_name || profile.display_name} can see their profile details.</p>
           </div>
         )}
 
@@ -314,12 +232,6 @@ const UserProfilePanel: React.FC = () => {
           <>
             <div className="profile-tabs-container">
               <div className="profile-tabs">
-                <button
-                  className={`profile-tab ${activeTab === 'activity' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('activity')}
-                >
-                  Activity
-                </button>
                 <button
                   className={`profile-tab ${activeTab === 'reviews' ? 'active' : ''}`}
                   onClick={() => setActiveTab('reviews')}
@@ -340,27 +252,6 @@ const UserProfilePanel: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* Activity Tab */}
-            {activeTab === 'activity' && (
-              <div className="tab-content">
-                {activity.length === 0 ? (
-                  <div className="empty-state">
-                    <p className="empty-text">No activity yet</p>
-                  </div>
-                ) : (
-                  <div className="activity-list">
-                    {activity.map((item) => (
-                      <ActivityItem
-                        key={`${item.type}-${item.id}`}
-                        item={item}
-                        onClick={() => handleActivityClick(item.cafe_id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Reviews Tab */}
             {activeTab === 'reviews' && (
@@ -396,10 +287,7 @@ const UserProfilePanel: React.FC = () => {
                     <p>Couldn&apos;t load lists.</p>
                     <button
                       className="lists-retry-btn"
-                      onClick={() => {
-                        setListsError(null);
-                        setLists([]);
-                      }}
+                      onClick={() => refetchLists()}
                     >
                       Retry
                     </button>
@@ -474,61 +362,6 @@ const UserProfilePanel: React.FC = () => {
         {...followersModalProps}
         username={username || ''}
       />
-    </div>
-  );
-};
-
-// Activity Item Component
-const ActivityItem: React.FC<{
-  item: UserActivityItem;
-  onClick: () => void;
-}> = ({ item, onClick }) => {
-  // Determine if this is a combined visit + review
-  const hasReview = item.wfc_rating !== undefined && item.wfc_rating !== null;
-  const hasVisitDetails = item.visit_time || item.amount_spent;
-
-  return (
-    <div className="activity-item" onClick={onClick}>
-      <div className="activity-icon">
-        {hasReview ? <Star size={20} /> : <MapPin size={20} />}
-      </div>
-
-      <div className="activity-content">
-        <div className="activity-header">
-          <span className="activity-type">
-            {hasReview ? 'Visited & Reviewed' : 'Visited'}
-          </span>
-          <span className="activity-cafe">{item.cafe_name}</span>
-        </div>
-
-        {hasReview && (
-          <div className="activity-rating">
-            <Star size={14} fill="currentColor" />
-            <span>{item.wfc_rating}/5</span>
-          </div>
-        )}
-
-        {item.comment && <p className="activity-comment">"{item.comment}"</p>}
-
-        {hasVisitDetails && (
-          <div className="visit-details">
-            {item.visit_time && (
-              <span className="visit-time">
-                <Calendar size={14} />
-                {formatVisitTime(item.visit_time)}
-              </span>
-            )}
-            {item.amount_spent && (
-              <span className="visit-spent">
-                <DollarSign size={14} />
-                {item.currency} {Number(item.amount_spent).toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
-
-        <div className="activity-date">{formatRelativeDate(item.date)}</div>
-      </div>
     </div>
   );
 };
